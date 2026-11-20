@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>04 · Bean Lifecycle &amp; Extension Points — Spring &amp; Spring Boot</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58;-webkit-font-smoothing:antialiased}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.65rem;margin-bottom:1.8rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  h1{font-size:2.25rem;line-height:1.12;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .55rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.12rem;margin:1.45rem 0 .35rem}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.48}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.98rem;margin:0 0 .45rem;text-transform:uppercase;letter-spacing:.03em}
+  .flow-steps{background:#fff8ee;border:1px solid var(--rule);border-radius:6px;padding:.85rem 1.1rem;margin:1rem 0;font-size:.94rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem}
+  .flow-steps li{margin:.35rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.85rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.35rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  @media print{body{padding:1rem;max-width:100%} pre{white-space:pre-wrap} .nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../03-dependency-injection/lesson.html">03: Dependency Injection</a></span>
+  <span><strong>Lesson 04 of 18</strong> · <a href="../overview.html">Topic Overview</a></span>
+  <span><a href="../05-configuration-and-component-model/lesson.html">05: Configuration &amp; Component Model</a> →</span>
+</nav>
+
+<h1>Bean Lifecycle &amp; Extension Points</h1>
+<p class="crumb"><a href="../overview.html">Spring &amp; Spring Boot</a> › lesson 4 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the 4-stage assembly line (Box 2C, Box 4 &amp; Phase 3)</p>
+
+<div class="tldr">
+<strong>In simple English —</strong> Instead of memorizing 12 random callbacks, group a bean's life into <strong>4 intuitive
+stages on an assembly line</strong>: <strong>Stage A</strong> edits the recipe card before any object exists
+(<code>BeanFactoryPostProcessor</code> in Box 2C); <strong>Stage B</strong> calls your constructor and populates
+<code>@Autowired</code>/<code>@Value</code> fields (Box 3); <strong>Stage C</strong> runs setup hooks (<code>@PostConstruct</code>)
+and lets <code>BeanPostProcessor</code> wrap your object inside a <strong>Proxy</strong> (Box 4); and <strong>Stage D</strong>
+runs cleanup on shutdown (<code>@PreDestroy</code> in Phase 3).
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the 6-Box Map</h2>
+
+<div class="map-banner">
+  <div class="map-title">🧭 You Are Here: Box 2C (BeanFactoryPostProcessor) + Box 4 (BeanPostProcessor) + Phase 3 (Shutdown @PreDestroy)</div>
+  <figure style="margin:.6rem 0 .2rem">
+  <svg viewBox="0 0 780 165" width="100%" role="img" aria-label="You are here on the 6-Box Map: Box 2C, Box 4, and Phase 3 Shutdown highlighted">
+    <style>
+      .ph{fill:#fff;stroke:#d9d3c7;stroke-width:1.3}
+      .bx{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.2;opacity:0.65}
+      .active{fill:#fff8ee;stroke:#7a1f1f;stroke-width:2.5}
+      .tx{font:bold 11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+      .sm{font:10.5px Georgia,serif;fill:#3f3b34}
+      .lb{font:bold 11px Georgia,serif;fill:#7a1f1f}
+      .ar{stroke:#6b675e;stroke-width:1.4;marker-end:url(#arr04);fill:none}
+    </style>
+    <defs><marker id="arr04" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+    <!-- PHASE 1 -->
+    <rect class="ph" x="8" y="8" width="510" height="148" rx="6"/>
+    <text class="lb" x="18" y="26">PHASE 1: STARTUP — STAGES A, B, AND C</text>
+
+    <rect class="bx" x="18" y="38" width="66" height="104" rx="5"/>
+    <text class="tx" x="23" y="56">Box 1</text>
+    <text class="sm" x="23" y="72">Env</text>
+
+    <rect class="active" x="92" y="34" width="130" height="112" rx="5"/>
+    <text class="lb" x="99" y="52">★ Box 2C: Stage A</text>
+    <text class="tx" x="99" y="68">BeanFactory</text>
+    <text class="tx" x="99" y="82">PostProcessor</text>
+    <text class="sm" x="99" y="100">Edits Recipes in</text>
+    <text class="sm" x="99" y="114">beanDefinitionMap</text>
+    <text class="sm" x="99" y="130">before any 'new'!</text>
+
+    <rect class="bx" x="230" y="38" width="115" height="104" rx="5"/>
+    <text class="tx" x="237" y="56">Box 3: Stage B</text>
+    <text class="sm" x="237" y="72">B1: new Ctor()</text>
+    <text class="sm" x="237" y="88">B2: @Autowired</text>
+    <text class="sm" x="237" y="102">    &amp; @Value</text>
+    <text class="sm" x="237" y="120">(Lesson 03)</text>
+
+    <rect class="active" x="353" y="34" width="155" height="112" rx="5"/>
+    <text class="lb" x="361" y="52">★ Box 4: Stage C</text>
+    <text class="tx" x="361" y="68">BeanPostProcessor</text>
+    <text class="sm" x="361" y="86">C1: BPP.beforeInit()</text>
+    <text class="sm" x="361" y="102">C2: @PostConstruct</text>
+    <text class="sm" x="361" y="118">C3: BPP.afterInit()</text>
+    <text class="lb" x="361" y="134">→ Wraps in PROXY!</text>
+
+    <path class="ar" d="M84,90 L90,90"/>
+    <path class="ar" d="M222,90 L228,90"/>
+    <path class="ar" d="M345,90 L351,90"/>
+
+    <!-- PHASE 2 -->
+    <rect class="ph" x="526" y="8" width="136" height="148" rx="6"/>
+    <text class="sm" x="534" y="26" style="font-weight:bold">PHASE 2: REQUEST</text>
+    <rect class="bx" x="534" y="38" width="56" height="104" rx="5"/><text class="tx" x="538" y="56">Box 5</text>
+    <rect class="bx" x="596" y="38" width="58" height="104" rx="5"/><text class="tx" x="600" y="56">Box 6</text>
+
+    <!-- PHASE 3 -->
+    <rect class="active" x="670" y="8" width="102" height="148" rx="6"/>
+    <text class="lb" x="677" y="26">★ PHASE 3</text>
+    <text class="lb" x="677" y="44">Stage D:</text>
+    <text class="tx" x="677" y="62">@PreDestroy</text>
+    <text class="sm" x="677" y="80">destroy()</text>
+    <text class="sm" x="677" y="96">close() pools</text>
+    <text class="sm" x="677" y="116">(Singletons</text>
+    <text class="sm" x="677" y="130">only!)</text>
+  </svg>
+  </figure>
+  <p style="margin:.3rem 0 0;font-size:.9rem">
+    <strong>Why this lesson is the Rosetta Stone for interviews:</strong> Almost every tricky Spring interview question (<em>"Why is <code>@Value</code> null in my constructor?"</em>, <em>"Why doesn't <code>@Transactional</code> work inside <code>@PostConstruct</code>?"</em>, <em>"What is the difference between <code>BeanFactoryPostProcessor</code> and <code>BeanPostProcessor</code>?"</em>) is just asking you to read Stages A → B → C → D in order (**Universal Rule #1**)!
+  </p>
+</div>
+
+<h2><span class="n">§2</span>Why it exists — Annotations do nothing unless an Inspector reads them</h2>
+<p>
+In <a href="../../java/01-jvm-bytecode-pipeline/lesson.html">java/01</a> you learned a fundamental truth: <strong>a Java annotation is
+just a passive sticky note in the <code>.class</code> file.</strong> Writing `@Transactional` or `@PostConstruct` or `@Value("${db.url}")`
+contains zero executable code. The JVM completely ignores it.
+</p>
+<p>
+If Spring didn't have extension hooks during bean creation, how would you make `@Transactional` or `@PostConstruct` work? You would
+have to hard-code every feature inside `BeanFactory` itself. Worse, you could never add your own custom cross-cutting behaviour!
+</p>
+<div class="callout">
+<strong>Spring's Open/Closed Design Insight:</strong> Instead of hard-coding `@Autowired`, `@PostConstruct`, and `@Transactional`
+into the container's core loop, Spring added <strong>two plug-in hooks</strong> to the assembly line:
+<ol style="margin:.4rem 0 0">
+  <li><strong>Hook 1 (<code>BeanFactoryPostProcessor</code> in Box 2C):</strong> Lets plug-ins inspect and edit the <strong>Recipe Map</strong> (<code>Map&lt;String, BeanDefinition&gt;</code>) before any object is constructed.</li>
+  <li><strong>Hook 2 (<code>BeanPostProcessor</code> in Box 4):</strong> Lets plug-ins inspect, initialize, or <strong>swap out each newly created object for a Proxy wrapper</strong> before it is stored in Box 3's <code>singletonObjects</code> warehouse!</li>
+</ol>
+Even Spring's own core annotations (`@Configuration`, `@Autowired`, `@Value`, `@PostConstruct`, `@Transactional`, `@Async`) are
+implemented as ordinary `BeanFactoryPostProcessor`s and `BeanPostProcessor`s!
+</div>
+
+<h2><span class="n">§3</span>How it works — Plain Java First, Then the 4 Stages</h2>
+
+<h3>Level 1 Zoom: The Assembly Line in 25 Lines of Plain Java</h3>
+<p>
+Here is the exact code that runs inside `AbstractApplicationContext.refresh()`. Read the comments — you can see Stages A, B, C, and D
+in plain Java:
+</p>
+<pre><span class="c">// STAGE A (Box 2C — Once per startup, BEFORE any business object is created):</span>
+<span class="k">for</span> (BeanFactoryPostProcessor bfpp : beanFactoryPostProcessors) {
+    bfpp.postProcessBeanFactory(beanDefinitionMap);   <span class="c">// Edits recipes in Box 2 (e.g. resolves ${...})</span>
+}
+
+<span class="c">// Now loop over every Singleton recipe in Box 2 to build Box 3:</span>
+<span class="k">for</span> (BeanDefinition recipe : beanDefinitionMap.values()) {
+
+    <span class="c">// STAGE B (Box 3 — Birth &amp; Wiring):</span>
+    Object bean = recipe.getConstructor().newInstance(resolveConstructorArgs());  <span class="c">// B1: Constructor runs FIRST!</span>
+    populateFieldsAndSetters(bean);                                               <span class="c">// B2: @Autowired / @Value fields set SECOND!</span>
+    invokeAwareInterfaces(bean);                                                  <span class="c">// B3: BeanNameAware, ApplicationContextAware</span>
+
+    <span class="c">// STAGE C (Box 4 — Setup &amp; Inspector Hooks):</span>
+    <span class="k">for</span> (BeanPostProcessor bpp : beanPostProcessors) {
+        bean = bpp.postProcessBeforeInitialization(bean, name);                   <span class="c">// C1: BPP Before (triggers @PostConstruct!)</span>
+    }
+    invokeInitMethods(bean, recipe);                                              <span class="c">// C2: afterPropertiesSet() -&gt; initMethod</span>
+    <span class="k">for</span> (BeanPostProcessor bpp : beanPostProcessors) {
+        bean = bpp.postProcessAfterInitialization(bean, name);                    <span class="c">// C3: ★ BPP After — WRAPS BEAN IN PROXY!</span>
+    }
+
+    singletonObjects.put(name, bean);   <span class="c">// Store final object (the Proxy!) in Box 3 Warehouse</span>
+}
+
+<span class="c">// STAGE D (Phase 3 — When JVM shuts down / context.close() is called):</span>
+<span class="k">for</span> (Object singleton : singletonObjects.values()) {
+    invokeDestroyMethods(singleton);    <span class="c">// D1: @PreDestroy -&gt; DisposableBean.destroy() -&gt; destroyMethod</span>
+}</pre>
+
+<h3>Level 2 Zoom: Visual Diagram of the 4 Stages (A → B → C → D)</h3>
+
+<figure>
+<svg viewBox="0 0 760 540" width="100%" role="img" aria-label="The 4 Stages of the Spring Bean Lifecycle: Stage A Recipe Edit, Stage B Birth and Wiring, Stage C Init and Proxy, Stage D Shutdown">
+  <style>
+    .aBox{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.5}
+    .bBox{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.5}
+    .cBox{fill:#eefaf4;stroke:#6db33f;stroke-width:1.8}
+    .dBox{fill:#f7f4ec;stroke:#6b675e;stroke-width:1.5}
+    .t{font:bold 12px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11.5px Georgia,serif;fill:#3f3b34}
+    .lb{font:10.8px Georgia,serif;fill:#7a1f1f;font-style:italic}
+    .h{font:bold 13px Georgia,serif;fill:#2b2b28}
+    .ar{stroke:#6b675e;stroke-width:1.4;marker-end:url(#m6);fill:none}
+  </style>
+  <defs><marker id="m6" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <!-- STAGE A -->
+  <rect class="aBox" x="14" y="10" width="732" height="72" rx="6"/>
+  <text class="h" x="28" y="30" style="fill:#7a1f1f">STAGE A — Edit the Recipe Book (Box 2C · Runs ONCE before any bean is instantiated)</text>
+  <text class="t" x="28" y="50">A1. BeanFactoryPostProcessor.postProcessBeanFactory(beanFactory)</text>
+  <text class="c" x="28" y="68">• ConfigurationClassPostProcessor parses @Configuration / @Bean · PropertySourcesPlaceholderConfigurer resolves ${...}</text>
+
+  <path class="ar" d="M380,82 L380,102"/>
+
+  <!-- STAGE B -->
+  <rect class="bBox" x="14" y="104" width="732" height="132" rx="6"/>
+  <text class="h" x="28" y="124" style="fill:#1f4d7a">STAGE B — Birth &amp; Wiring (Box 3 · Runs per bean)</text>
+  <text class="t" x="28" y="146">B1. Constructor runs: ctor.newInstance(args)</text>
+  <text class="lb" x="380" y="146">← Constructor args exist here, but @Value/@Autowired fields are STILL NULL!</text>
+  <text class="t" x="28" y="172">B2. Populate properties: @Autowired &amp; @Value fields/setters injected</text>
+  <text class="c" x="380" y="172">← Done by AutowiredAnnotationBeanPostProcessor</text>
+  <text class="t" x="28" y="198">B3. *Aware callbacks (if implemented)</text>
+  <text class="c" x="380" y="198">← setBeanName() → setBeanFactory() → setApplicationContext()</text>
+  <text class="c" x="28" y="222" style="fill:#1f6b4d;font-weight:bold">✓ At the end of Stage B, all dependencies and @Value properties are finally populated on the raw target object.</text>
+
+  <path class="ar" d="M380,236 L380,256"/>
+
+  <!-- STAGE C -->
+  <rect class="cBox" x="14" y="258" width="732" height="178" rx="6"/>
+  <text class="h" x="28" y="278" style="fill:#1f6b4d">STAGE C — Setup &amp; Inspector Hooks (Box 4 · Where @PostConstruct and AOP Proxies happen!)</text>
+  <text class="t" x="28" y="300">C1. BeanPostProcessor.postProcessBeforeInitialization(bean, name)</text>
+  <text class="c" x="28" y="318">• CommonAnnotationBeanPostProcessor invokes your @PostConstruct method right here!</text>
+  <text class="t" x="28" y="342">C2. InitializingBean.afterPropertiesSet()  →  custom @Bean(initMethod="...")</text>
+  <text class="lb" x="28" y="360">← Notice: During C1 (@PostConstruct) and C2, the bean is STILL the raw target object (NO Proxy yet!)</text>
+  <text class="t" x="28" y="386" style="fill:#7a1f1f">C3. ★ BeanPostProcessor.postProcessAfterInitialization(bean, name)  [THE PROXY HOOK]</text>
+  <text class="c" x="28" y="404">• AnnotationAwareAspectJAutoProxyCreator sees @Transactional / @Async / @Cacheable and wraps the raw bean</text>
+  <text class="c" x="28" y="420">  inside a generated Proxy object! That Proxy is what gets stored in Box 3's singletonObjects Map!</text>
+
+  <path class="ar" d="M380,436 L380,456"/>
+
+  <!-- STAGE D -->
+  <rect class="dBox" x="14" y="458" width="732" height="72" rx="6"/>
+  <text class="h" x="28" y="478">STAGE D — Shutdown (Phase 3 · When context.close() or SIGTERM shutdown hook runs)</text>
+  <text class="t" x="28" y="498">D1. @PreDestroy  →  DisposableBean.destroy()  →  custom @Bean(destroyMethod="..." / close())</text>
+  <text class="c" x="28" y="516">• Runs ONLY for singletons cached in Box 3 — never runs for @Scope("prototype") beans!</text>
+</svg>
+<figcaption>The 4 Stages of the Bean Lifecycle
+<span class="sources">(<a href="https://docs.spring.io/spring-framework/reference/core/beans/factory-nature.html">Spring Framework Reference — Customizing the Nature of a Bean</a>)</span>.
+Look at the order: <strong>B1 (Constructor) → B2 (@Value/@Autowired fields) → C1/C2 (@PostConstruct) → C3 (Proxy Wrapping) → D1 (@PreDestroy)</strong>.</figcaption>
+</figure>
+
+<h3>Two Look-Alike Names You Must Never Confuse in Interviews</h3>
+<table>
+<thead><tr><th>Feature</th><th><code>BeanFactoryPostProcessor</code> (Stage A · Box 2C)</th><th><code>BeanPostProcessor</code> (Stage C · Box 4)</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>What does it touch?</strong></td>
+  <td><strong>Recipes</strong> (<code>BeanDefinition</code>s in Box 2)</td>
+  <td><strong>Live Objects</strong> (Bean instances in Box 3/4)</td>
+</tr>
+<tr>
+  <td><strong>When does it run?</strong></td>
+  <td><strong>Once</strong> at startup, <em>before</em> any business bean is created</td>
+  <td><strong>Twice per bean</strong> (C1 before init, C3 after init)</td>
+</tr>
+<tr>
+  <td><strong>What can it do?</strong></td>
+  <td>Edit recipe metadata (e.g. replace <code>"${db.url}"</code> with real URL, register new recipes)</td>
+  <td>Call init methods or <strong>return a Proxy wrapper</strong> in place of the original bean</td>
+</tr>
+<tr>
+  <td><strong>Built-in Spring examples</strong></td>
+  <td><code>ConfigurationClassPostProcessor</code> (reads <code>@Configuration</code>), <code>PropertySourcesPlaceholderConfigurer</code></td>
+  <td><code>AutowiredAnnotationBeanPostProcessor</code>, <code>AnnotationAwareAspectJAutoProxyCreator</code> (<code>@Transactional</code>)</td>
+</tr>
+</tbody></table>
+
+<h3>Three Ways to Run Setup / Cleanup Code (Stage C &amp; Stage D)</h3>
+<pre><span class="an">@Component</span>
+<span class="k">public class</span> CacheWarmer {
+    <span class="c">// 1. @PostConstruct / @PreDestroy (jakarta.annotation) — ★ BEST PRACTICE for your own classes</span>
+    <span class="c">//    No Spring imports required; runs first in Stage C1 / D1.</span>
+    <span class="an">@PostConstruct</span>
+    <span class="k">public void</span> init() { System.out.println(<span class="s">"1. @PostConstruct runs in Stage C1"</span>); }
+
+    <span class="an">@PreDestroy</span>
+    <span class="k">public void</span> cleanup() { System.out.println(<span class="s">"1. @PreDestroy runs in Stage D1"</span>); }
+}
+
+<span class="c">// 2. InitializingBean / DisposableBean — Avoid in modern code (couples your class to Spring interfaces)</span>
+<span class="k">class</span> LegacyBean <span class="k">implements</span> InitializingBean, DisposableBean {
+    <span class="k">public void</span> afterPropertiesSet() { ... }   <span class="c">// Stage C2 (runs right after @PostConstruct)</span>
+    <span class="k">public void</span> destroy() { ... }              <span class="c">// Stage D1 (runs right after @PreDestroy)</span>
+}
+
+<span class="c">// 3. @Bean(initMethod, destroyMethod) — ★ BEST for third-party classes you cannot edit!</span>
+<span class="c">//    Bonus: If a 3rd-party class has a public close() or shutdown() method, Spring calls it on shutdown automatically!</span>
+<span class="an">@Bean</span>(initMethod = <span class="s">"start"</span>, destroyMethod = <span class="s">"stop"</span>)
+ThirdPartyClient client() { <span class="k">return new</span> ThirdPartyClient(); }</pre>
+
+<h3>Bonus Extension Point: <code>FactoryBean&lt;T&gt;</code> ("A Factory Object Stored in Box 3")</h3>
+<p>
+Sometimes constructing a complex object (like a dynamic JPA Repository interface that has no concrete class!) takes too much logic
+for a normal constructor. Spring provides the `FactoryBean<T>` interface
+<span class="sources">(<a href="https://docs.spring.io/spring-framework/reference/core/beans/factory-extension.html#beans-factory-extension-factorybean">Spring Framework Reference — Customizing Instantiation Logic with a FactoryBean</a>)</span>:
+</p>
+<ul>
+  <li>When you register `JpaRepositoryFactoryBean` under bean name `"bookRepository"`, calling `ctx.getBean("bookRepository")` does <em>not</em> return the factory — it calls `factory.getObject()` and returns the generated `BookRepository` proxy!</li>
+  <li><em>Classic trivia question:</em> What if you actually want the `FactoryBean` instance itself? Prefix the bean name with an ampersand: **`ctx.getBean("&bookRepository")`**!</li>
+</ul>
+
+<h2><span class="n">§4</span>When to use — Choosing the Right Startup Hook</h2>
+<table>
+<thead><tr><th>What You Want to Do</th><th>Which Hook to Use</th><th>Why</th></tr></thead>
+<tbody>
+<tr>
+  <td>Validate injected fields or pre-compute an in-memory lookup table inside one bean</td>
+  <td><strong>Constructor body</strong> (if using constructor injection) or <strong><code>@PostConstruct</code></strong> (Stage C1)</td>
+  <td>Runs as soon as the bean's dependencies are wired. Keep it fast (&lt;10ms) and avoid network/DB calls!</td>
+</tr>
+<tr>
+  <td>Seed database rows, call an external HTTP API, or start a background consumer at boot</td>
+  <td><strong><code>ApplicationRunner</code></strong> / <strong><code>CommandLineRunner</code></strong> or <strong><code>@EventListener(ApplicationReadyEvent.class)</code></strong></td>
+  <td>Runs <em>after</em> Stage C3 finishes for ALL beans — so every <code>@Transactional</code> proxy is active and the container is 100% ready!</td>
+</tr>
+<tr>
+  <td>Close a thread pool, flush a buffer, or close a socket on graceful shutdown</td>
+  <td><strong><code>@PreDestroy</code></strong> (Stage D1) or implement <code>AutoCloseable.close()</code></td>
+  <td>Triggered automatically when the JVM receives <code>SIGTERM</code> and runs Spring's shutdown hook.</td>
+</tr>
+<tr>
+  <td>Measure execution time or wrap every bean annotated with a custom annotation</td>
+  <td><strong><code>BeanPostProcessor</code></strong> (Stage C3)</td>
+  <td>Inspects every bean in the container and can return a dynamic proxy wrapper.</td>
+</tr>
+</tbody></table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine a <strong>Toy Car Factory Assembly Line</strong>.
+</p>
+<ul>
+  <li><strong>Stage A (<code>BeanFactoryPostProcessor</code>)</strong> happens in the <em>Blueprint Office</em> before the factory floor even opens. An engineer sees a blueprint that says <em>"Paint color: ${FAVORITE_COLOR}"</em>, looks up today's favorite color (Red), and writes <em>"Red"</em> on the blueprint.</li>
+  <li><strong>Stage B (Birth &amp; Wiring)</strong> is the <em>Moulding &amp; Parts Station</em>. First, the plastic body is moulded (`new Car()` — Stage B1). Next, a worker snaps on the wheels and battery (`@Autowired` and `@Value` fields — Stage B2). Notice that while the plastic body is still inside the mould (B1), the battery isn't attached yet (B2)!</li>
+  <li><strong>Stage C (<code>BeanPostProcessor</code>)</strong> is the <em>Inspector Conveyor Belt</em>.
+    <ul>
+      <li>Inspector #1 (`@PostConstruct` in Stage C1) flips the switch to check if the headlights turn on.</li>
+      <li>Inspector #2 (`postProcessAfterInitialization` in Stage C3) sees a sticker on the car that says `@RemoteControlled` (like `@Transactional`). So Inspector #2 puts your plastic car <strong>inside a motorized outer shell</strong> (a <strong>Proxy</strong>) and puts that shell into the toy store box!</li>
+    </ul>
+  </li>
+  <li><strong>Stage D (`@PreDestroy`)</strong> is <em>Closing Time</em>, when the store manager turns off all the display models before locking the doors for the night.</li>
+</ul>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="../../java/05-type-system-and-oop/lesson.html">java/05-type-system-and-oop</a>:</strong> In §7 below, we use `java.lang.reflect.Proxy.newProxyInstance(...)` inside a `BeanPostProcessor` to wrap a bean in 15 lines of code.</li>
+  <li><strong>← <a href="../02-ioc-container-and-beans/lesson.html">02-ioc-container-and-beans</a>:</strong> Stage C3 is the real implementation of the `postProcess(bean)` method we wrote in `MiniContainer.java`.</li>
+  <li><strong>→ <a href="../05-configuration-and-component-model/lesson.html">05-configuration</a> &amp; <a href="../07-spring-boot-and-autoconfiguration/lesson.html">07-autoconfiguration</a>:</strong> Both `@Configuration` parsing and Boot's `@ConditionalOnClass` auto-configuration are implemented as a Stage A `BeanFactoryPostProcessor` (`ConfigurationClassPostProcessor`)!</li>
+  <li><strong>→ <a href="../06-aop-and-proxies/lesson.html">06-aop-and-proxies</a>:</strong> Deep-dives into Stage C3: JDK Dynamic Proxies vs CGLIB subclasses and the self-invocation rule.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Build your own <code>@Timed</code> Proxy in Stage C3 &amp; Interview Derivation</h2>
+<p>
+Let's prove there is zero magic in Spring AOP by writing our own annotation `@Timed` and a 20-line `BeanPostProcessor` (Stage C3)
+that wraps any `@Timed` bean in a timing proxy:
+</p>
+<pre><span class="c">// 1. The passive sticky-note annotation</span>
+<span class="an">@Retention</span>(RetentionPolicy.RUNTIME)
+<span class="an">@Target</span>(ElementType.TYPE)
+<span class="k">public</span> <span class="an">@interface</span> Timed {}
+
+<span class="c">// 2. The Box 4 Inspector (Stage C3): inspects every bean and wraps @Timed beans in a Proxy</span>
+<span class="an">@Component</span>
+<span class="k">public class</span> TimingBeanPostProcessor <span class="k">implements</span> BeanPostProcessor {
+
+    <span class="an">@Override</span>
+    <span class="k">public</span> Object postProcessAfterInitialization(Object bean, String beanName) {  <span class="c">// ← Stage C3!</span>
+        Class&lt;?&gt; type = bean.getClass();
+        <span class="k">if</span> (!type.isAnnotationPresent(Timed.class)) {
+            <span class="k">return</span> bean;   <span class="c">// No @Timed sticker? Return the original object untouched.</span>
+        }
+
+        <span class="c">// Has @Timed sticker! Wrap the real 'bean' inside a JDK Dynamic Proxy and return the PROXY:</span>
+        <span class="k">return</span> Proxy.newProxyInstance(
+            type.getClassLoader(),
+            type.getInterfaces(),
+            (proxy, method, args) -&gt; {
+                <span class="k">long</span> t0 = System.nanoTime();
+                <span class="k">try</span> {
+                    <span class="k">return</span> method.invoke(bean, args);   <span class="c">// Forward call to the REAL target object</span>
+                } <span class="k">finally</span> {
+                    <span class="k">long</span> ms = (System.nanoTime() - t0) / 1_000_000;
+                    System.out.println(<span class="s">"[timed] "</span> + beanName + <span class="s">"."</span> + method.getName() + <span class="s">" took "</span> + ms + <span class="s">"ms"</span>);
+                }
+            });
+    }
+}
+
+<span class="c">// 3. Business class: has no idea it is being wrapped!</span>
+<span class="an">@Service</span> <span class="an">@Timed</span>
+<span class="k">public class</span> BookService <span class="k">implements</span> BookOperations {
+    <span class="k">public</span> Book findById(<span class="k">long</span> id) { ... }
+}</pre>
+
+<div class="ann">
+<strong>Code Dissection:</strong>
+<ul>
+  <li><strong>Look at the return type of <code>postProcessAfterInitialization</code>:</strong> It returns <code>Object</code>! Whatever object it returns replaces the original bean and gets stored inside Box 3's <code>singletonObjects</code> Map. When <code>BookController</code> asks for <code>BookOperations</code>, Box 3 hands it the <strong>Proxy</strong>, not the raw <code>BookService</code>!</li>
+  <li><strong>Why did we wrap in <code>postProcessAfterInitialization</code> (Stage C3) instead of <code>BeforeInitialization</code> (Stage C1)?</strong> Because Stage C1/C2 runs <code>@PostConstruct</code> on the raw target bean first, and only after the bean is 100% initialized does Stage C3 wrap it in a Proxy!</li>
+</ul>
+</div>
+
+<div class="try"><strong>Try this / Predict the output:</strong>
+Suppose we add a <code>@PostConstruct</code> method inside <code>BookService</code> above that prints <code>this.getClass().getName()</code>
+and calls a <code>@Transactional</code> method on itself. What class name is printed, and does a transaction start?
+<br/><em>Answer:</em> It prints the raw <code>BookService</code> class name (<em>not</em> <code>$Proxy...</code>), and <strong>no
+transaction starts!</strong> Why? Look at the 4-Stage diagram: <code>@PostConstruct</code> runs in <strong>Stage C1</strong>,
+whereas the Proxy is not created until <strong>Stage C3</strong> (<code>postProcessAfterInitialization</code>)! Even worse, calling
+<code>this.someMethod()</code> bypasses the proxy anyway (**Universal Rule #2**).</div>
+
+<h3>How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead><tr><th>Classic Interview Question</th><th>Which Stage / Rule to Picture</th><th>10-Second Derived Answer</th></tr></thead>
+<tbody>
+<tr>
+  <td><em>"Why is my <code>@Value("${app.url}")</code> field <code>null</code> when I print it inside the constructor?"</em></td>
+  <td><strong>Rule 1 (Order of Steps): Stage B1 vs Stage B2</strong></td>
+  <td>In Stage B1, Java executes your constructor (<code>new MyService()</code>) to create the object in memory. Spring cannot inject field values (Stage B2) until <em>after</em> the constructor returns the object reference! Fix: put <code>@Value("${app.url}") String url</code> directly on a <strong>constructor parameter</strong> (resolved before B1) or read the field in <code>@PostConstruct</code> (Stage C1).</td>
+</tr>
+<tr>
+  <td><em>"Why does calling a <code>@Transactional</code> or <code>@Async</code> method inside <code>@PostConstruct</code> silently ignore the annotation?"</em></td>
+  <td><strong>Rule 1 &amp; Rule 2: Stage C1 vs Stage C3</strong></td>
+  <td>Two reasons: (1) <code>@PostConstruct</code> runs in <strong>Stage C1</strong>, before <code>postProcessAfterInitialization</code> (<strong>Stage C3</strong>) has even created the AOP Proxy! (2) Even if the proxy existed, calling a method via <code>this</code> inside the class bypasses the proxy. Use <code>ApplicationRunner</code> or <code>@EventListener(ApplicationReadyEvent.class)</code> instead.</td>
+</tr>
+<tr>
+  <td><em>"What is the difference between <code>BeanFactoryPostProcessor</code> and <code>BeanPostProcessor</code>?"</em></td>
+  <td><strong>Stage A (Box 2C) vs Stage C (Box 4)</strong></td>
+  <td><code>BeanFactoryPostProcessor</code> runs in <strong>Stage A</strong> before any bean is created and edits <strong>recipes</strong> (<code>BeanDefinition</code>s in Box 2, like resolving <code>${...}</code>). <code>BeanPostProcessor</code> runs in <strong>Stage C</strong> for every created <strong>bean instance</strong> and can wrap it in a <strong>Proxy</strong> (Box 4).</td>
+</tr>
+<tr>
+  <td><em>"What is the exact order of initialization callbacks if a bean uses all three: <code>@PostConstruct</code>, <code>InitializingBean</code>, and <code>@Bean(initMethod)</code>?"</em></td>
+  <td><strong>Stage C1 → Stage C2</strong></td>
+  <td>1st: <code>@PostConstruct</code> (triggered by a BPP in Stage C1) → 2nd: <code>InitializingBean.afterPropertiesSet()</code> (Stage C2) → 3rd: custom <code>initMethod</code> (Stage C2). Destruction in Stage D1 mirrors it: <code>@PreDestroy</code> → <code>destroy()</code> → <code>destroyMethod</code>.</td>
+</tr>
+<tr>
+  <td><em>"What does the log warning 'Bean X is not eligible for getting processed by all BeanPostProcessors' mean?"</em></td>
+  <td><strong><code>refresh()</code> Step 4 vs Step 5</strong></td>
+  <td>Because <code>BeanPostProcessor</code>s (Box 4) must be instantiated <em>before</em> normal business beans, if you inject a business bean <code>X</code> into a custom <code>BeanPostProcessor</code>, Spring is forced to create <code>X</code> early during Step 4 — before the other <code>BeanPostProcessor</code>s (like <code>@Transactional</code> proxying) are registered! Never inject business services eagerly into a BPP; use <code>@Lazy</code> or <code>ObjectProvider</code>.</td>
+</tr>
+</tbody></table>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Pitfall 1: Doing slow database or HTTP calls inside <code>@PostConstruct</code> (Stage C1).</strong>
+Stage C1 runs synchronously on the main startup thread while Box 3 is still half-built. If a remote call hangs, your entire server
+hangs mid-boot; if it calls a proxied method on the same bean, the proxy doesn't exist yet (Stage C3). Put startup tasks in an
+<code>ApplicationRunner</code> or <code>@EventListener(ApplicationReadyEvent.class)</code>.</div>
+
+<div class="pitfall"><strong>Pitfall 2: Expecting <code>@PreDestroy</code> (Stage D1) to run on <code>kill -9</code> or power loss.</strong>
+Stage D1 is triggered by a JVM shutdown hook when the process receives a polite <code>SIGTERM</code> (e.g., Kubernetes stopping a pod).
+If the OS kills the process with <code>SIGKILL</code> (<code>kill -9</code>) or the machine crashes, Stage D1 never executes. Never
+rely solely on <code>@PreDestroy</code> for data integrity — use database transactions!</div>
+
+<div class="pitfall"><strong>Pitfall 3: Returning <code>null</code> from a custom <code>BeanPostProcessor</code>.</strong>
+In Stage C1 and C3, Spring passes the bean through a chain of `BeanPostProcessor`s. If your custom processor forgets `return bean;`
+and returns `null`, you short-circuit the rest of the assembly line! Always return either the original `bean` or a wrapper proxy.</div>
+
+<h2><span class="n">§9</span>Recap &amp; Glossary / Reference</h2>
+<ul class="recap">
+  <li><strong>Stage A (Box 2C — Recipe Edit):</strong> <code>BeanFactoryPostProcessor</code> edits <code>BeanDefinition</code> recipes in Box 2 before any business constructor runs.</li>
+  <li><strong>Stage B (Box 3 — Birth &amp; Wiring):</strong> B1 runs the constructor (<code>new</code>) → B2 injects <code>@Autowired</code> and <code>@Value</code> fields → B3 calls <code>*Aware</code> interfaces.</li>
+  <li><strong>Stage C (Box 4 — Setup &amp; Proxy):</strong> C1 runs <code>BPP.beforeInit</code> (which calls <code>@PostConstruct</code>) → C2 runs <code>afterPropertiesSet()</code> and <code>initMethod</code> → C3 runs <code>BPP.afterInit</code> (<strong>which wraps the bean in an AOP Proxy!</strong>).</li>
+  <li><strong>Stage D (Phase 3 — Shutdown):</strong> Runs <code>@PreDestroy</code> → <code>destroy()</code> → <code>destroyMethod</code> on singletons only.</li>
+</ul>
+
+<h3>Quick Cheat-Sheet Reference</h3>
+<table>
+<thead><tr><th>Lifecycle Stage</th><th>Hook / Annotation</th><th>What Exists / Doesn't Exist Yet</th></tr></thead>
+<tbody>
+<tr><td><strong>Stage A (Box 2C)</strong></td><td><code>BeanFactoryPostProcessor</code></td><td>Only recipes in <code>beanDefinitionMap</code> exist; zero business objects exist.</td></tr>
+<tr><td><strong>Stage B1 (Box 3)</strong></td><td>Constructor <code>MyBean(...)</code></td><td>Constructor parameters exist; <code>@Autowired</code> / <code>@Value</code> fields are still <code>null</code>!</td></tr>
+<tr><td><strong>Stage B2 (Box 3)</strong></td><td>Field / Setter injection</td><td>All <code>@Autowired</code> and <code>@Value</code> fields are now populated.</td></tr>
+<tr><td><strong>Stage C1–C2 (Box 4)</strong></td><td><code>@PostConstruct</code> / <code>afterPropertiesSet</code></td><td>All fields are populated, but <strong>AOP Proxy (Stage C3) does NOT exist yet!</strong></td></tr>
+<tr><td><strong>Stage C3 (Box 4)</strong></td><td><code>BeanPostProcessor.afterInit</code></td><td>Wraps target in AOP Proxy and stores Proxy in Box 3 <code>singletonObjects</code>.</td></tr>
+<tr><td><strong>After Refresh</strong></td><td><code>ApplicationRunner</code> / <code>ApplicationReadyEvent</code></td><td>All singletons and all AOP Proxies are 100% live and ready.</td></tr>
+<tr><td><strong>Stage D1 (Phase 3)</strong></td><td><code>@PreDestroy</code> / <code>close()</code></td><td>Container is shutting down; runs for singletons only.</td></tr>
+</tbody></table>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>BeanFactoryPostProcessor (Stage A)</dt><dd>Container extension hook that reads and modifies <code>BeanDefinition</code> recipes in Box 2 before any normal beans are instantiated.</dd>
+  <dt>BeanPostProcessor (Stage C)</dt><dd>Container extension hook called before (C1) and after (C3) every bean's initialization callbacks; Stage C3 is how Spring wraps beans in AOP proxies.</dd>
+  <dt>@PostConstruct / @PreDestroy</dt><dd>Standard <code>jakarta.annotation</code> lifecycle annotations invoked in Stage C1 (after wiring) and Stage D1 (on context shutdown).</dd>
+  <dt>InitializingBean / DisposableBean</dt><dd>Spring-specific lifecycle interfaces providing <code>afterPropertiesSet()</code> (Stage C2) and <code>destroy()</code> (Stage D1).</dd>
+  <dt>FactoryBean&lt;T&gt;</dt><dd>A special bean that acts as a factory for another object via <code>getObject()</code>; used by frameworks like Spring Data JPA to create repository proxies.</dd>
+  <dt>ApplicationRunner</dt><dd>A Spring Boot interface whose <code>run()</code> method executes once after the entire <code>ApplicationContext</code> has finished refreshing.</dd>
+</dl>
+
+<h3>Official Documentation &amp; Primary Sources</h3>
+<p>
+Read <a href="https://docs.spring.io/spring-framework/reference/core/beans/factory-nature.html">Spring Framework Reference — Customizing the Nature of a Bean</a>
+and <a href="https://docs.spring.io/spring-framework/reference/core/beans/factory-extension.html">Container Extension Points (BeanPostProcessor &amp; BeanFactoryPostProcessor)</a>.
+</p>
+<p class="sources" style="margin-top:1.6rem">Sources: Spring Framework 6.x Reference Documentation (Core → IoC Container → Customizing the Nature of a Bean, Container Extension Points);
+Spring Boot 3.x Reference Documentation (<code>ApplicationRunner</code>, application events).</p>
+
+</body>
+</html>

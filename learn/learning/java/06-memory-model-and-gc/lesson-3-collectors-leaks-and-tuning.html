@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Collectors, Leaks &amp; Tuning — Memory, Part 3 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Collectors, Leaks &amp; Tuning</h1>
+<p class="crumb">Java › memory cluster · lesson 6, <strong>part 3 of 3</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — choosing a collector, and why Java still leaks</p>
+
+<p class="nav"><strong>Memory cluster:</strong>
+  <a href="lesson.html">1. Where your data lives</a> ·
+  <a href="lesson-2-garbage-collection.html">2. How garbage collection works</a> ·
+  <strong>3. Collectors, leaks &amp; tuning</strong>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> There is no single best garbage collector, only a trade between <strong>throughput</strong>,
+<strong>pause time</strong> and <strong>memory footprint</strong>, so the JVM ships several and picks a sensible default.
+And because the collector keeps everything <em>reachable</em>, Java still leaks in one specific way: objects you forgot to stop
+pointing at. Finding those is a skill, and it has standard tools.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+<a href="lesson.html">Part 1</a> showed where data lives. <a href="lesson-2-garbage-collection.html">Part 2</a> showed how the
+collector decides what to delete. Both were about mechanism. This part is about <strong>decisions</strong>: which collector to run,
+how to express what your application cares about, how to hold a reference that does not prevent collection, and what to do when
+memory still climbs.
+</p>
+<p>This is the part that shows up in production incidents and in senior interviews.</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+<p>Consider two real programs:</p>
+<ul>
+  <li>An overnight <strong>batch job</strong> crunching a hundred gigabytes. Nobody is watching. If it stops for four seconds every
+  minute but finishes 10% sooner, that is a clear win.</li>
+  <li>A <strong>trading API</strong> or a web service with a 50 ms budget per request. A single four-second pause is an outage, even
+  though total time lost is small.</li>
+</ul>
+<p>
+These two want opposite collectors. The batch job wants maximum <strong>throughput</strong> (do the collection work in bulk, with
+all cores, as rarely as possible). The service wants minimum <strong>latency</strong> (do the work in tiny slices, concurrently with
+the application, even if the total work is larger).
+</p>
+<p>
+There is also a third corner: <strong>footprint</strong>. Doing GC work concurrently costs extra CPU and extra memory; a tiny
+container may prefer a simple collector that uses almost nothing.
+</p>
+
+<figure>
+<svg viewBox="0 0 760 250" width="100%" role="img" aria-label="Trade-off triangle between throughput, latency and footprint with collectors placed on it">
+  <style>
+    .tri{fill:#f7f5ef;stroke:#6b675e;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .dot{fill:#7a1f1f}
+    .lbl{font:11.5px "SF Mono",Menlo,monospace;fill:#7a1f1f}
+  </style>
+  <polygon class="tri" points="380,30 700,215 60,215"/>
+  <text class="t" x="318" y="22">LOW LATENCY</text>
+  <text class="t" x="20" y="238">HIGH THROUGHPUT</text>
+  <text class="t" x="600" y="238">SMALL FOOTPRINT</text>
+
+  <circle class="dot" cx="375" cy="75" r="5"/><text class="lbl" x="388" y="79">ZGC / Shenandoah</text>
+  <circle class="dot" cx="330" cy="150" r="5"/><text class="lbl" x="343" y="154">G1  (the default)</text>
+  <circle class="dot" cx="175" cy="200" r="5"/><text class="lbl" x="188" y="204">Parallel</text>
+  <circle class="dot" cx="600" cy="200" r="5"/><text class="lbl" x="440" y="204">Serial</text>
+
+  <text class="c" x="60" y="128">pick your corner;</text>
+  <text class="c" x="60" y="146">you cannot have all three</text>
+</svg>
+<figcaption>Every collector is a point in this triangle. "Which GC is best?" has no answer without "best at what?"
+(placement follows Oracle's selection guidance <span class="sources">— <a href="https://docs.oracle.com/en/java/javase/21/gctuning/available-collectors.html">GC Tuning Guide, Available Collectors</a></span>).</figcaption>
+</figure>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>3.1 What you get if you do nothing</h3>
+<p>The JVM configures itself — Oracle calls this <strong>ergonomics</strong>. On a modern machine the defaults are:</p>
+<table>
+  <thead><tr><th>Setting</th><th>Default</th></tr></thead>
+  <tbody>
+    <tr><td>Collector</td><td><strong>G1</strong> on a server-class machine; <strong>Serial</strong> otherwise</td></tr>
+    <tr><td>"Server-class" means</td><td>at least 2 processors <em>and</em> at least 1792 MB of physical memory</td></tr>
+    <tr><td>Initial heap (<code>-Xms</code>)</td><td>1/64 of physical memory</td></tr>
+    <tr><td>Maximum heap (<code>-Xmx</code>)</td><td>1/4 of physical memory</td></tr>
+    <tr><td>Compiler</td><td>tiered, using both C1 and C2 (lesson 4)</td></tr>
+  </tbody>
+</table>
+<p class="sources">(<a href="https://docs.oracle.com/en/java/javase/21/gctuning/ergonomics1.html">Oracle — GC Tuning Guide, §2 Ergonomics</a>)</p>
+<div class="callout">
+<strong>This bites people in containers.</strong> "1/4 of physical memory" used to mean the <em>host's</em> memory, so a JVM in a 512 MB
+container would happily plan for a multi-gigabyte heap and get killed by the OOM-killer. Modern JVMs are container-aware
+(they read cgroup limits), but setting <code>-Xmx</code> explicitly in production remains the safe habit. Oracle's own first piece of
+advice is to run with the defaults, and only then adjust heap size.
+</div>
+
+<h3>3.2 The collector menu</h3>
+<table>
+  <thead><tr><th>Collector</th><th>How it works</th><th>Choose it when</th><th>Flag</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Serial</strong></td><td>One thread does everything, stop-the-world. Generational.</td>
+        <td>Small data sets (up to roughly 100 MB), single-processor machines, tiny containers. Simple and efficient because there is no thread coordination.</td>
+        <td><code>-XX:+UseSerialGC</code></td></tr>
+    <tr><td><strong>Parallel</strong> ("throughput collector")</td><td>Same design as Serial but many threads per pause.</td>
+        <td>Medium-to-large data sets on multiprocessor hardware where <em>peak throughput</em> matters and pauses of a second or more are acceptable — batch, ETL, analytics.</td>
+        <td><code>-XX:+UseParallelGC</code></td></tr>
+    <tr><td><strong>G1</strong> — Garbage-First <em>(default)</em></td><td>Mostly concurrent. Splits the heap into many equal regions and collects the ones with most garbage first; aims at a pause-time target.</td>
+        <td>Almost everything. The balanced choice when response time matters but you also want throughput; scales from small to very large heaps.</td>
+        <td><code>-XX:+UseG1GC</code></td></tr>
+    <tr><td><strong>ZGC</strong></td><td>Fully concurrent; pause times independent of heap size.</td>
+        <td>Response time is the top priority. Max pauses under a millisecond, at the cost of some throughput. Works from a few hundred MB up to 16 TB.</td>
+        <td><code>-XX:+UseZGC</code></td></tr>
+    <tr><td><strong>Shenandoah</strong></td><td>Also concurrent, including compaction (OpenJDK builds).</td>
+        <td>Same goal as ZGC — very short pauses on large heaps.</td>
+        <td><code>-XX:+UseShenandoahGC</code></td></tr>
+  </tbody>
+</table>
+<p class="sources">Descriptions and selection guidance from
+<a href="https://docs.oracle.com/en/java/javase/21/gctuning/available-collectors.html">Oracle — GC Tuning Guide, Available Collectors</a>.
+Oracle's summary: run with the default first; adjust heap size next; only then change collector.</p>
+
+<h3>3.3 What makes G1 different</h3>
+<p>
+Classic collectors treat young and old as two big contiguous blocks. G1 chops the heap into a few thousand equal-sized
+<strong>regions</strong> and labels each one as eden, survivor, or old <em>at runtime</em>. A collection picks a set of regions —
+the ones with the most garbage, hence "garbage first" — and evacuates the live objects out of them.
+</p>
+<p>This buys two things:</p>
+<ul>
+  <li><strong>A pause-time target you can state.</strong> <code>-XX:MaxGCPauseMillis=200</code> is a hint; G1 picks how many regions it can
+  evacuate within that budget. It is a goal, not a guarantee
+  <span class="sources">(<a href="https://docs.oracle.com/en/java/javase/21/gctuning/ergonomics1.html">GC Tuning Guide §2, Maximum Pause-Time Goal</a>)</span>.</li>
+  <li><strong>Compaction for free.</strong> Evacuating a region empties it completely, so fragmentation is handled as a side effect.</li>
+</ul>
+
+<figure>
+<svg viewBox="0 0 760 210" width="100%" role="img" aria-label="Classic contiguous generations versus G1 regions">
+  <style>
+    .y{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.2}
+    .o{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.2}
+    .s{fill:#f6fbf8;stroke:#1f6b4d;stroke-width:1.2}
+    .e{fill:#ffffff;stroke:#bdb7aa;stroke-width:1.1}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+  </style>
+  <text class="t" x="20" y="20">CLASSIC (Serial / Parallel): fixed, contiguous generations</text>
+  <rect class="y" x="20" y="30" width="180" height="40"/><text class="t" x="70" y="55">eden</text>
+  <rect class="s" x="200" y="30" width="55" height="40"/><text class="c" x="214" y="55">S0</text>
+  <rect class="s" x="255" y="30" width="55" height="40"/><text class="c" x="269" y="55">S1</text>
+  <rect class="o" x="310" y="30" width="430" height="40"/><text class="t" x="490" y="55">old generation</text>
+  <text class="c" x="20" y="88">roles are fixed by address; resizing means moving the boundary</text>
+
+  <text class="t" x="20" y="126">G1: many equal regions, roles assigned dynamically</text>
+  <g>
+    <rect class="y" x="20" y="136" width="44" height="34"/><rect class="o" x="68" y="136" width="44" height="34"/>
+    <rect class="e" x="116" y="136" width="44" height="34"/><rect class="y" x="164" y="136" width="44" height="34"/>
+    <rect class="o" x="212" y="136" width="44" height="34"/><rect class="s" x="260" y="136" width="44" height="34"/>
+    <rect class="o" x="308" y="136" width="44" height="34"/><rect class="y" x="356" y="136" width="44" height="34"/>
+    <rect class="e" x="404" y="136" width="44" height="34"/><rect class="o" x="452" y="136" width="44" height="34"/>
+    <rect class="y" x="500" y="136" width="44" height="34"/><rect class="o" x="548" y="136" width="44" height="34"/>
+    <rect class="s" x="596" y="136" width="44" height="34"/><rect class="e" x="644" y="136" width="44" height="34"/>
+    <rect class="o" x="692" y="136" width="44" height="34"/>
+  </g>
+  <text class="c" x="20" y="190">green = young, cream = old, white = free. G1 collects the fullest-of-garbage regions first, within your pause budget.</text>
+</svg>
+<figcaption>Regions instead of fixed generations. The generational <em>idea</em> from part 2 survives; only the layout changes.</figcaption>
+</figure>
+
+<h3>3.4 References that do not keep objects alive</h3>
+<p>
+Part 2 said: reachable means alive. That is true for the normal kind of reference, called a <strong>strong</strong> reference — the
+ordinary variable or field. But Java gives you three weaker kinds in <code>java.lang.ref</code>, and they are the tool for building
+caches that cannot cause an out-of-memory error.
+</p>
+<table>
+  <thead><tr><th>Kind</th><th>Does it keep the object alive?</th><th>Typical use</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Strong</strong> — <code>Object o = ...</code></td><td>Yes, always.</td><td>Everything normal.</td></tr>
+    <tr><td><strong>Soft</strong> — <code>SoftReference</code></td><td>Yes, <em>until memory runs short</em>; then the GC may clear it.</td><td>Memory-sensitive caches you would like to keep but can rebuild.</td></tr>
+    <tr><td><strong>Weak</strong> — <code>WeakReference</code></td><td>No. Cleared as soon as no strong reference remains.</td><td>Side tables keyed by object identity — exactly what <code>WeakHashMap</code> and <code>ThreadLocal</code> use.</td></tr>
+    <tr><td><strong>Phantom</strong> — <code>PhantomReference</code></td><td>No, and <code>get()</code> always returns <code>null</code>.</td><td>Being told <em>after</em> an object is gone so you can release a native resource. The modern face of this is <code>Cleaner</code>.</td></tr>
+  </tbody>
+</table>
+<div class="idiom"><strong>In practice:</strong> most teams never write <code>SoftReference</code> by hand. They use a real cache library
+(Caffeine, Guava) with a <strong>maximum size and an expiry policy</strong>, because a bounded cache is easier to reason about than one
+that depends on GC timing. Reach for weak references mainly when you need identity-keyed metadata that must not keep the key alive.</div>
+
+<h3>3.5 Java leaks — the one memory bug GC cannot remove</h3>
+<p>
+The collector's rule is "reachable = keep". It has no idea whether you will ever <em>use</em> the object again. So the Java
+definition of a leak is:
+</p>
+<p style="text-align:center"><strong>a leak is an object that is still reachable but will never be used again.</strong></p>
+<p>Five patterns cause nearly all of them:</p>
+<table>
+  <thead><tr><th>Pattern</th><th>Why it holds on</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr><td><strong>A growing <code>static</code> collection</strong><br/><code>static List&lt;X&gt; ALL = new ArrayList&lt;&gt;();</code></td>
+        <td><code>static</code> fields are GC roots and the class usually lives forever, so everything inside lives forever.</td>
+        <td>Do not accumulate in statics. Bound it, or scope it to a request/session.</td></tr>
+    <tr><td><strong>An unbounded cache</strong></td><td>Every entry is strongly reachable from the map.</td>
+        <td>Use a cache with a max size and eviction (LRU/TTL).</td></tr>
+    <tr><td><strong>Listeners and callbacks never removed</strong></td><td>The publisher keeps a strong arrow to every subscriber, so the subscriber (and everything it points at) never dies.</td>
+        <td>Always pair <code>addListener</code> with <code>removeListener</code>; consider weak listeners.</td></tr>
+    <tr><td><strong><code>ThreadLocal</code> in a thread pool</strong></td><td>Pool threads are reused for the lifetime of the app, so whatever you stashed stays attached to them.</td>
+        <td><code>remove()</code> in a <code>finally</code> block at the end of each task.</td></tr>
+    <tr><td><strong>Inner classes and lambdas capturing <code>this</code></strong></td><td>A non-static inner class holds a hidden arrow to its outer object. Store it somewhere long-lived and the whole outer object is pinned.</td>
+        <td>Prefer <code>static</code> nested classes; capture only the fields you need.</td></tr>
+  </tbody>
+</table>
+<p>A sixth, subtler one: <strong>mutating a key after putting it in a <code>HashMap</code></strong>. The entry is now in the wrong bucket, so
+you can neither find nor remove it — but the map still holds it. See lesson 8.</p>
+
+<figure>
+<svg viewBox="0 0 760 210" width="100%" role="img" aria-label="A static list keeps objects reachable so they are never collected">
+  <style>
+    .r{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.5}
+    .k{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#7a1f1f;stroke-width:1.4;marker-end:url(#k1);fill:none}
+  </style>
+  <defs><marker id="k1" markerWidth="8" markerHeight="8" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker></defs>
+  <rect class="r" x="20" y="70" width="190" height="46" rx="5"/>
+  <text class="t" x="34" y="90">ROOT: static LEAK</text><text class="c" x="34" y="108">lives as long as the class</text>
+  <rect class="k" x="290" y="20" width="120" height="34" rx="4"/><text class="t" x="312" y="42">Node #1</text>
+  <rect class="k" x="290" y="66" width="120" height="34" rx="4"/><text class="t" x="312" y="88">Node #2</text>
+  <rect class="k" x="290" y="112" width="120" height="34" rx="4"/><text class="t" x="312" y="134">Node #3</text>
+  <rect class="k" x="290" y="158" width="120" height="34" rx="4"/><text class="t" x="312" y="180">… 100,000</text>
+  <line class="a" x1="210" y1="88" x2="286" y2="40"/>
+  <line class="a" x1="210" y1="90" x2="286" y2="84"/>
+  <line class="a" x1="210" y1="94" x2="286" y2="128"/>
+  <line class="a" x1="210" y1="98" x2="286" y2="174"/>
+  <text class="c" x="450" y="80">every one is REACHABLE,</text>
+  <text class="c" x="450" y="98">so every one is "alive",</text>
+  <text class="c" x="450" y="116">so the GC must keep them —</text>
+  <text class="c" x="450" y="134">even though your code will</text>
+  <text class="c" x="450" y="152">never look at them again</text>
+</svg>
+<figcaption>The classic Java leak. Nothing is broken, no <code>free</code> is missing — the collector is doing exactly its job.
+Measured in §7: 100,000 of these push the heap from 10 MB to 112 MB.</figcaption>
+</figure>
+
+<h3>3.6 The cheapest collection: objects that never reach the heap</h3>
+<p>
+The JIT compiler (lesson 4) performs <strong>escape analysis</strong>: if it can prove an object never leaves the method that created
+it, it may skip heap allocation entirely and keep the fields in registers — this is called <em>scalar replacement</em>. The object
+effectively never exists, so the collector has nothing to do.
+</p>
+<p>
+This is the technical reason "pool everything" is bad advice. A pooled object <em>must</em> escape, so you lose this optimization,
+you make it survive into the old generation, and you add bugs around reuse and cleanup. Pool things that are genuinely expensive to
+create — threads, database connections, sockets — not plain objects.
+</p>
+
+<h3>3.7 Reading the failure modes</h3>
+<table>
+  <thead><tr><th>Error</th><th>What it means</th><th>First thing to check</th></tr></thead>
+  <tbody>
+    <tr><td><code>OutOfMemoryError: Java heap space</code></td><td>Live objects do not fit in <code>-Xmx</code>.</td><td>Take a heap dump. Is it a leak, or is the heap just too small for the workload?</td></tr>
+    <tr><td><code>OutOfMemoryError: GC overhead limit exceeded</code></td><td>The JVM is spending nearly all its time collecting and recovering almost nothing. A leak in its final stage.</td><td>Same: heap dump.</td></tr>
+    <tr><td><code>OutOfMemoryError: Metaspace</code></td><td>Too much class metadata — often class loaders that are never released (repeated redeploys, heavy proxy/bytecode generation).</td><td>Class-loader leaks, not object leaks.</td></tr>
+    <tr><td><code>OutOfMemoryError: unable to create native thread</code></td><td>The OS refused another thread — each needs its own stack.</td><td>Thread leak: unbounded pools, a thread per request.</td></tr>
+    <tr><td><code>StackOverflowError</code></td><td>Too many frames on one thread.</td><td>Recursion depth, not memory size.</td></tr>
+  </tbody>
+</table>
+
+<h3>3.8 How to actually find a leak</h3>
+<ol>
+  <li><strong>Confirm it.</strong> Turn on <code>-verbose:gc</code> (or <code>-Xlog:gc*</code> on Java 9+) and watch the "used after GC"
+  number over hours. A real leak makes the post-collection floor rise steadily. Saw-tooth that always returns to the same floor is
+  healthy.</li>
+  <li><strong>Capture evidence automatically.</strong> Always run production with
+  <code>-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/app</code>. Debugging an OOM without a dump is guesswork.</li>
+  <li><strong>Or capture on demand</strong> — <code>jcmd &lt;pid&gt; GC.heap_dump app.hprof</code> (or the older <code>jmap</code>).</li>
+  <li><strong>Open the dump</strong> in Eclipse MAT or VisualVM. Look at the <em>dominator tree</em>: it tells you which single object is
+  keeping the most memory alive. Then ask MAT for the <em>path to GC roots</em> of a suspect object — that path <strong>is</strong> your
+  bug, spelled out.</li>
+  <li><strong>For live, low-overhead observation</strong>, use Java Flight Recorder (<code>-XX:StartFlightRecording</code>) and read it in
+  JDK Mission Control (lesson 14).</li>
+</ol>
+<div class="idiom"><strong>The one question that solves it:</strong> not "what is using memory?" but <strong>"who is still pointing at
+this?"</strong> That is the path-to-GC-roots view, and it comes straight from part 2's definition of liveness.</div>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong>Deploying a new service:</strong> set <code>-Xmx</code> explicitly, leave the collector at the default (G1), and enable heap dump on OOM.</li>
+  <li><strong>Latency complaints / p99 spikes:</strong> check GC pauses first; consider a pause target, a bigger heap, or ZGC.</li>
+  <li><strong>Batch workloads:</strong> consider Parallel GC and a large heap — pauses are free when nobody is waiting.</li>
+  <li><strong>Tiny containers and CLI tools:</strong> Serial GC starts fast and uses little memory.</li>
+  <li><strong>Building a cache:</strong> bound it. Use weak/soft references only when identity semantics or memory-sensitivity genuinely demand it.</li>
+  <li><strong>Memory climbing in production:</strong> GC log → heap dump → dominator tree → path to GC roots.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+The warehouse manager from part 2 can clean in different styles. She can <strong>lock the doors and have ten helpers clean the whole
+place at once</strong> — fastest overall, but nobody can work while she does it. Or she can <strong>tidy one shelf at a time while
+everyone keeps working</strong> — nobody is blocked for long, but the total tidying takes more effort. Or, if the warehouse is tiny,
+she can just do it herself with no helpers at all. None of these is "the best"; it depends on whether people are waiting.
+</p>
+<p>
+Now the sad part. Imagine someone writes a note for every box that arrives, and pins all the notes to the wall by the front desk.
+They never take any note down. The manager walks in, sees a note for every single box, and must keep every single box — the warehouse
+fills up even though nobody wants any of it. <strong>Nothing is broken. The rule is being followed perfectly.</strong> The mistake was
+pinning notes to the wall forever.
+</p>
+<p>That is a Java memory leak, and it is why "the garbage collector handles memory" never means "I can stop thinking".</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson-2-garbage-collection.html">part 2</a>:</strong> "reachable = alive" is both the GC's correctness rule and the definition of a leak.</li>
+  <li><strong>← lesson 4 (execution engine):</strong> escape analysis and the JIT decide what never needs collecting.</li>
+  <li><strong>→ lesson 8 (collections):</strong> <code>WeakHashMap</code>, bounded caches, and the mutable-key bug.</li>
+  <li><strong>→ lesson 10 (exceptions):</strong> <code>try</code>-with-resources is the correct answer to every "the GC will close it" thought.</li>
+  <li><strong>→ lesson 11 (concurrency):</strong> <code>ThreadLocal</code> leaks and thread-pool lifetimes.</li>
+  <li><strong>→ lesson 13 (architecture) &amp; lesson 14 (tooling):</strong> caching strategy, JFR, Mission Control, container sizing.</li>
+  <li><strong>Same idea elsewhere:</strong> Go's GC is concurrent and targets low pause; .NET has workstation vs server GC — the same
+  throughput-vs-latency dial under different names. Every leak story in every GC language is "something long-lived kept pointing at
+  something short-lived".</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — building a leak, then fixing it</h2>
+<p>Full source: <a href="../code/GcDemo.java">code/GcDemo.java</a>. Compiled and run on JDK 1.8.0_411.</p>
+
+<h3>Chunk 4 — a leak with no missing <code>free()</code></h3>
+<pre><span class="k">static</span> <span class="k">final</span> List&lt;Node&gt; LEAK = <span class="k">new</span> ArrayList&lt;Node&gt;();   <span class="c">// static = GC root</span>
+...
+<span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; 100_000; i++) {
+    LEAK.add(<span class="k">new</span> Node(i));     <span class="c">// ~1 KB each; nobody ever removes them</span>
+}
+System.gc();                   <span class="c">// collects nothing — they are all reachable</span>
+...
+LEAK.clear();                  <span class="c">// THE fix: drop the arrows</span>
+System.gc();                   <span class="c">// now the memory comes back</span></pre>
+<div class="ann">Compare this with chunk 3 in part 2, which allocated <em>twenty times more</em> and cost nothing. The only difference is
+that these objects are reachable from a <code>static</code> field. <strong>Allocation is not the problem; retention is.</strong> Also notice
+that the fix is one line, and it is not a <code>free()</code> — it is "stop pointing".</div>
+
+<h3>Chunk 5 — ask the JVM what it is actually doing</h3>
+<pre><span class="k">for</span> (GarbageCollectorMXBean gc : ManagementFactory.getGarbageCollectorMXBeans()) {
+    System.out.println(gc.getName()
+        + <span class="s">" | collections = "</span> + gc.getCollectionCount()
+        + <span class="s">" | total pause time = "</span> + gc.getCollectionTime() + <span class="s">" ms"</span>);
+}</pre>
+<div class="ann">These beans are the same numbers your monitoring system scrapes. Two useful habits: the collector <em>names</em> tell you
+which GC is running, and <code>collectionTime / uptime</code> is a rough "how much of my CPU is going to GC?" ratio — anything above a
+few percent is worth investigating.</div>
+
+<h3>Real output <span class="sources">(JDK 1.8.0_411)</span></h3>
+<pre>--- 4. a leak: reachable but useless ---
+after gc, still holding 100000 nodes, used = 112 MB
+after clear() + gc, used = 10 MB
+
+--- 5. who is collecting, and how big is the heap? ---
+max heap  = 4444 MB
+collector: PS Scavenge | collections = 8 | total pause time = 85 ms
+collector: PS MarkSweep | collections = 5 | total pause time = 104 ms</pre>
+<div class="ann">Three things to read out of this.
+<strong>(a)</strong> 112 MB → 10 MB after a single <code>clear()</code>: the memory was never lost, only held.
+<strong>(b)</strong> <code>max heap = 4444 MB</code> on a 16 GB machine is ergonomics choosing ¼ of physical memory, exactly as documented.
+<strong>(c)</strong> The collector names reveal the default: <code>PS Scavenge</code> (young) and <code>PS MarkSweep</code> (old) are the
+<strong>Parallel</strong> collector — the JDK 8 default. On JDK 9+ the same code prints <code>G1 Young Generation</code> /
+<code>G1 Old Generation</code>, which is the clearest possible demonstration that the default changed.</div>
+
+<div class="try"><strong>Experiments.</strong> (1) Re-run with <code>java -XX:+UseSerialGC GcDemo</code> and then
+<code>-XX:+UseParallelGC</code>; compare collection counts and total pause time. (2) Run with
+<code>-Xmx128m -XX:+HeapDumpOnOutOfMemoryError</code> and raise the leak loop to 1,000,000 — then open the <code>.hprof</code> file in
+VisualVM and find <code>LEAK</code> in the dominator tree. (3) Replace the <code>ArrayList</code> with a
+<code>Map&lt;Node,String&gt;</code>, then with a <code>WeakHashMap</code> — which one survives <code>System.gc()</code>, and why?</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Tuning before measuring.</strong> Flags copied from a blog post are the most common cause of <em>worse</em>
+performance. Get a GC log first; change one thing at a time.</div>
+<div class="pitfall"><strong>Changing collector before changing heap size.</strong> Oracle's order is: defaults → heap size → collector.
+Most "GC problems" are really "heap too small".</div>
+<div class="pitfall"><strong>Believing a pause target is a guarantee.</strong> <code>-XX:MaxGCPauseMillis</code> is a goal. Set it absurdly low
+and G1 will shrink the young generation, collect constantly, and destroy your throughput.</div>
+<div class="pitfall"><strong>Soft references as a cache strategy.</strong> They make memory behaviour unpredictable and can delay collection.
+A bounded cache with explicit eviction is almost always better.</div>
+<div class="pitfall"><strong>Forgetting <code>ThreadLocal.remove()</code> in a pooled thread.</strong> A pool thread may live for the whole
+application, and so will whatever you attached to it.</div>
+<div class="pitfall"><strong>Letting a non-static inner class or lambda capture <code>this</code> into something long-lived.</strong> You have
+pinned the entire outer object without writing a single reference to it.</div>
+<div class="pitfall"><strong>Running production without <code>-XX:+HeapDumpOnOutOfMemoryError</code>.</strong> The one crash that could have told
+you everything, and you did not record it.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>There is no best collector — only the trade between <strong>throughput</strong>, <strong>latency</strong> and <strong>footprint</strong>.</li>
+  <li>Defaults (ergonomics): <strong>G1</strong> on server-class machines (≥2 CPUs, ≥1792 MB), Serial otherwise; heap starts at 1/64 and
+  maxes at 1/4 of physical memory.</li>
+  <li><strong>Serial</strong> = tiny/simple · <strong>Parallel</strong> = raw throughput · <strong>G1</strong> = balanced default with a pause goal ·
+  <strong>ZGC/Shenandoah</strong> = sub-millisecond pauses on huge heaps.</li>
+  <li>G1 uses <strong>regions</strong> with dynamic roles and collects the most-garbage regions first, compacting as it evacuates.</li>
+  <li>Reference strengths: <strong>strong</strong> (always keeps) · <strong>soft</strong> (keeps until memory is tight) ·
+  <strong>weak</strong> (cleared at the next GC) · <strong>phantom</strong> (post-mortem cleanup; use <code>Cleaner</code>).</li>
+  <li><strong>A Java leak = still reachable, never used again.</strong> Statics, unbounded caches, un-removed listeners,
+  <code>ThreadLocal</code> in pools, inner classes capturing <code>this</code>.</li>
+  <li><strong>Escape analysis</strong> can delete allocations entirely — so pool expensive <em>resources</em>, not ordinary objects.</li>
+  <li>Different OOM messages mean different bugs: heap space, GC overhead, Metaspace, native thread.</li>
+  <li>Diagnosis path: <strong>GC log → heap dump → dominator tree → path to GC roots</strong>. Always run with heap-dump-on-OOM enabled.</li>
+</ul>
+
+<hr/>
+<h2>Reference — flags worth knowing</h2>
+<table>
+  <thead><tr><th>Flag</th><th>Does</th></tr></thead>
+  <tbody>
+    <tr><td><code>-Xms</code> / <code>-Xmx</code></td><td>Initial / maximum heap size. Set both in production; equal values avoid resize pauses.</td></tr>
+    <tr><td><code>-Xss</code></td><td>Per-thread stack size.</td></tr>
+    <tr><td><code>-XX:+UseSerialGC</code> / <code>UseParallelGC</code> / <code>UseG1GC</code> / <code>UseZGC</code></td><td>Choose the collector.</td></tr>
+    <tr><td><code>-XX:MaxGCPauseMillis=&lt;n&gt;</code></td><td>Pause-time <em>goal</em> (G1 and others).</td></tr>
+    <tr><td><code>-XX:GCTimeRatio=&lt;n&gt;</code></td><td>Throughput goal: GC time ÷ app time = 1/(1+n).</td></tr>
+    <tr><td><code>-verbose:gc</code> / <code>-Xlog:gc*</code></td><td>One line per collection / full phase detail (Java 9+).</td></tr>
+    <tr><td><code>-XX:+HeapDumpOnOutOfMemoryError</code> <code>-XX:HeapDumpPath=&lt;dir&gt;</code></td><td>Write a <code>.hprof</code> dump when the heap gives out.</td></tr>
+    <tr><td><code>-XX:MaxMetaspaceSize=&lt;n&gt;</code></td><td>Cap class metadata, so a class-loader leak fails loudly instead of eating the machine.</td></tr>
+    <tr><td><code>jcmd &lt;pid&gt; GC.heap_info</code> / <code>GC.heap_dump f.hprof</code></td><td>Inspect or dump a running JVM.</td></tr>
+  </tbody>
+</table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Ergonomics</dt><dd>The JVM choosing collector, heap size and compiler for you based on the machine.</dd>
+  <dt>Throughput collector</dt><dd>Parallel GC — optimizes total work done, accepts longer pauses.</dd>
+  <dt>Concurrent collector</dt><dd>Does most of its work while the application runs, to keep pauses short (G1 mostly, ZGC/Shenandoah fully).</dd>
+  <dt>Region</dt><dd>One of G1's equal-sized heap chunks, labelled eden/survivor/old at runtime.</dd>
+  <dt>Pause-time goal</dt><dd>A target, not a promise, given via <code>-XX:MaxGCPauseMillis</code>.</dd>
+  <dt>Soft / weak / phantom reference</dt><dd>References that permit collection under different conditions.</dd>
+  <dt>Memory leak (Java)</dt><dd>An object that stays reachable but is never used again.</dd>
+  <dt>Dominator tree</dt><dd>Heap-dump view showing which object is responsible for keeping which memory alive.</dd>
+  <dt>Path to GC roots</dt><dd>The chain of references that explains why an object was not collected.</dd>
+  <dt>Escape analysis</dt><dd>JIT analysis proving an object never leaves a method, allowing it to skip the heap.</dd>
+  <dt>Heap dump</dt><dd>A snapshot of every object in the heap, written as a <code>.hprof</code> file.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/en/java/javase/21/gctuning/available-collectors.html">Oracle — HotSpot VM GC Tuning Guide: Available Collectors &amp; Selecting a Collector</a>
+— the vendor's own description of Serial, Parallel, G1 and ZGC, and the order in which to make tuning decisions.</p>
+
+<p class="nav" style="margin-top:2rem">← <a href="lesson-2-garbage-collection.html">Part 2 — How garbage collection works</a> ·
+Up next in the path: <a href="../07-java8-functional/lesson.html">Lesson 7 — Java 8 &amp; functional style</a> →</p>
+
+<p class="sources">Sources: Oracle, <em>HotSpot VM GC Tuning Guide (SE 21)</em> — Introduction, §2 Ergonomics, §3 Garbage Collector
+Implementation, and Available Collectors; <code>java.lang.ref</code> javadoc (SE 21). Code compiled and run on JDK 1.8.0_411; the
+output in §7 is real program output, including the JDK 8 default collector names. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

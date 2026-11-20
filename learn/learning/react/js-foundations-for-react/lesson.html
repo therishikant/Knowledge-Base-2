@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JavaScript Foundations for React — Lesson</title>
+<style>
+  :root{
+    --ink:#2b2b28; --muted:#6b675e; --rule:#d9d3c7; --bg:#fdfbf6;
+    --accent:#7a1f1f; --accent2:#1f4d7a; --deep:#7a1f1f; --skim:#1f6b4d;
+    --code-bg:#f4f0e6; --react:#087ea4;
+  }
+  *{box-sizing:border-box}
+  html{font-size:17px}
+  body{
+    margin:0 auto; max-width:860px; padding:4rem 1.5rem 6rem;
+    background:var(--bg); color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  h1{font-size:2.3rem; line-height:1.1; margin:0 0 .3rem; letter-spacing:-.01em}
+  .subtitle{color:var(--muted); font-style:italic; font-size:1.12rem; margin:0 0 1.6rem}
+  .crumbs{font-size:.85rem; color:var(--muted); margin-bottom:1.5rem}
+  .crumbs code{background:none}
+  h2{font-size:1.45rem; margin:2.6rem 0 .6rem; border-bottom:2px solid var(--rule); padding-bottom:.25rem}
+  h2 .n{color:var(--muted); font-size:1rem; font-family:"SF Mono",Menlo,monospace; margin-right:.5rem}
+  h3{font-size:1.12rem; margin:1.5rem 0 .35rem}
+  p{margin:.6rem 0}
+  a{color:var(--accent2)}
+  code{background:var(--code-bg); padding:.08em .35em; border-radius:3px; font-family:"SF Mono",Menlo,Consolas,monospace; font-size:.85em}
+  pre{background:#2b2b28; color:#f4f0e6; padding:1rem 1.1rem; border-radius:8px; overflow:auto; font-size:.82rem; line-height:1.5; margin:1rem 0}
+  pre code{background:none; color:inherit; padding:0; font-size:inherit}
+  .tldr{background:#fff8ee; border:1px solid var(--rule); border-left:5px solid var(--accent); padding:1rem 1.2rem; border-radius:6px; margin:1.2rem 0}
+  .tldr strong{color:var(--accent)}
+  figure{margin:1.6rem 0; text-align:center}
+  figcaption{color:var(--muted); font-size:.9rem; font-style:italic; margin-top:.5rem}
+  table{border-collapse:collapse; width:100%; margin:1rem 0; font-size:.92rem}
+  th,td{border:1px solid var(--rule); padding:.5rem .6rem; text-align:left; vertical-align:top}
+  th{background:#f1ece0}
+  .callout{background:#eef3f7; border-left:4px solid var(--accent2); padding:.8rem 1.1rem; border-radius:0 6px 6px 0; margin:1.2rem 0}
+  .pitfall{background:#fdeeee; border-left:4px solid var(--accent); padding:.8rem 1.1rem; border-radius:0 6px 6px 0; margin:1rem 0}
+  .try{background:#eefaf4; border-left:4px solid var(--skim); padding:.8rem 1.1rem; border-radius:0 6px 6px 0; margin:1.2rem 0}
+  .react-note{background:#e7f4f9; border-left:4px solid var(--react); padding:.7rem 1.1rem; border-radius:0 6px 6px 0; margin:1rem 0; font-size:.95rem}
+  .react-note strong{color:var(--react)}
+  .glossary dt{font-weight:700; margin-top:.6rem}
+  .glossary dd{margin:0 0 .2rem; color:#3f3b34}
+  .refs{background:var(--code-bg); border-radius:6px; padding:1rem 1.3rem}
+  .refs li{margin:.25rem 0}
+  .sources{font-size:.85rem; color:var(--muted)}
+  .recap li{margin:.4rem 0}
+  hr{border:0; border-top:1px solid var(--rule); margin:2.5rem 0}
+  .annot{font-size:.9rem; color:#3f3b34; margin:.2rem 0 1rem; padding-left:1rem; border-left:2px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<div class="crumbs">react &rsaquo; <strong>js-foundations-for-react</strong> &nbsp;·&nbsp; <span class="sources">skim (base language) — but the bedrock everything else stands on</span></div>
+
+<h1>JavaScript Foundations for React</h1>
+<p class="subtitle">The handful of modern-JavaScript features React leans on constantly — so React code reads as React, not as unfamiliar JS.</p>
+
+<div class="tldr">
+<strong>Summary.</strong> React is <em>just JavaScript</em>. Before the framework makes sense, you need fluency in ~10 modern
+JS features it uses everywhere: <code>const/let</code>, arrow functions, closures, destructuring, spread, <code>map/filter</code>,
+template literals, ternary/<code>&amp;&amp;</code>, ES modules, and immutability. This lesson is that toolkit — plus a quick look at
+the <strong>DOM</strong>, the thing React exists to manage for you.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+This is subtopic #1 on the <a href="../overview.html">React overview</a> — a <strong>skim</strong>, base-language stop before
+we touch React itself. As a Java developer you already know <em>programming</em>; what you're rusty on is <em>this
+language's dialect</em>. React doesn't invent much syntax — it borrows JavaScript's and expects you to be comfortable with
+it. Every later subtopic (components, props, hooks) is these features in a trench coat. Nail them here and React stops
+looking like magic soup.
+</p>
+
+<h2><span class="n">§2</span>Why it exists (why <em>this</em> JS, and why now)</h2>
+<p>
+JavaScript is the <strong>only</strong> language browsers run natively — so any front-end framework is ultimately JS.
+"Modern JS" (ES2015 / ES6 onward, 2015+) added the ergonomic features React's style depends on: arrow functions for concise
+callbacks, destructuring for pulling values out of objects, modules for splitting code into files, and array methods for
+transforming data into UI. Older JS could do all this, but clumsily. React's idioms assume the modern versions.
+</p>
+<div class="callout">
+<strong>Java bridge.</strong> Think of this like moving from Java 7 to Java 8: lambdas (<code>a -&gt; a+1</code>) ≈ arrow
+functions; <code>Stream.map/filter</code> ≈ array <code>.map()/.filter()</code>; <code>var</code> type inference ≈
+<code>const/let</code>. Same ideas you already use — different spelling.
+</div>
+
+<h2><span class="n">§3</span>How it works — the core toolkit</h2>
+
+<h3>3.1 Variables: <code>const</code> and <code>let</code> (never <code>var</code>)</h3>
+<pre><code>const name = "Ada";   // can't be reassigned  → default choice
+let count = 0;        // can be reassigned
+count = count + 1;    // fine
+// name = "Grace";    // ✗ TypeError: Assignment to constant variable</code></pre>
+<p class="annot">Prefer <code>const</code>; reach for <code>let</code> only when you must reassign. <code>const</code> stops
+the variable being <em>rebound</em> — but an object it points to can still be mutated (more on that in §3.9).</p>
+
+<h3>3.2 Functions &amp; arrow functions</h3>
+<pre><code>// classic function declaration
+function add(a, b) { return a + b; }
+
+// arrow function — concise, expression-bodied
+const add2 = (a, b) =&gt; a + b;        // implicit return, no braces
+const square = n =&gt; n * n;           // one param → parens optional
+const greet = () =&gt; "hi";            // no params → empty parens
+
+// arrow with a body needs an explicit return
+const addLogged = (a, b) =&gt; {
+  console.log("adding");
+  return a + b;
+};</code></pre>
+<p class="annot">Arrow functions are the workhorse of React callbacks (<code>onClick={() =&gt; ...}</code>). The
+<code>=&gt;</code> is JS's lambda arrow, exactly like Java's <code>-&gt;</code>.</p>
+<div class="react-note"><strong>React:</strong> a component <em>is</em> a function that returns markup, and event handlers are
+almost always arrow functions. You'll write hundreds of these.</div>
+
+<h3>3.3 Closures — why hooks work</h3>
+<pre><code>function makeCounter() {
+  let count = 0;                 // "captured" by the inner function
+  return () =&gt; {                 // this arrow "remembers" count
+    count = count + 1;
+    return count;
+  };
+}
+const next = makeCounter();
+next(); // 1
+next(); // 2  ← the inner function kept access to `count`</code></pre>
+<p class="annot">A <strong>closure</strong> is a function that "remembers" variables from where it was created, even after that
+outer function has returned. This is <em>the</em> mechanism behind React hooks: <code>useState</code> hands your component a
+value and a setter, and your event handlers close over them.</p>
+
+<h3>3.4 Objects &amp; arrays</h3>
+<pre><code>const user = { name: "Ada", role: "admin" };   // object (like a Map/POJO)
+user.name;          // "Ada"  — dot access
+user["role"];       // "admin" — bracket access
+
+const nums = [10, 20, 30];   // array (ordered list)
+nums[0];            // 10
+nums.length;        // 3</code></pre>
+
+<h3>3.5 Destructuring — unpacking</h3>
+<pre><code>const user = { name: "Ada", role: "admin" };
+const { name, role } = user;        // pull fields into variables
+// name = "Ada", role = "admin"
+
+const nums = [10, 20, 30];
+const [first, second] = nums;       // first = 10, second = 20</code></pre>
+<div class="react-note"><strong>React:</strong> you'll see this constantly — <code>function Button({ label, onClick })</code>
+destructures props, and <code>const [count, setCount] = useState(0)</code> destructures the array <code>useState</code>
+returns.</div>
+
+<h3>3.6 Spread <code>...</code> and rest</h3>
+<pre><code>const a = [1, 2];
+const b = [...a, 3];                // [1, 2, 3]  — copy + add (spread)
+
+const base = { name: "Ada", role: "user" };
+const promoted = { ...base, role: "admin" };  // {name:"Ada", role:"admin"} copy + override
+
+function sum(...nums) {              // rest: gather args into an array
+  return nums.reduce((t, n) =&gt; t + n, 0);
+}
+sum(1, 2, 3); // 6</code></pre>
+<p class="annot">Spread makes a <em>shallow copy</em>. This is how you update React state immutably (§3.9) — you build a
+<em>new</em> object/array instead of mutating the old one.</p>
+
+<h3>3.7 Array methods: <code>map</code>, <code>filter</code>, <code>reduce</code></h3>
+<pre><code>const nums = [1, 2, 3, 4];
+
+nums.map(n =&gt; n * 2);          // [2, 4, 6, 8]   — transform each item
+nums.filter(n =&gt; n % 2 === 0); // [2, 4]         — keep items passing a test
+nums.reduce((t, n) =&gt; t + n, 0); // 10           — fold to a single value</code></pre>
+<div class="react-note"><strong>React:</strong> <code>.map()</code> is how you turn an array of data into a list of UI
+elements — <code>items.map(item =&gt; &lt;li&gt;{item.name}&lt;/li&gt;)</code>. It's the single most-used array method in React.</div>
+
+<h3>3.8 Template literals, ternary, and <code>&amp;&amp;</code></h3>
+<pre><code>const name = "Ada";
+const msg = `Hello, ${name}!`;      // template literal (backticks, ${})
+
+const isAdmin = true;
+const label = isAdmin ? "Admin" : "User";   // ternary: cond ? a : b
+
+const show = true;
+show &amp;&amp; "visible";                  // short-circuit: right side only if left is truthy</code></pre>
+<div class="react-note"><strong>React:</strong> there's no special template syntax for conditions — you use plain JS.
+Ternary and <code>&amp;&amp;</code> are how you conditionally render UI. (<a href="https://react.dev/learn">react.dev, Quick Start — Conditional rendering</a>)</div>
+
+<h3>3.9 Immutability — the mindset React demands</h3>
+<pre><code>// ✗ mutation — changes the existing array/object in place
+const arr = [1, 2];
+arr.push(3);          // arr is now [1,2,3]; SAME array reference
+
+// ✓ new value — leaves the original alone
+const arr2 = [...arr, 3];        // brand-new array
+const obj2 = { ...obj, done: true }; // brand-new object</code></pre>
+<p class="annot">React decides whether to re-render partly by checking "is this a <em>new</em> object?" (reference identity). If
+you mutate in place, the reference is unchanged and React may miss the update. So you always produce <em>new</em> values.
+This is the same discipline as Java's immutable objects / defensive copies.</p>
+
+<h3>3.10 ES modules: <code>import</code> / <code>export</code></h3>
+<pre><code>// math.js
+export function add(a, b) { return a + b; }   // named export
+export default function App() { /* ... */ }    // default export (one per file)
+
+// main.js
+import App, { add } from "./math.js";          // default + named
+import { useState } from "react";               // from a package</code></pre>
+<p class="annot">Every React file is a module. <code>import React from "react"</code>, <code>export default</code> your
+component. Like Java's <code>package</code> + <code>import</code>, but per-file.</p>
+
+<h3>3.11 A little async (for later effects/data-fetching)</h3>
+<pre><code>// a Promise represents a future value
+async function loadUser(id) {
+  const res = await fetch(`/api/users/${id}`); // await pauses until resolved
+  return await res.json();
+}
+loadUser(1).then(user =&gt; console.log(user));</code></pre>
+<p class="annot">You don't need mastery yet — just recognize <code>async/await</code> and <code>Promise</code>. They return
+when we hit <code>useEffect</code> and data fetching.</p>
+
+<h3>3.12 The DOM — the thing React manages for you</h3>
+<p>
+The browser turns your HTML into a live tree of objects called the <strong>DOM</strong> (Document Object Model). JavaScript
+can read and change that tree, and the screen updates to match. This is what React sits on top of.
+</p>
+<pre><code>// raw DOM — imperative: you find nodes and mutate them by hand
+const btn = document.createElement("button");
+btn.textContent = "Clicked 0 times";
+let count = 0;
+btn.addEventListener("click", () =&gt; {
+  count++;
+  btn.textContent = `Clicked ${count} times`; // you manually update the DOM
+});
+document.body.appendChild(btn);</code></pre>
+
+<figure>
+<svg viewBox="0 0 760 300" width="100%" role="img" aria-label="How each JavaScript feature maps to its use in React">
+  <style>
+    .js{fill:#f4f0e6;stroke:#6b675e;stroke-width:1.3}
+    .rx{fill:#e7f4f9;stroke:#087ea4;stroke-width:1.3}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:12px Georgia,serif;fill:#3f3b34}
+    .h{font:bold 13px Georgia,serif;fill:#2b2b28}
+    .a{stroke:#087ea4;stroke-width:1.4;marker-end:url(#m)}
+  </style>
+  <defs><marker id="m" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+    <path d="M0,0 L7,3 L0,6 Z" fill="#087ea4"/></marker></defs>
+
+  <text class="h" x="70" y="24">JavaScript feature</text>
+  <text class="h" x="470" y="24">…is how you write this in React</text>
+
+  <g>
+    <rect class="js" x="20" y="40" width="230" height="34" rx="5"/><text class="t" x="34" y="62">arrow fn  n =&gt; n*2</text>
+    <rect class="rx" x="450" y="40" width="290" height="34" rx="5"/><text class="c" x="464" y="62">component &amp; onClick handlers</text>
+    <line class="a" x1="250" y1="57" x2="448" y2="57"/>
+
+    <rect class="js" x="20" y="86" width="230" height="34" rx="5"/><text class="t" x="34" y="108">destructuring  {'{ a, b }'}</text>
+    <rect class="rx" x="450" y="86" width="290" height="34" rx="5"/><text class="c" x="464" y="108">reading props &amp; useState pair</text>
+    <line class="a" x1="250" y1="103" x2="448" y2="103"/>
+
+    <rect class="js" x="20" y="132" width="230" height="34" rx="5"/><text class="t" x="34" y="154">array .map()</text>
+    <rect class="rx" x="450" y="132" width="290" height="34" rx="5"/><text class="c" x="464" y="154">rendering lists of elements</text>
+    <line class="a" x1="250" y1="149" x2="448" y2="149"/>
+
+    <rect class="js" x="20" y="178" width="230" height="34" rx="5"/><text class="t" x="34" y="200">ternary / &amp;&amp;</text>
+    <rect class="rx" x="450" y="178" width="290" height="34" rx="5"/><text class="c" x="464" y="200">conditional rendering</text>
+    <line class="a" x1="250" y1="195" x2="448" y2="195"/>
+
+    <rect class="js" x="20" y="224" width="230" height="34" rx="5"/><text class="t" x="34" y="246">spread ...  (immutability)</text>
+    <rect class="rx" x="450" y="224" width="290" height="34" rx="5"/><text class="c" x="464" y="246">updating state correctly</text>
+    <line class="a" x1="250" y1="241" x2="448" y2="241"/>
+
+    <rect class="js" x="20" y="270" width="230" height="30" rx="5"/><text class="t" x="34" y="290">closures</text>
+    <rect class="rx" x="450" y="270" width="290" height="30" rx="5"/><text class="c" x="464" y="290">how hooks remember state</text>
+    <line class="a" x1="250" y1="285" x2="448" y2="285"/>
+  </g>
+</svg>
+<figcaption>Every React idiom is one of these JS features in context. Learn the left column and the right column becomes readable.</figcaption>
+</figure>
+
+<h2><span class="n">§4</span>When to use (which feature, when)</h2>
+<table>
+  <thead><tr><th>Goal in React</th><th>JS feature you'll reach for</th></tr></thead>
+  <tbody>
+    <tr><td>Render a list from data</td><td><code>.map()</code> + <code>key</code></td></tr>
+    <tr><td>Filter what's shown</td><td><code>.filter()</code></td></tr>
+    <tr><td>Read a component's inputs</td><td>object destructuring on props</td></tr>
+    <tr><td>Show/hide based on a condition</td><td>ternary <code>? :</code> or <code>&amp;&amp;</code></td></tr>
+    <tr><td>Update state without mutating</td><td>spread <code>...</code> into a new object/array</td></tr>
+    <tr><td>Handle a click/typing</td><td>arrow-function event handler</td></tr>
+    <tr><td>Split code across files</td><td><code>import</code> / <code>export</code></td></tr>
+    <tr><td>Fetch data</td><td><code>async/await</code> + <code>fetch</code></td></tr>
+  </tbody>
+</table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine building with LEGO. <strong>The DOM</strong> is the model you've already snapped together on the table.
+The old way (raw JavaScript) is: every time something changes, <em>you</em> crawl over the model, find the exact bricks to
+swap, and swap them by hand — easy to miss one. <strong>React</strong> is like handing a friend a <em>picture</em> of how
+the model should look now; the friend figures out which bricks to change and does it for you. But to draw that picture,
+you need a pen — and these JavaScript features (<code>map</code>, arrow functions, spread…) <em>are</em> the pen. This
+lesson is learning to hold the pen before we draw.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>Java 8 lambdas &amp; Streams</strong> → arrow functions and <code>.map()/.filter()/.reduce()</code>. Same functional-transformation muscle.</li>
+  <li><strong>Immutable objects / defensive copies (Java)</strong> → the spread-to-copy discipline React state needs.</li>
+  <li><strong>Java <code>package</code>/<code>import</code></strong> → ES modules.</li>
+  <li><strong>Forward link:</strong> closures (§3.3) are the key to <em>state-and-usestate</em> and <em>hooks-in-depth</em> later.</li>
+  <li>Your own <code>notes/</code>: a good place to keep a personal "JS-for-React cheat card".</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — code dissection</h2>
+<p>Here's a single snippet that uses almost every feature above, the way React code does. Dissected chunk-by-chunk.</p>
+<pre><code>// 1. a module importing a helper
+import { formatPrice } from "./money.js";
+
+// 2. some data
+const products = [
+  { id: 1, name: "Cabbage", price: 1.5, inStock: true },
+  { id: 2, name: "Garlic",  price: 0.9, inStock: false },
+  { id: 3, name: "Apple",   price: 2.0, inStock: true },
+];
+
+// 3. a function that takes options via a destructured object
+function listInStock(items, { maxPrice }) {
+  return items
+    .filter(p =&gt; p.inStock &amp;&amp; p.price &lt;= maxPrice)   // 4. keep matching
+    .map(p =&gt; {                                        // 5. transform each
+      const { name, price } = p;                       // 6. destructure
+      return `${name}: ${formatPrice(price)}`;         // 7. template literal
+    });
+}
+
+const cheap = listInStock(products, { maxPrice: 1.6 });
+console.log(cheap);</code></pre>
+<p class="annot"><strong>1</strong> module import — every React file starts like this. &nbsp;<strong>2</strong> an array of
+objects — exactly the shape a component renders. &nbsp;<strong>3</strong> the second argument is a destructured options
+object (React reads props this way). &nbsp;<strong>4</strong> <code>filter</code> + <code>&amp;&amp;</code> narrows the list.
+&nbsp;<strong>5</strong> <code>map</code> transforms — in React this would return JSX, not strings. &nbsp;<strong>6</strong>
+destructuring inside the callback. &nbsp;<strong>7</strong> a template literal builds the output. Swap the strings in
+<strong>5</strong> for <code>&lt;li&gt;...&lt;/li&gt;</code> and you've basically written a React list.</p>
+
+<div class="try">
+<strong>Try this / predict the output.</strong> Before I run it: what does <code>console.log(cheap)</code> print?
+<br>Then a variation — what changes if line 4's <code>&amp;&amp;</code> becomes <code>||</code>? Tell me your prediction and I'll
+run the real code so we verify behavior, not memory (this feeds <em>Practice mode</em> in your interviews).
+</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Mutating instead of copying.</strong> <code>arr.push(x)</code> / <code>obj.x = 1</code> mutate in
+place — React may not notice. Build a new value with spread instead. This is the #1 React-state bug.</div>
+<div class="pitfall"><strong>Confusing <code>=</code>, <code>==</code>, <code>===</code>.</strong> Always use <code>===</code>
+(strict equality). <code>==</code> does surprising type coercion (<code>0 == ""</code> is <code>true</code>).</div>
+<div class="pitfall"><strong><code>&amp;&amp;</code> with numbers in JSX.</strong> <code>count &amp;&amp; &lt;X/&gt;</code> renders a stray
+<code>0</code> when <code>count</code> is 0, because <code>0</code> is falsy but still printable. Prefer
+<code>count &gt; 0 &amp;&amp; ...</code>. (You'll hit this in conditional rendering.)</div>
+<div class="pitfall"><strong>Forgetting arrow functions capture the surrounding scope.</strong> That's usually what you want in
+React — but it means a handler "remembers" the values from its render (closures again).</div>
+
+<h2><span class="n">§9</span>Reference / cheat-sheet</h2>
+<table>
+  <thead><tr><th>Syntax</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><code>const x = ...</code></td><td>immutable binding (default)</td></tr>
+    <tr><td><code>(a, b) =&gt; a + b</code></td><td>arrow function, implicit return</td></tr>
+    <tr><td><code>const { a } = obj</code></td><td>object destructuring</td></tr>
+    <tr><td><code>const [a] = arr</code></td><td>array destructuring</td></tr>
+    <tr><td><code>[...a, x]</code> / <code>{'{...o, k: v}'}</code></td><td>spread copy (+ add/override)</td></tr>
+    <tr><td><code>arr.map(f)</code></td><td>transform each → new array</td></tr>
+    <tr><td><code>arr.filter(f)</code></td><td>keep matching → new array</td></tr>
+    <tr><td><code>`hi ${x}`</code></td><td>template literal</td></tr>
+    <tr><td><code>c ? a : b</code></td><td>ternary</td></tr>
+    <tr><td><code>c &amp;&amp; a</code></td><td>render <code>a</code> only if <code>c</code> truthy</td></tr>
+    <tr><td><code>import/export</code></td><td>ES modules</td></tr>
+    <tr><td><code>async / await</code></td><td>work with Promises</td></tr>
+  </tbody>
+</table>
+
+<h2 id="glossary">Glossary</h2>
+<dl class="glossary">
+  <dt>Arrow function</dt><dd>Concise function syntax <code>(args) =&gt; expr</code>; JS's lambda.</dd>
+  <dt>Closure</dt><dd>A function that remembers variables from where it was defined, even after the outer function returns.</dd>
+  <dt>Destructuring</dt><dd>Syntax for unpacking values from objects/arrays into variables.</dd>
+  <dt>Spread (<code>...</code>)</dt><dd>Expands an array/object's contents; used to make shallow copies.</dd>
+  <dt>Immutability</dt><dd>Never changing a value in place; producing a new value instead.</dd>
+  <dt>Module</dt><dd>A single JS file that exports/imports values.</dd>
+  <dt>DOM</dt><dd>Document Object Model — the browser's live object-tree of the page that JS can manipulate.</dd>
+  <dt>Promise</dt><dd>An object representing a value that will be available later (async work).</dd>
+</dl>
+
+<h2><span class="n">§10</span>Recap — active recall</h2>
+<ul class="recap">
+  <li>React is <strong>just JavaScript</strong>; these ~10 features are its whole dialect.</li>
+  <li><code>const</code> by default; arrow functions everywhere; <code>===</code> not <code>==</code>.</li>
+  <li><code>.map()</code> renders lists; <code>.filter()</code> narrows them; ternary/<code>&amp;&amp;</code> render conditionally.</li>
+  <li>Destructuring reads props and the <code>useState</code> pair; spread makes the <strong>new</strong> values React needs.</li>
+  <li><strong>Never mutate</strong> state — copy with spread. #1 React bug avoided.</li>
+  <li>Closures are why hooks can "remember" — comes back in state &amp; hooks.</li>
+  <li>The <strong>DOM</strong> is the tree React updates for you; raw JS makes you update it by hand.</li>
+</ul>
+
+<h2>References (primary sources)</h2>
+<div class="refs">
+<ul>
+  <li><strong>Read first:</strong> <a href="https://javascript.info/">javascript.info</a> — modern JS, clearly explained.</li>
+  <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/Arrow_functions">MDN — Arrow functions</a>, <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring_assignment">Destructuring</a>, <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map">Array.map</a>.</li>
+  <li><a href="https://react.dev/learn">React Docs — Quick Start</a> (shows these features in React context).</li>
+  <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model/Introduction">MDN — Introduction to the DOM</a>.</li>
+</ul>
+</div>
+
+<hr />
+<p class="sources">Grounded in MDN, javascript.info, and the official React docs. Base-language primer for the React topic —
+kept deliberately at "just enough for React".</p>
+
+</body>
+</html>

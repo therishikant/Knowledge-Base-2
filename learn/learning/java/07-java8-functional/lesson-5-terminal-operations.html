@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Terminal Operations &amp; reduce — Java 8 &amp; Functional, Part 5 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  h4{font-size:1rem;margin:1.1rem 0 .2rem;color:#4a4639}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem;line-height:1.9}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Terminal Operations &amp; <code>reduce</code></h1>
+<p class="crumb">Java › Java 8 &amp; functional cluster · lesson 7, <strong>part 5 of 9</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the operations that actually run the pipeline</p>
+
+<p class="nav"><strong>Java 8 &amp; functional cluster:</strong>
+  <a href="lesson.html">1. Lambdas</a> ·
+  <a href="lesson-2-functional-interfaces.html">2. Functional interfaces &amp; method refs</a> ·
+  <a href="lesson-3-stream-pipeline.html">3. How a stream actually runs</a> ·
+  <a href="lesson-4-intermediate-operations.html">4. Intermediate operations</a> ·
+  <strong>5. Terminal operations &amp; reduce</strong> ·
+  <a href="lesson-6-collectors-and-groupingby.html">6. Collectors &amp; groupingBy</a> ·
+  <a href="lesson-7-optional.html">7. Optional</a> ·
+  <a href="lesson-8-default-methods-and-java-time.html">8. default methods &amp; java.time</a> ·
+  <a href="lesson-9-stream-recall-playbook.html">9. Recall &amp; interview playbook</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> A terminal operation is the one that actually does the work, and it answers one of four questions:
+<em>give me a collection</em> (<code>collect</code>, <code>toArray</code>), <em>give me a single value</em> (<code>count</code>,
+<code>sum</code>, <code>min</code>, <code>max</code>, <code>reduce</code>), <em>answer yes or no / find one</em>
+(<code>anyMatch</code>, <code>findFirst</code>), or <em>just do something with each</em> (<code>forEach</code>). Of these,
+<code>reduce</code> is the one that is really worth understanding, because every other value-producing operation is a special case
+of it.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+<a href="lesson-4-intermediate-operations.html">Part 4</a> shaped the data. This part ends the pipeline. After a terminal operation
+the stream is spent, and you are back in ordinary Java with a <code>List</code>, a number, a <code>boolean</code> or an
+<code>Optional</code>.
+</p>
+<p>
+<code>collect</code> is by far the biggest terminal operation and gets its own lesson —
+<a href="lesson-6-collectors-and-groupingby.html">part 6</a>. Here we cover everything else, and we build <code>reduce</code> from
+the ground up, because "implement sum/max/join without the built-in method" is a standard interview probe.
+</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+<p>
+A lazy plan is useless until something demands a result. The terminal operation is that demand. But there is a second reason the
+API is shaped this way: by making the <em>last</em> step declare what kind of answer you want, the library can choose how to execute
+everything before it.
+</p>
+<ul>
+  <li><code>findFirst()</code> tells the library "I need one element", so it can stop early.</li>
+  <li><code>count()</code> on a sized source can skip the whole traversal and just read the size.</li>
+  <li><code>collect(...)</code> tells the library exactly how to combine partial results, which is what makes the same code work on
+      a parallel stream.</li>
+</ul>
+<p>
+If you had written a <code>for</code> loop instead, none of those choices would be available — you would already have dictated the
+mechanism.
+</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<figure>
+<svg viewBox="0 0 800 300" width="100%" role="img" aria-label="Terminal operations grouped into four families by what they return">
+  <style>
+    .g1{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.5}.g2{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.5}
+    .g3{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.5}.g4{fill:#f7f0f7;stroke:#6b3f7a;stroke-width:1.5}
+    .t{font:bold 12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .m{font:11.5px "SF Mono",Menlo,monospace;fill:#3f3b34}
+    .c{font:11.5px Georgia,serif;fill:#6b675e;font-style:italic}
+  </style>
+  <rect class="g1" x="20" y="25" width="370" height="118" rx="8"/>
+  <text class="t" x="40" y="50">I WANT A CONTAINER</text>
+  <text class="m" x="40" y="74">collect(Collectors...)  -&gt; List/Set/Map/String</text>
+  <text class="m" x="40" y="94">toArray()               -&gt; Object[]</text>
+  <text class="m" x="40" y="114">toArray(String[]::new)  -&gt; String[]</text>
+  <text class="c" x="40" y="134">see part 6 for the whole Collectors catalogue</text>
+
+  <rect class="g2" x="410" y="25" width="370" height="118" rx="8"/>
+  <text class="t" x="430" y="50">I WANT ONE VALUE</text>
+  <text class="m" x="430" y="74">count()                 -&gt; long</text>
+  <text class="m" x="430" y="94">min(cmp) / max(cmp)     -&gt; Optional&lt;T&gt;</text>
+  <text class="m" x="430" y="114">sum() average()         -&gt; primitive streams only</text>
+  <text class="m" x="430" y="134">reduce(...)             -&gt; the general case</text>
+
+  <rect class="g3" x="20" y="163" width="370" height="105" rx="8"/>
+  <text class="t" x="40" y="188">I WANT AN ANSWER / ONE ELEMENT</text>
+  <text class="m" x="40" y="212">anyMatch allMatch noneMatch -&gt; boolean</text>
+  <text class="m" x="40" y="232">findFirst() findAny()       -&gt; Optional&lt;T&gt;</text>
+  <text class="c" x="40" y="254">all of these SHORT-CIRCUIT</text>
+
+  <rect class="g4" x="410" y="163" width="370" height="105" rx="8"/>
+  <text class="t" x="430" y="188">I JUST WANT TO DO SOMETHING</text>
+  <text class="m" x="430" y="212">forEach(Consumer)        -&gt; void</text>
+  <text class="m" x="430" y="232">forEachOrdered(Consumer) -&gt; void</text>
+  <text class="c" x="430" y="254">returns nothing — a side effect is the point</text>
+</svg>
+<figcaption>Four families. Pick the family from the question you are being asked, then the method name is almost forced.</figcaption>
+</figure>
+
+<hr/>
+
+<h3>Family 1 — counting and aggregating</h3>
+<table>
+  <thead><tr><th>Method</th><th>Returns</th><th>Note</th></tr></thead>
+  <tbody>
+  <tr><td><code>count()</code></td><td><code>long</code></td><td>always a <code>long</code>, never an <code>int</code></td></tr>
+  <tr><td><code>min(Comparator)</code> / <code>max(Comparator)</code></td><td><code>Optional&lt;T&gt;</code></td><td>empty if the stream is empty — that is why it is an <code>Optional</code></td></tr>
+  <tr><td><code>sum()</code>, <code>average()</code>, <code>summaryStatistics()</code></td><td>primitive / <code>OptionalDouble</code> / stats object</td><td><strong>only on <code>IntStream</code>/<code>LongStream</code>/<code>DoubleStream</code></strong></td></tr>
+  </tbody>
+</table>
+<pre>names.stream().count()                                     <span class="c">// 5</span>
+nums.stream().min(Comparator.naturalOrder()).get()         <span class="c">// 1</span>
+nums.stream().mapToInt(Integer::intValue).sum()            <span class="c">// 31</span>
+nums.stream().mapToInt(Integer::intValue).average()        <span class="c">// OptionalDouble[3.875]</span>
+nums.stream().mapToInt(Integer::intValue).summaryStatistics()</pre>
+<pre>IntSummaryStatistics{count=8, sum=31, min=1, average=3.875000, max=9}</pre>
+<div class="idiom"><strong>Idiom.</strong> When an interviewer asks for several numbers at once (count <em>and</em> average
+<em>and</em> max), reach for <code>summaryStatistics()</code>. One pass, one object, and it shows you know the API beyond the
+basics.</div>
+<div class="pitfall"><code>Stream&lt;Integer&gt;</code> has <strong>no</strong> <code>sum()</code>. You must cross the primitive
+bridge: <code>.mapToInt(Integer::intValue).sum()</code>. This is the single most common compile error in stream interviews.</div>
+
+<h3>Family 2 — <code>reduce</code>, the general case</h3>
+<p>
+<code>reduce</code> means: <em>take the running answer and the next element, produce the new running answer</em>. Repeat until the
+stream is empty. That is all. Summing is <code>(a, b) -&gt; a + b</code>; finding the max is <code>(a, b) -&gt; a &gt; b ? a : b</code>;
+joining is <code>(a, b) -&gt; a + "|" + b</code>.
+</p>
+
+<figure>
+<svg viewBox="0 0 800 220" width="100%" role="img" aria-label="reduce folding a list into one value, step by step">
+  <style>
+    .n{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .acc{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#rm);fill:none}
+  </style>
+  <defs><marker id="rm" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="acc" x="20" y="80" width="78" height="46" rx="6"/><text class="t" x="47" y="108">0</text>
+  <rect class="n" x="150" y="20" width="60" height="40" rx="6"/><text class="t" x="174" y="46">3</text>
+  <rect class="acc" x="150" y="80" width="78" height="46" rx="6"/><text class="t" x="177" y="108">3</text>
+  <rect class="n" x="280" y="20" width="60" height="40" rx="6"/><text class="t" x="304" y="46">1</text>
+  <rect class="acc" x="280" y="80" width="78" height="46" rx="6"/><text class="t" x="307" y="108">4</text>
+  <rect class="n" x="410" y="20" width="60" height="40" rx="6"/><text class="t" x="434" y="46">4</text>
+  <rect class="acc" x="410" y="80" width="78" height="46" rx="6"/><text class="t" x="437" y="108">8</text>
+  <rect class="n" x="540" y="20" width="60" height="40" rx="6"/><text class="t" x="564" y="46">5</text>
+  <rect class="acc" x="540" y="80" width="78" height="46" rx="6"/><text class="t" x="563" y="108">13</text>
+  <rect class="acc" x="670" y="80" width="100" height="46" rx="6"/><text class="t" x="692" y="108">13</text>
+
+  <line class="a" x1="100" y1="103" x2="148" y2="103"/>
+  <line class="a" x1="230" y1="103" x2="278" y2="103"/>
+  <line class="a" x1="360" y1="103" x2="408" y2="103"/>
+  <line class="a" x1="490" y1="103" x2="538" y2="103"/>
+  <line class="a" x1="620" y1="103" x2="668" y2="103"/>
+  <line class="a" x1="180" y1="62" x2="180" y2="78"/>
+  <line class="a" x1="310" y1="62" x2="310" y2="78"/>
+  <line class="a" x1="440" y1="62" x2="440" y2="78"/>
+  <line class="a" x1="570" y1="62" x2="570" y2="78"/>
+
+  <text class="c" x="20" y="60">elements →</text>
+  <text class="c" x="20" y="160">The green boxes are the "accumulator": the answer so far.</text>
+  <text class="c" x="20" y="182">reduce(0, (acc, x) -&gt; acc + x) on [3,1,4,5] → 0+3=3 · 3+1=4 · 4+4=8 · 8+5=13</text>
+  <text class="c" x="20" y="204">Without a seed you get Optional, because an empty stream has no answer to give.</text>
+</svg>
+<figcaption>Folding a stream into one value. Every aggregate operation is this shape underneath.</figcaption>
+</figure>
+
+<h4>The three overloads</h4>
+<pre><span class="c">// 1. no seed → Optional, because an empty stream has no answer</span>
+Optional&lt;T&gt; reduce(BinaryOperator&lt;T&gt; accumulator)
+
+<span class="c">// 2. with a seed → always a value; the seed is the answer for an empty stream</span>
+T reduce(T identity, BinaryOperator&lt;T&gt; accumulator)
+
+<span class="c">// 3. seed + combiner → the accumulator type differs from the element type</span>
+&lt;U&gt; U reduce(U identity, BiFunction&lt;U,? <span class="k">super</span> T,U&gt; accumulator, BinaryOperator&lt;U&gt; combiner)</pre>
+<div class="ann">
+Overload <strong>3</strong> confuses people. The <code>combiner</code> is only used by <strong>parallel</strong> streams: each thread
+builds its own partial <code>U</code>, and the combiner merges two partials. In a sequential stream it is never called — but you
+must still supply a correct one, or your code breaks the day someone adds <code>.parallel()</code>.
+</div>
+<h4>Verified output</h4>
+<pre>reduce1  : 31          <span class="c">// nums.reduce((a,b) -&gt; a+b).get()</span>
+reduce2  : 31          <span class="c">// nums.reduce(0, (a,b) -&gt; a+b)</span>
+reduce3  : 19          <span class="c">// names.reduce(0, (acc,n) -&gt; acc+n.length(), Integer::sum)</span>
+empty+seed  : 0
+empty-seed  : Optional.empty
+reduce max  : 9        <span class="c">// nums.reduce(Integer::max).get()</span>
+reduce join : ann|bob|carol|dave|erin</pre>
+<div class="callout">
+<strong>The identity must really be an identity.</strong> <code>reduce(0, (a,b) -&gt; a+b)</code> is correct because
+<code>0 + x == x</code>. <code>reduce(1, (a,b) -&gt; a+b)</code> is <em>wrong</em>, and in parallel it is wrong by an unpredictable
+amount, because the seed gets added once per split. For multiplication the identity is <code>1</code>; for string concatenation it
+is <code>""</code>; for max it is <code>Integer.MIN_VALUE</code>.
+</div>
+<div class="pitfall"><strong>Never <code>reduce("", (a,b) -&gt; a + b)</code> on strings.</strong> It builds a new <code>String</code>
+at every step — O(n²). Use <code>Collectors.joining()</code>, which uses a <code>StringBuilder</code>.</div>
+
+<h3>Family 3 — matching and finding (all short-circuit)</h3>
+<table>
+  <thead><tr><th>Method</th><th>Returns</th><th>Stops when</th></tr></thead>
+  <tbody>
+  <tr><td><code>anyMatch(p)</code></td><td><code>boolean</code></td><td>the first match is found</td></tr>
+  <tr><td><code>allMatch(p)</code></td><td><code>boolean</code></td><td>the first <em>failure</em> is found</td></tr>
+  <tr><td><code>noneMatch(p)</code></td><td><code>boolean</code></td><td>the first match is found</td></tr>
+  <tr><td><code>findFirst()</code></td><td><code>Optional&lt;T&gt;</code></td><td>one element in encounter order</td></tr>
+  <tr><td><code>findAny()</code></td><td><code>Optional&lt;T&gt;</code></td><td>any one element — cheaper in parallel</td></tr>
+  </tbody>
+</table>
+
+<h4>The empty-stream trap — know this cold</h4>
+<pre>allMatch on empty  : true
+anyMatch on empty  : false
+noneMatch on empty : true</pre>
+<div class="ann">
+<code>allMatch</code> on an empty stream returns <code>true</code> <em>even for a predicate that is always false</em>. This is
+"vacuous truth": there is no element that violates the rule, so the rule holds. It is mathematically right and it has caused real
+production bugs ("all orders are validated" — there were no orders). Interviewers ask this exact question.
+</div>
+<div class="callout"><strong><code>findFirst</code> vs <code>findAny</code>:</strong> identical on a sequential stream. On a parallel
+stream, <code>findFirst</code> must respect encounter order and so costs coordination; <code>findAny</code> returns whatever any
+thread found first. Use <code>findAny</code> when order genuinely does not matter.</div>
+
+<h3>Family 4 — consuming</h3>
+<pre><span class="k">void</span> forEach(Consumer&lt;? <span class="k">super</span> T&gt; action)
+<span class="k">void</span> forEachOrdered(Consumer&lt;? <span class="k">super</span> T&gt; action)</pre>
+<h4>Verified, on a parallel stream</h4>
+<pre>forEach        : 54763012   &lt;- order not guaranteed
+forEachOrdered : 01234567   &lt;- always encounter order</pre>
+<div class="ann">
+Sequentially both print in order, so the difference is invisible until someone parallelises. <code>forEachOrdered</code> forces
+encounter order and therefore gives up much of the parallel speed-up. Also note <code>forEach</code> returns <code>void</code>: it
+is the one terminal operation whose entire purpose is a side effect, which is why printing and saving belong here and nowhere
+else.
+</div>
+
+<h3>Family 5 — <code>toArray</code></h3>
+<pre>Object[] a  = names.stream().toArray();                <span class="c">// always Object[]</span>
+String[] b  = names.stream().toArray(String[]::new);   <span class="c">// typed — pass the array constructor</span></pre>
+<div class="ann"><code>String[]::new</code> is a constructor reference for an <em>array</em>: given a size <code>n</code> it does
+<code>new String[n]</code>. Without it you get <code>Object[]</code> and a <code>ClassCastException</code> later.</div>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong>Need a list/map/string?</strong> <code>collect</code> — see <a href="lesson-6-collectors-and-groupingby.html">part 6</a>.</li>
+  <li><strong>Need one number?</strong> Prefer the named operation (<code>count</code>, <code>sum</code>, <code>max</code>) over
+      <code>reduce</code>; it reads better and is often optimised.</li>
+  <li><strong>Need one number that has no named operation?</strong> That is what <code>reduce</code> is for.</li>
+  <li><strong>Need yes/no?</strong> <code>anyMatch</code>/<code>allMatch</code>/<code>noneMatch</code> — not
+      <code>filter(...).count() &gt; 0</code>, which scans everything.</li>
+  <li><strong>Need one element?</strong> <code>findFirst</code> if order matters, <code>findAny</code> if it does not.</li>
+  <li><strong>Need a side effect?</strong> <code>forEach</code>, and nowhere else in the pipeline.</li>
+</ul>
+<div class="idiom"><strong>Idiom.</strong> <code>stream.anyMatch(p)</code> beats <code>stream.filter(p).count() &gt; 0</code> and
+<code>stream.filter(p).findFirst().isPresent()</code>. It short-circuits and it says what you mean.</div>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+You and your friends are counting sweets in a long line of jars. There are four kinds of question anyone can ask you, and which one
+they ask changes how you work:
+</p>
+<ul>
+  <li><em>"Put them all in a bag."</em> — you must open every jar. That is <code>collect</code>.</li>
+  <li><em>"How many altogether?"</em> — you keep one running number in your head and add each jar to it. That is
+      <code>reduce</code> (and <code>count</code>, <code>sum</code>, <code>max</code> are just famous versions of it).</li>
+  <li><em>"Is there a red sweet anywhere?"</em> — the moment you see one, you stop walking. That is <code>anyMatch</code>.</li>
+  <li><em>"Shout the name of each jar."</em> — you walk the whole line and produce nothing at the end. That is
+      <code>forEach</code>.</li>
+</ul>
+<p>
+And the naive question: <em>"why can't 'how many' just be 'put them in a bag and count the bag'?"</em> It could — but then you would
+have carried a huge bag for nothing. Telling the library <em>what kind of answer</em> you want lets it pick the cheapest route.
+That is the whole design.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson-3-stream-pipeline.html">part 3</a>:</strong> the terminal operation is what makes the lazy plan run,
+      and what decides whether short-circuiting is possible.</li>
+  <li><strong>→ <a href="lesson-6-collectors-and-groupingby.html">part 6</a>:</strong> <code>collect</code> is a terminal operation
+      big enough to need its own lesson.</li>
+  <li><strong>→ <a href="lesson-7-optional.html">part 7</a>:</strong> <code>min</code>, <code>max</code>, <code>findFirst</code>,
+      <code>findAny</code> and seedless <code>reduce</code> all return <code>Optional</code>, which is the next lesson.</li>
+  <li><strong>← <a href="../08-collections-and-equality/lesson-3-equality-and-ordering.html">equality &amp; ordering</a>:</strong>
+      <code>min</code>/<code>max</code> need a <code>Comparator</code>.</li>
+  <li><strong>← <a href="../11-concurrency/lesson.html">concurrency</a>:</strong> the <code>reduce</code> combiner and the
+      <code>forEach</code>/<code>forEachOrdered</code> split only make sense once you know about parallel execution.</li>
+  <li><strong>Same idea elsewhere:</strong> <code>reduce</code> is JavaScript's <code>Array.reduce</code>, Python's
+      <code>functools.reduce</code>, SQL's aggregate functions. "Fold" is the academic name.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — dissected</h2>
+<p>From <a href="../code/StreamTerminalDemo.java">code/StreamTerminalDemo.java</a>:</p>
+<pre><span class="k">int</span> r3 = names.stream().reduce(
+            0,                                 <span class="c">// 1 identity — type U = Integer</span>
+            (acc, n) -&gt; acc + n.length(),      <span class="c">// 2 accumulator: (U, T) → U</span>
+            Integer::sum);                     <span class="c">// 3 combiner: (U, U) → U, parallel only</span></pre>
+<div class="ann">
+<strong>1</strong> The element type is <code>String</code>, but the answer is an <code>Integer</code>. That mismatch is exactly when
+you need the three-argument form.<br/>
+<strong>2</strong> Note the asymmetry — the accumulator takes <em>an answer and an element</em>, not two elements.<br/>
+<strong>3</strong> Two partial answers are both <code>Integer</code>, so the combiner is plain addition. Run sequentially this is
+never invoked, which is why bugs here hide for years.<br/>
+<strong>Honest alternative:</strong> <code>names.stream().mapToInt(String::length).sum()</code> gives the same 19 and is clearer.
+Use three-arg <code>reduce</code> only when no simpler form exists.
+</div>
+
+<h3>Emptiness, made explicit</h3>
+<pre>empty+seed : new ArrayList&lt;Integer&gt;().stream().reduce(0, Integer::sum)  → 0
+empty-seed : new ArrayList&lt;Integer&gt;().stream().reduce(Integer::sum)     → Optional.empty</pre>
+<div class="ann">
+This pair is the whole argument for <code>Optional</code> in one line. With a seed, "nothing" has a sensible answer and you get a
+plain value. Without a seed, there is genuinely no answer, so the API refuses to invent one and hands you an empty
+<code>Optional</code> instead of <code>null</code>.
+</div>
+
+<div class="try"><strong>Predict the output.</strong>
+<pre>List&lt;String&gt; empty = <span class="k">new</span> ArrayList&lt;&gt;();
+System.out.println(empty.stream().allMatch(s -&gt; s.length() &gt; 100));
+System.out.println(Stream.of(1,2,3).reduce(10, (a,b) -&gt; a + b));
+System.out.println(Stream.of(<span class="s">"a"</span>,<span class="s">"b"</span>).reduce(<span class="s">""</span>, (a,b) -&gt; b + a));</pre>
+<em>(Answers: <code>true</code> — vacuous truth; <code>16</code> — the seed 10 is included; <code>ba</code> — the accumulator was
+written backwards, which is also why a non-associative accumulator is unsafe in parallel.)</em>
+</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong><code>allMatch</code> on an empty stream is <code>true</code>.</strong> Guard with
+<code>!list.isEmpty() &amp;&amp; list.stream().allMatch(...)</code> when "there must be at least one" is part of the requirement.</div>
+<div class="pitfall"><strong>Calling <code>.get()</code> on the <code>Optional</code> from <code>min</code>/<code>max</code>/
+<code>findFirst</code>.</strong> It throws <code>NoSuchElementException</code> on an empty stream. Use <code>orElse</code>,
+<code>orElseThrow</code> or <code>ifPresent</code> — see <a href="lesson-7-optional.html">part 7</a>.</div>
+<div class="pitfall"><strong>A non-associative accumulator in <code>reduce</code>.</strong> Subtraction is the classic:
+<code>reduce(0, (a,b) -&gt; a - b)</code> gives different answers sequentially and in parallel, because grouping changes the
+result.</div>
+<div class="pitfall"><strong>A wrong identity.</strong> It must satisfy <code>f(identity, x) == x</code>. In parallel a wrong
+identity is applied once per split, so the error scales with the number of threads.</div>
+<div class="pitfall"><strong>Mutating a shared collection in <code>forEach</code>.</strong>
+<code>stream.parallel().forEach(list::add)</code> corrupts an <code>ArrayList</code>. Use
+<code>collect(Collectors.toList())</code>, which is designed for it.</div>
+<div class="pitfall"><strong>Using <code>forEach</code> when you want a result.</strong> If you are building something inside
+<code>forEach</code>, you almost certainly want <code>collect</code> or <code>reduce</code> instead.</div>
+<div class="pitfall"><strong>String concatenation in <code>reduce</code>.</strong> O(n²). <code>Collectors.joining()</code> is
+O(n).</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>A terminal operation returns a <strong>non-stream</strong>, runs the pipeline, and spends the stream.</li>
+  <li>Four families: <strong>container</strong> (<code>collect</code>, <code>toArray</code>), <strong>value</strong>
+      (<code>count</code>, <code>min</code>, <code>max</code>, <code>sum</code>, <code>reduce</code>), <strong>answer/find</strong>
+      (<code>anyMatch</code>, <code>findFirst</code>), <strong>side effect</strong> (<code>forEach</code>).</li>
+  <li><code>reduce</code> = running answer + next element → new running answer. Three overloads: no seed (gives
+      <code>Optional</code>), seed, seed + combiner (parallel).</li>
+  <li>The identity must satisfy <code>f(identity, x) == x</code>, and the accumulator must be <strong>associative</strong>.</li>
+  <li><code>sum</code>/<code>average</code>/<code>summaryStatistics</code> exist only on primitive streams — cross with
+      <code>mapToInt</code>.</li>
+  <li><strong><code>allMatch</code> on an empty stream is <code>true</code>.</strong></li>
+  <li><code>findFirst</code> respects order; <code>findAny</code> does not and is cheaper in parallel.</li>
+  <li><code>forEach</code> is unordered in parallel; <code>forEachOrdered</code> is not.</li>
+  <li>Use <code>Collectors.joining()</code>, never <code>reduce</code>, to concatenate strings.</li>
+</ul>
+
+<hr/>
+<h2>Reference — terminal operations card</h2>
+<pre>WANT                       USE                          RETURNS
+a List/Set/Map/String      collect(Collectors.xxx)      that container      (part 6)
+an array                   toArray(String[]::new)       T[]
+how many                   count()                      long
+smallest / largest         min(cmp) / max(cmp)          Optional&lt;T&gt;
+total / mean               mapToInt(..).sum()/average() int / OptionalDouble
+all the stats at once      mapToInt(..).summaryStatistics()
+a custom aggregate         reduce(identity, op[, comb]) T or Optional&lt;T&gt;
+is there one?              anyMatch(p)                  boolean   short-circuits
+are they all?              allMatch(p)                  boolean   TRUE if empty!
+is there none?             noneMatch(p)                 boolean
+give me one                findFirst() / findAny()      Optional&lt;T&gt;
+do something to each       forEach(c) / forEachOrdered(c)  void
+
+REDUCE OVERLOADS
+reduce(op)                     -&gt; Optional&lt;T&gt;   no seed: empty stream has no answer
+reduce(seed, op)               -&gt; T             seed is the answer when empty
+reduce(seed, acc, combiner)    -&gt; U             when the result type differs (parallel-safe)</pre>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Terminal operation</dt><dd>The operation that triggers execution and produces a non-stream result.</dd>
+  <dt>Reduction / fold</dt><dd>Collapsing many elements into one by repeatedly combining.</dd>
+  <dt>Accumulator</dt><dd>The function combining the running result with the next element.</dd>
+  <dt>Identity</dt><dd>The seed value <code>i</code> such that <code>f(i, x) == x</code>.</dd>
+  <dt>Combiner</dt><dd>Merges two partial results; used only in parallel execution.</dd>
+  <dt>Associative</dt><dd><code>(a op b) op c == a op (b op c)</code> — required for correct parallel reduction.</dd>
+  <dt>Vacuous truth</dt><dd>Why <code>allMatch</code> returns <code>true</code> for an empty stream.</dd>
+  <dt>Encounter order</dt><dd>The order defined by the source; respected by <code>findFirst</code> and <code>forEachOrdered</code>.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/8/docs/api/java/util/stream/Stream.html#reduce-T-java.util.function.BinaryOperator-">Oracle
+— <code>Stream.reduce</code> javadoc</a> (it states the identity and associativity requirements precisely), plus the "Reduction
+operations" section of the <a href="https://docs.oracle.com/javase/8/docs/api/java/util/stream/package-summary.html"><code>java.util.stream</code>
+package summary</a>.</p>
+
+<p class="nav" style="margin-top:2rem">← <a href="lesson-4-intermediate-operations.html">Part 4 — Intermediate operations</a> ·
+Next: <a href="lesson-6-collectors-and-groupingby.html">Part 6 — Collectors &amp; groupingBy</a> →</p>
+<p class="sources">Sources: Oracle, <code>java.util.stream.Stream</code> javadoc (SE 8); <code>java.util.stream</code> package
+summary, "Reduction operations" and "Associativity". All outputs produced by running <code>StreamTerminalDemo.java</code> on
+JDK 1.8.0_411. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

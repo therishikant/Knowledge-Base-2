@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Configuration &amp; the Component Model — Spring</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    padding:.55rem .85rem;background:#f4f0e6;border:1px solid var(--rule);border-radius:6px;margin-bottom:1.6rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{text-decoration:none;font-weight:600} .nav a:hover{text-decoration:underline}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner h3{margin:0 0 .5rem;color:var(--accent2);font-size:1.05rem}
+  .flow-steps{background:#f4f0e6;border-left:4px solid var(--accent2);padding:.8rem 1.1rem;border-radius:0 6px 6px 0;margin:1rem 0;font-size:.93rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem} .flow-steps li{margin:.3rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <a href="../04-bean-lifecycle-and-extension-points/lesson.html">← 04 Bean Lifecycle &amp; Extension Points</a>
+  <span><a href="../overview.html">Spring Map</a> · Lesson 5 of 18</span>
+  <a href="../06-aop-and-proxies/lesson.html">06 AOP &amp; Proxies →</a>
+</nav>
+
+<h1>Configuration &amp; the Component Model</h1>
+<p class="crumb"><a href="../overview.html">Spring</a> › lesson 5 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — how your recipes enter Box 2 (<code>beanDefinitionMap</code>)</p>
+
+<div class="tldr">
+<strong>Summary —</strong> Before Spring can create a single object in Box 3 (<code>singletonObjects</code>), it must first fill its recipe book in Box 2 (<code>Map&lt;String, BeanDefinition&gt;</code>). There are only two ways to put a recipe into that map: stick a label (<code>@Component</code>, <code>@Service</code>, <code>@Repository</code>, <code>@Controller</code>) on a class <em>you</em> wrote, or write a <code>@Bean</code> method inside a <code>@Configuration</code> class for a 3rd-party class <em>someone else</em> wrote. And to keep you from accidentally creating duplicate objects, Spring wraps every <code>@Configuration</code> class in a generated subclass (CGLIB proxy) that checks <code>singletonObjects</code> before running any <code>@Bean</code> method.
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the Map</h2>
+<p>
+Lessons 2–4 showed how Spring takes a recipe from Box 2 (<code>beanDefinitionMap</code>) and cooks it into a live singleton object in Box 3 (<code>singletonObjects</code>). Now we step one box backward to answer: <strong>how did your recipes get into Box 2 in the first place?</strong>
+</p>
+
+<div class="map-banner">
+  <h3>📍 You Are Here on the 6-Box Map: Phase 1 (Startup) → Box 2A (Your Recipes)</h3>
+  <figure style="margin:.6rem 0 .2rem">
+  <svg viewBox="0 0 780 185" width="100%" role="img" aria-label="6-Box Map highlighting Box 2A BeanDefinition Scanner">
+    <style>
+      .dim{fill:#f4f0e6;stroke:#b5afa3;stroke-width:1.2}
+      .here{fill:#fff8ee;stroke:#7a1f1f;stroke-width:2.6}
+      .phase{font:bold 11px Georgia,serif;fill:#6b675e;letter-spacing:.04em}
+      .bt{font:bold 11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+      .bs{font:10.5px Georgia,serif;fill:#3f3b34}
+      .arr{stroke:#6b675e;stroke-width:1.4;marker-end:url(#m5a);fill:none}
+    </style>
+    <defs><marker id="m5a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+    <text class="phase" x="12" y="16">PHASE 1: STARTUP (SpringApplication.run)</text>
+    <text class="phase" x="530" y="16">PHASE 2: REQUEST</text>
+    <text class="phase" x="688" y="16">PHASE 3</text>
+
+    <!-- Box 1 -->
+    <rect class="dim" x="10" y="26" width="105" height="90" rx="5"/>
+    <text class="bt" x="18" y="44">Box 1: Env</text>
+    <text class="bs" x="18" y="62">PropertySources</text>
+    <text class="bs" x="18" y="76">+ activeProfiles</text>
+    <text class="bs" x="18" y="96" style="font-style:italic">Happened before</text>
+
+    <path class="arr" d="M115,70 L132,70"/>
+
+    <!-- Box 2 (Highlighted) -->
+    <rect class="here" x="134" y="22" width="165" height="98" rx="6"/>
+    <text class="bt" x="144" y="41" style="fill:#7a1f1f">★ Box 2: Recipes</text>
+    <text class="bs" x="144" y="58" style="font-weight:bold">2A: @ComponentScan</text>
+    <text class="bs" x="144" y="73" style="font-weight:bold">    + @Configuration</text>
+    <text class="bs" x="144" y="88" style="fill:#6b675e">2B: Boot Auto-Config</text>
+    <text class="bs" x="144" y="106" style="fill:#7a1f1f;font-weight:bold">YOU ARE HERE (2A)</text>
+
+    <path class="arr" d="M299,70 L316,70"/>
+
+    <!-- Box 3 -->
+    <rect class="dim" x="318" y="26" width="100" height="90" rx="5"/>
+    <text class="bt" x="326" y="44">Box 3: Beans</text>
+    <text class="bs" x="326" y="62">singletonObjects</text>
+    <text class="bs" x="326" y="76">(Warehouse)</text>
+    <text class="bs" x="326" y="96" style="font-style:italic">Happens next</text>
+
+    <path class="arr" d="M418,70 L433,70"/>
+
+    <!-- Box 4 -->
+    <rect class="dim" x="435" y="26" width="85" height="90" rx="5"/>
+    <text class="bt" x="442" y="44">Box 4: BPP</text>
+    <text class="bs" x="442" y="62">AOP Proxy</text>
+    <text class="bs" x="442" y="76">Wrapper</text>
+
+    <path class="arr" d="M520,70 L535,70"/>
+
+    <!-- Box 5 & 6 -->
+    <rect class="dim" x="537" y="26" width="138" height="90" rx="5"/>
+    <text class="bt" x="545" y="44">Box 5 &amp; 6: Web</text>
+    <text class="bs" x="545" y="62">Tomcat + Filters</text>
+    <text class="bs" x="545" y="76">DispatcherServlet</text>
+    <text class="bs" x="545" y="90">+ ThreadLocal</text>
+
+    <path class="arr" d="M675,70 L690,70"/>
+
+    <!-- Phase 3 -->
+    <rect class="dim" x="692" y="26" width="78" height="90" rx="5"/>
+    <text class="bt" x="698" y="44">Shutdown</text>
+    <text class="bs" x="698" y="62">@PreDestroy</text>
+    <text class="bs" x="698" y="76">close()</text>
+
+    <text class="bs" x="12" y="142"><strong>Right before this:</strong> Box 1 (<code>Environment</code>) loaded properties and active profiles; <code>ApplicationContext</code> created an empty <code>beanDefinitionMap</code>.</text>
+    <text class="bs" x="12" y="160"><strong>Right now (Box 2A):</strong> <code>ConfigurationClassPostProcessor</code> scans your packages and parses your <code>@Configuration</code> classes to populate <code>beanDefinitionMap</code>.</text>
+    <text class="bs" x="12" y="178"><strong>Right after this:</strong> Box 2B loads Spring Boot's auto-config recipes, and then Box 3 instantiates the actual Java objects.</text>
+  </svg>
+  </figure>
+</div>
+
+<h2><span class="n">§2</span>Why it exists — the pain in plain Java</h2>
+<p>
+Suppose we are building our running app, <strong>BookVault</strong>, without annotations or Java configuration. Why do we need <em>two</em> different ways to register recipes in Box 2? Look at what happens when your app mixes classes <strong>you wrote</strong> with classes from a <strong>third-party library JAR</strong>:
+</p>
+<pre><span class="c">// 1. A class YOU wrote — you own the source file BookService.java</span>
+<span class="k">public class</span> BookService {
+    <span class="k">private final</span> BookRepository repo;
+    <span class="k">public</span> BookService(BookRepository repo) { <span class="k">this</span>.repo = repo; }
+}
+
+<span class="c">// 2. A class SOMEONE ELSE wrote — locked inside hikari-cp.jar (read-only bytecode!)</span>
+<span class="c">//    Plus it has 20 constructors/setters and needs custom setup logic:</span>
+HikariConfig cfg = <span class="k">new</span> HikariConfig();
+cfg.setJdbcUrl(<span class="s">"jdbc:postgresql://localhost/bookvault"</span>);
+cfg.setMaximumPoolSize(10);
+DataSource ds = <span class="k">new</span> HikariDataSource(cfg);</pre>
+
+<p>Now watch how painful it was across Spring's history to put both of those into Box 2's recipe map:</p>
+<table>
+<thead><tr><th>Era</th><th>How you put recipes in Box 2</th><th>What hurt</th></tr></thead>
+<tbody>
+<tr><td>Spring 1.x–2.0 (XML)</td><td>Hand-type <code>&lt;bean id="bookService" class="…"&gt;</code> for <em>every single class</em> in a giant XML file.</td><td>Thousands of lines of stringly-typed XML; rename a Java class and it compiles fine but crashes at startup.</td></tr>
+<tr><td>Spring 2.5 (<code>@Component</code>)</td><td>Put <code>@Service</code> right on <code>BookService.java</code> and let Spring scan your folder.</td><td>Zero XML for <em>your</em> classes! <strong>Wait:</strong> how do you put <code>@Component</code> on <code>HikariDataSource.class</code>? You can't—you don't own its source code!</td></tr>
+<tr><td>Spring 3.0+ (<code>@Configuration</code> + <code>@Bean</code>)</td><td>Write a normal Java method that builds and returns <code>new HikariDataSource(cfg)</code>, and mark the method <code>@Bean</code>.</td><td><strong>Solved.</strong> Compiler-checked Java for 3rd-party classes, and stereotypes for your own classes.</td></tr>
+</tbody></table>
+
+<div class="idiom"><strong>The ownership rule (memorize this once):</strong>
+<ul>
+  <li><strong>Did you write the class?</strong> Put a stereotype sticker on the class (<code>@Service</code>, <code>@Repository</code>, <code>@Controller</code>, <code>@Component</code>).</li>
+  <li><strong>Did someone else write the class</strong> (<code>DataSource</code>, <code>RestClient</code>, Jackson <code>ObjectMapper</code>, AWS S3 client) — or do you need custom <code>if/else</code> builder code to construct it? Write a <code>@Bean</code> method inside a <code>@Configuration</code> class.</li>
+</ul>
+</div>
+
+<h2><span class="n">§3</span>How it works (Level 1 → Level 2 Zoom)</h2>
+
+<h3>Start with Plain Java Data Structures First</h3>
+<p>
+Strip away every Spring class name. At the start of Phase 1, Box 2 is just an empty Java <code>Map</code> of recipes, and Box 3 is an empty Java <code>Map</code> of live objects:
+</p>
+<pre><span class="c">// Box 2: The Recipe Book (NO business objects exist yet!)</span>
+Map&lt;String, BeanDefinition&gt; beanDefinitionMap = <span class="k">new</span> ConcurrentHashMap&lt;&gt;();
+
+<span class="c">// What is a BeanDefinition? Just a plain Java struct describing HOW to make a bean:</span>
+<span class="k">class</span> BeanDefinition {
+    String beanClassName;       <span class="c">// e.g. "com.bookvault.BookService" (for @Component)</span>
+    String factoryBeanName;     <span class="c">// e.g. "persistenceConfig"        (for @Bean method)</span>
+    String factoryMethodName;   <span class="c">// e.g. "dataSource"               (for @Bean method)</span>
+    String scope = <span class="s">"singleton"</span>;
+    <span class="k">boolean</span> isLazy = <span class="k">false</span>;
+}
+
+<span class="c">// Channel A (@ComponentScan): reads .class files in your package and adds a Class recipe</span>
+beanDefinitionMap.put(<span class="s">"bookService"</span>,
+    <span class="k">new</span> BeanDefinition(<span class="s">"com.bookvault.BookService"</span>, <span class="k">null</span>, <span class="k">null</span>));
+
+<span class="c">// Channel B (@Configuration + @Bean): reads @Bean methods and adds a Factory-Method recipe</span>
+beanDefinitionMap.put(<span class="s">"dataSource"</span>,
+    <span class="k">new</span> BeanDefinition(<span class="k">null</span>, <span class="s">"persistenceConfig"</span>, <span class="s">"dataSource"</span>));</pre>
+
+<div class="flow-steps">
+  <strong>Step-by-step control flow inside Box 2A (Startup):</strong>
+  <ol>
+    <li><strong>Step 1 (Seed recipe):</strong> You call <code>SpringApplication.run(BookVaultApp.class, args)</code>. Spring registers one starting recipe in Box 2: <code>"bookVaultApp"</code>.</li>
+    <li><strong>Step 2 (The Master Chef runs):</strong> Before Box 3 cooks any normal beans, Spring invokes a built-in <code>BeanFactoryPostProcessor</code> named <code>ConfigurationClassPostProcessor</code>.</li>
+    <li><strong>Step 3 (Channel A — Classpath Scan):</strong> It sees <code>@ComponentScan</code> on your main class, walks your package folders on disk, inspects the raw <code>.class</code> bytes using ASM (without even loading the classes into the JVM!), and for every class carrying <code>@Component</code> (or <code>@Service</code>, <code>@Repository</code>, <code>@Controller</code>), inserts a <code>BeanDefinition</code> into <code>beanDefinitionMap</code>.</li>
+    <li><strong>Step 4 (Channel B — <code>@Bean</code> Methods):</strong> For every <code>@Configuration</code> class it found, it reads every <code>@Bean</code> method and inserts a factory-method <code>BeanDefinition</code> into <code>beanDefinitionMap</code> (where the bean's name is the <strong>method name</strong>).</li>
+    <li><strong>Step 5 (CGLIB Class Enhancement):</strong> It rewrites each <code>@Configuration</code> class in Box 2 to point to a generated CGLIB subclass so inter-<code>@Bean</code> calls are safe (explained below).</li>
+  </ol>
+</div>
+
+<h3>Channel A: Stereotypes — why are there four stickers if they all register a recipe?</h3>
+<pre><span class="an">@Component</span>     <span class="c">// generic: "put a recipe for this class into Box 2"</span>
+ ├─ <span class="an">@Service</span>     <span class="c">// business logic layer (pure label for humans &amp; AOP pointcuts)</span>
+ ├─ <span class="an">@Repository</span>  <span class="c">// data access layer → triggers a Box 4 Proxy that translates SQL exceptions!</span>
+ └─ <span class="an">@Controller</span>  <span class="c">// web layer → registers routes in Box 6 (DispatcherServlet)</span>
+     └─ <span class="an">@RestController</span>  <span class="c">// = @Controller + @ResponseBody (write JSON directly)</span></pre>
+<p>
+Open <code>@Service.java</code> in your IDE and you will see <code>@Component</code> written right on top of it. That is called a <strong>meta-annotation</strong> (a sticker on a sticker). Because the Box 2 scanner looks for <code>@Component</code> or anything meta-annotated with <code>@Component</code>, it finds all four.
+</p>
+<ul>
+  <li><strong><code>@Repository</code> triggers Box 4 behaviour:</strong> When Box 4 sees a bean with <code>@Repository</code>, <code>PersistenceExceptionTranslationPostProcessor</code> wraps it in a proxy that catches raw JDBC/JPA exceptions (like vendor error code <code>1062</code>) and translates them into Spring's clean <code>DataAccessException</code> hierarchy (e.g., <code>DuplicateKeyException</code>).</li>
+  <li><strong><code>@Controller</code> triggers Box 6 behaviour:</strong> During startup, <code>RequestMappingHandlerMapping</code> only inspects beans marked <code>@Controller</code> when building its URL routing table. Put <code>@GetMapping("/books")</code> on a plain <code>@Component</code> and every request returns <code>404 Not Found</code>!</li>
+</ul>
+
+<div class="conv"><strong>The Root Package Rule:</strong> If you don't pass <code>basePackages</code> to <code>@ComponentScan</code>, where does it scan? <strong>Starting from the package of your main class and going downward into subpackages.</strong> That is why <code>BookVaultApplication</code> always lives at the root (<code>com.bookvault</code>) with <code>com.bookvault.service</code> and <code>com.bookvault.web</code> underneath it.</div>
+
+<h3>Channel B: <code>@Configuration</code> + <code>@Bean</code> — and the CGLIB Proxy Secret</h3>
+<p>
+Now look closely at this <code>@Configuration</code> class. What happens when <code>jdbcTemplate()</code> calls <code>dataSource()</code> directly?
+</p>
+<pre><span class="an">@Configuration</span>
+<span class="k">public class</span> PersistenceConfig {
+
+    <span class="an">@Bean</span>
+    <span class="k">public</span> DataSource dataSource() {
+        <span class="k">return new</span> HikariDataSource(); <span class="c">// opens 10 physical TCP database connections!</span>
+    }
+
+    <span class="an">@Bean</span>
+    <span class="k">public</span> JdbcTemplate jdbcTemplate() {
+        <span class="k">return new</span> JdbcTemplate(dataSource()); <span class="c">// ← Wait! Does this call new HikariDataSource() a SECOND time?!</span>
+    }
+}</pre>
+<p>
+In normal Java, calling <code>dataSource()</code> inside <code>jdbcTemplate()</code> would execute <code>new HikariDataSource()</code> a second time — leaking a second connection pool!
+</p>
+<p>
+Why doesn't that happen in a <code>@Configuration</code> class? Because in Step 5 of Box 2A, Spring uses <strong>CGLIB</strong> to generate a subclass of <code>PersistenceConfig</code> in memory. Here is the <strong>exact plain-Java code</strong> of the subclass Spring generates and puts into Box 3:
+</p>
+<pre><span class="c">// Generated in memory by Spring at startup:</span>
+<span class="k">public class</span> PersistenceConfig$$SpringCGLIB$$0 <span class="k">extends</span> PersistenceConfig {
+
+    <span class="k">private</span> Map&lt;String, Object&gt; singletonObjects; <span class="c">// reference to Box 3 warehouse</span>
+
+    <span class="an">@Override</span>
+    <span class="k">public</span> DataSource dataSource() {
+        <span class="c">// 1. Check Box 3 (singletonObjects) FIRST!</span>
+        <span class="k">if</span> (singletonObjects.containsKey(<span class="s">"dataSource"</span>)) {
+            <span class="k">return</span> (DataSource) singletonObjects.get(<span class="s">"dataSource"</span>);
+        }
+        <span class="c">// 2. Not built yet? Call your real method, store in Box 3, and return it</span>
+        DataSource ds = <span class="k">super</span>.dataSource();
+        singletonObjects.put(<span class="s">"dataSource"</span>, ds);
+        <span class="k">return</span> ds;
+    }
+}</pre>
+<div class="ann"><strong>Look at that <code>if</code> statement!</strong> When <code>jdbcTemplate()</code> calls <code>this.dataSource()</code>, polymorphism dispatches the call to <code>PersistenceConfig$$SpringCGLIB$$0.dataSource()</code>. It sees <code>"dataSource"</code> is already in Box 3 (<code>singletonObjects</code>) and returns the existing pool instead of calling <code>super.dataSource()</code>!</div>
+
+<figure>
+<svg viewBox="0 0 760 250" width="100%" role="img" aria-label="Full mode versus lite mode for configuration classes">
+  <style>
+    .g{fill:#eefaf4;stroke:#6db33f;stroke-width:1.4}.y{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11.5px Georgia,serif;fill:#3f3b34}
+    .h{font:bold 12.5px Georgia,serif;fill:#2b2b28}
+    .a{stroke:#6b675e;stroke-width:1.3;marker-end:url(#m7);fill:none}
+  </style>
+  <defs><marker id="m7" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <text class="h" x="14" y="18" style="fill:#1f6b4d">@Configuration — "FULL" mode (CGLIB subclass)</text>
+  <rect class="g" x="14" y="28" width="340" height="195" rx="6"/>
+  <text class="t" x="30" y="52">jdbcTemplate() calls dataSource()</text>
+  <path class="a" d="M100,60 L100,80"/>
+  <rect class="b" x="30" y="86" width="305" height="44" rx="5"/>
+  <text class="c" x="44" y="104">CGLIB override checks Box 3 first:</text>
+  <text class="t" x="44" y="121" style="font-size:10.5px">singletonObjects.containsKey("dataSource")?</text>
+  <path class="a" d="M100,130 L100,150"/>
+  <rect class="b" x="30" y="156" width="305" height="48" rx="5"/>
+  <text class="c" x="44" y="176">yes → return existing object from Box 3</text>
+  <text class="c" x="44" y="194">no  → call super.dataSource(), put in Box 3</text>
+  <text class="c" x="30" y="217" style="fill:#1f6b4d;font-weight:bold">Result: ONE DataSource in memory.</text>
+
+  <text class="h" x="406" y="18" style="fill:#7a1f1f">@Component / proxyBeanMethods=false — "LITE" mode</text>
+  <rect class="y" x="406" y="28" width="340" height="195" rx="6"/>
+  <text class="t" x="422" y="52">jdbcTemplate() calls dataSource()</text>
+  <path class="a" d="M492,60 L492,80"/>
+  <rect class="y" x="422" y="86" width="305" height="44" rx="5"/>
+  <text class="c" x="436" y="106">No CGLIB subclass — it is a raw</text>
+  <text class="c" x="436" y="122">Java method call on PersistenceConfig</text>
+  <path class="a" d="M492,130 L492,150"/>
+  <rect class="y" x="422" y="156" width="305" height="48" rx="5"/>
+  <text class="c" x="436" y="176">Runs new HikariDataSource() a 2nd time!</text>
+  <text class="c" x="436" y="194">Second pool is outside Box 3, never closed.</text>
+  <text class="c" x="406" y="217" style="fill:#7a1f1f;font-weight:bold">Result: TWO pools. Connection leak!</text>
+</svg>
+<figcaption>Full mode (<code>@Configuration</code>) vs Lite mode (<code>@Component</code> or <code>@Configuration(proxyBeanMethods = false)</code>).
+<span class="sources">(Per <a href="https://docs.spring.io/spring-framework/reference/core/beans/java/basic-concepts.html">Spring Framework Reference — Basic Concepts: @Bean and @Configuration</a>.)</span></figcaption>
+</figure>
+
+<div class="idiom"><strong>The best practice that works in BOTH modes:</strong> Don't call <code>dataSource()</code> inside <code>jdbcTemplate()</code> at all! Ask Spring to pass <code>DataSource</code> as a <strong>method parameter</strong>:
+<pre style="margin:.5rem 0 0"><span class="an">@Bean</span>
+<span class="k">public</span> JdbcTemplate jdbcTemplate(DataSource ds) { <span class="c">// Spring fetches 'ds' from Box 3 for you!</span>
+    <span class="k">return new</span> JdbcTemplate(ds);
+}</pre>
+When you use method parameter injection, you never call <code>dataSource()</code> yourself, so it is 100% safe even in Lite mode (<code>@Configuration(proxyBeanMethods = false)</code>), which avoids generating a CGLIB class and speeds up startup.</div>
+
+<h3>Other ways recipes enter Box 2: <code>@Import</code> and <code>@Conditional</code></h3>
+<pre><span class="c">// 1. @Import pulls another recipe class (or programmatic selector) into Box 2</span>
+<span class="an">@Configuration</span>
+<span class="an">@Import</span>({ PersistenceConfig.class, SecurityConfig.class })
+<span class="k">class</span> AppConfig {}
+
+<span class="c">// Every @EnableXxx annotation in Spring (@EnableAsync, @EnableScheduling, @EnableAutoConfiguration)</span>
+<span class="c">// is literally just a meta-annotation carrying @Import(...)!</span>
+
+<span class="c">// 2. @Conditional acts as a gatekeeper at the door of Box 2:</span>
+<span class="c">//    If matches() returns false, the recipe is NEVER added to beanDefinitionMap!</span>
+<span class="an">@Bean</span>
+<span class="an">@ConditionalOnProperty</span>(name = <span class="s">"search.engine"</span>, havingValue = <span class="s">"lucene"</span>)
+SearchEngine luceneEngine() { <span class="k">return new</span> LuceneEngine(); }</pre>
+
+<h2><span class="n">§4</span>When to use — Decision Table</h2>
+<table>
+<thead><tr><th>Scenario</th><th>Which tool to use</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>A service, controller, or repository class <strong>you wrote</strong></td><td><code>@Service</code>, <code>@Controller</code>, <code>@Repository</code></td><td>Scanned automatically into Box 2; zero boilerplate config code.</td></tr>
+<tr><td>A <strong>3rd-party class</strong> (<code>DataSource</code>, <code>ObjectMapper</code>, <code>S3Client</code>)</td><td><code>@Bean</code> inside <code>@Configuration</code></td><td>You can't edit 3rd-party source files to add <code>@Component</code>.</td></tr>
+<tr><td>Two beans of the <strong>exact same Java class</strong> (e.g., <code>primaryDataSource</code> &amp; <code>replicaDataSource</code>)</td><td>Two <code>@Bean</code> methods</td><td><code>@Component</code> on a class only ever registers one recipe; <code>@Bean</code> registers one recipe per method.</td></tr>
+<tr><td><code>@Configuration</code> where <code>@Bean</code> methods take dependencies via parameters (never calling each other)</td><td><code>@Configuration(proxyBeanMethods = false)</code></td><td>Skips CGLIB subclass generation (faster startup, lower memory).</td></tr>
+<tr><td>Building a reusable internal library or custom <code>@EnableXxx</code> annotation</td><td><code>@Import(MyConfig.class)</code> or <code>ImportSelector</code></td><td>Lets users pull your recipes into Box 2 even if your JAR is in a different package.</td></tr>
+<tr><td>Registering a bean only when a property, class, or other bean is present/missing</td><td><code>@ConditionalOnProperty</code>, <code>@ConditionalOnMissingBean</code></td><td>Gatekeeps Box 2 so unused recipes are never even registered.</td></tr>
+</tbody></table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine Spring is a giant automated kitchen. Before the chefs in <strong>Box 3</strong> can cook any food, the head chef in <strong>Box 2</strong> needs a <strong>Recipe Book</strong> listing every dish on the menu. How do recipes get into the book?
+</p>
+<p>
+<strong>Way 1 — Stickers on your own Tupperware (<code>@Component</code>):</strong> For dishes you invented in your own home, you just stick a bright green label on the container saying "PUT ME ON THE MENU." Before the kitchen opens, a helper walks down your pantry shelves (<code>@ComponentScan</code>) and copies every stickered item into the Recipe Book.
+</p>
+<p>
+<strong>Way 2 — Handwritten recipe cards (<code>@Configuration</code> + <code>@Bean</code>):</strong> What if you want to serve Coca-Cola? You don't own the Coca-Cola factory, so you can't walk into their building and stick a label on their blueprint. Instead, you write a little recipe card in your binder: <em>"To get a Cola: open bottle, pour over ice."</em>
+</p>
+<p>
+<strong>Why the binder is magic (CGLIB proxy):</strong> Suppose your "Root Beer Float" card says: <em>"Step 1: follow the Vanilla Ice Cream card. Step 2: add root beer."</em> If two different cards both say "follow the Vanilla Ice Cream card," you don't want to make two giant tubs of ice cream! So the head chef secretly tapes a sticky note over every card in your binder: <em>"Wait! Before you make this, check the fridge (Box 3). If there's already Vanilla Ice Cream in the fridge, just grab that tub!"</em>
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← Lesson 04 (Bean Lifecycle &amp; Extension Points):</strong> <code>ConfigurationClassPostProcessor</code> is the <code>BeanFactoryPostProcessor</code> that executes Box 2A right before Box 3 instantiates regular beans.</li>
+  <li><strong>← <a href="../../java/02-jvm-class-loader/lesson.html">java/02-jvm-class-loader</a> &amp; <a href="../../java/05-type-system-and-oop/lesson.html">java/05-type-system-and-oop</a>:</strong> Component scanning uses ASM bytecode reading so it doesn't trigger class loading for non-beans; CGLIB proxying relies on Java subclassing and virtual method dispatch (which is why <code>final</code> breaks it).</li>
+  <li><strong>→ Lesson 06 (AOP &amp; Proxies):</strong> You just saw your first CGLIB proxy on a <code>@Configuration</code> class; Lesson 06 uses the exact same proxy trick in Box 4 for <code>@Transactional</code> and <code>@Async</code>.</li>
+  <li><strong>→ Lesson 07 (Spring Boot &amp; Auto-Configuration):</strong> Box 2B (Auto-Configuration) is literally just <code>@Configuration</code> + <code>@Bean</code> + <code>@ConditionalOnMissingBean</code> loaded right after Box 2A!</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Code Dissection &amp; Interview Derivation</h2>
+
+<h3>Code Dissection: A production configuration class</h3>
+<pre><span class="an">@Configuration</span>                                                  <span class="c">// ① Full mode: CGLIB-proxied</span>
+<span class="k">public class</span> SearchConfig {
+
+    <span class="an">@Bean</span>                                                       <span class="c">// ② Recipe name in Box 2 = "luceneEngine"</span>
+    <span class="an">@ConditionalOnProperty</span>(name = <span class="s">"bookvault.search"</span>, havingValue = <span class="s">"lucene"</span>)
+    <span class="k">public</span> SearchEngine luceneEngine(SearchProperties props) {  <span class="c">// ③ Parameter injection (best practice)</span>
+        <span class="k">return new</span> LuceneEngine(props.indexDir());
+    }
+
+    <span class="an">@Bean</span>
+    <span class="an">@ConditionalOnMissingBean</span>(SearchEngine.class)               <span class="c">// ④ Back-off if luceneEngine was registered</span>
+    <span class="k">public</span> SearchEngine inMemoryEngine() {
+        <span class="k">return new</span> InMemorySearchEngine();
+    }
+
+    <span class="an">@Bean</span>
+    <span class="k">public static</span> PropertySourcesPlaceholderConfigurer placeholders() { <span class="c">// ⑤ Why static? See Rule 1!</span>
+        <span class="k">return new</span> PropertySourcesPlaceholderConfigurer();
+    }
+}</pre>
+<div class="ann"><strong>Chunk-by-chunk dissection:</strong>
+<strong>①</strong> <code>@Configuration</code> tells Box 2A to parse this class for <code>@Bean</code> methods and wrap the class itself in a CGLIB subclass.
+<strong>②</strong> Notice the return type is the interface <code>SearchEngine</code>, not the concrete class <code>LuceneEngine</code>. Always declare the interface as the return type of a <code>@Bean</code> method so Box 2 records the interface contract for type matching.
+<strong>③</strong> <code>SearchProperties props</code> is injected by Spring as a method parameter. That means we don't call another <code>@Bean</code> method by hand.
+<strong>④</strong> <code>@ConditionalOnMissingBean</code> checks Box 2's <code>beanDefinitionMap</code>: "Is there already a recipe for <code>SearchEngine</code>?" If <code>luceneEngine</code> was registered above, this fallback is skipped.
+<strong>⑤</strong> Why is <code>placeholders()</code> marked <code>static</code>? Because <code>PropertySourcesPlaceholderConfigurer</code> is a <code>BeanFactoryPostProcessor</code> (Box 2 phase). By <strong>Rule 1 (Order of Steps)</strong>, Box 2 post-processors must run <em>before</em> normal singleton objects (like an instance of <code>SearchConfig</code>) are created in Box 3. Making the <code>@Bean</code> method <code>static</code> lets Spring call <code>SearchConfig.placeholders()</code> without instantiating <code>SearchConfig</code> too early!</div>
+
+<div class="try"><strong>Try this / Predict the output:</strong>
+Suppose you change <code>@Configuration</code> on <code>PersistenceConfig</code> to <code>@Component</code>, and inside that class you have:
+<pre style="margin:.4rem 0"><span class="an">@Bean</span> <span class="k">public</span> DataSource dataSource() { <span class="k">return new</span> HikariDataSource(); }
+<span class="an">@Bean</span> <span class="k">public</span> JdbcTemplate templateA() { <span class="k">return new</span> JdbcTemplate(dataSource()); }
+<span class="an">@Bean</span> <span class="k">public</span> NamedParameterJdbcTemplate templateB() { <span class="k">return new</span> NamedParameterJdbcTemplate(dataSource()); }</pre>
+<strong>Predict:</strong> How many <code>HikariDataSource</code> instances are created at startup? How many of them are inside Box 3 (<code>singletonObjects</code>)?
+<br/><em>Answer:</em> <strong>Three</strong> <code>HikariDataSource</code> instances are created! One when Spring calls <code>dataSource()</code> to populate Box 3, a second when <code>templateA()</code> calls <code>this.dataSource()</code> directly, and a third when <code>templateB()</code> calls <code>this.dataSource()</code> directly. Only the first one is in Box 3; the other two are unmanaged ghosts that will never have <code>close()</code> called on shutdown!</div>
+
+<h3>How to Think in Interviews — Derive, Don't Memorize</h3>
+<p>Use the <strong>6-Box Map</strong> and the <strong>3 Universal Rules</strong> to derive every classic interview question on configuration in 10 seconds:</p>
+<table>
+<thead><tr><th>Classic Interview Question</th><th>Which Box / Rule to Check</th><th>10-Second Derived Answer</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>"What is the difference between <code>@Component</code> and <code>@Configuration</code> when declaring <code>@Bean</code> methods?"</strong></td>
+  <td><strong>Rule 2 (Who You Call)</strong> + <strong>Box 3</strong></td>
+  <td>In <code>@Configuration</code> (Full mode), Spring wraps the config class in a CGLIB subclass that checks <code>singletonObjects</code> (Box 3) before calling <code>super.myBean()</code>. In <code>@Component</code> (Lite mode), there is no proxy—calling <code>myBean()</code> is a raw Java call on <code>this</code>, creating a duplicate unmanaged object every time.</td>
+</tr>
+<tr>
+  <td><strong>"Are <code>@Component</code>, <code>@Service</code>, <code>@Repository</code>, and <code>@Controller</code> identical?"</strong></td>
+  <td><strong>Box 2 → Box 4 → Box 6</strong></td>
+  <td>All four put a recipe into Box 2 (via <code>@Component</code> meta-annotation). But <code>@Repository</code> also tells Box 4 to wrap the bean in an SQL-exception-translating proxy, and <code>@Controller</code> tells Box 6 (<code>DispatcherServlet</code>) to register its <code>@RequestMapping</code> URLs.</td>
+</tr>
+<tr>
+  <td><strong>"Why can't a <code>@Configuration</code> class be <code>final</code>, or its <code>@Bean</code> methods be <code>private</code> or <code>final</code>?"</strong></td>
+  <td><strong>Box 2A (CGLIB subclass)</strong></td>
+  <td>Full-mode <code>@Configuration</code> works by generating a subclass (<code>extends YourConfig</code>) that overrides each <code>@Bean</code> method to check Box 3 first. In Java, you cannot subclass a <code>final</code> class, and a subclass cannot override <code>private</code> or <code>final</code> methods.</td>
+</tr>
+<tr>
+  <td><strong>"My class has <code>@Service</code> on it, why does Spring throw <code>NoSuchBeanDefinitionException</code>?"</strong></td>
+  <td><strong>Rule 1 (Order)</strong> + <strong>Box 2A</strong></td>
+  <td>If the object isn't in Box 3, its recipe never entered Box 2A. 99% of the time, the class sits in a package <em>above or beside</em> the main <code>@SpringBootApplication</code> class, so downward <code>@ComponentScan</code> never visited that folder.</td>
+</tr>
+<tr>
+  <td><strong>"Why should a <code>BeanFactoryPostProcessor</code> <code>@Bean</code> method be declared <code>static</code>?"</strong></td>
+  <td><strong>Rule 1 (Recipes before Objects)</strong></td>
+  <td>A <code>BeanFactoryPostProcessor</code> runs in Box 2 (before Box 3 creates singleton objects). If its <code>@Bean</code> method isn't <code>static</code>, Spring is forced to instantiate the enclosing <code>@Configuration</code> object early in Box 2, skipping Box 4 <code>BeanPostProcessor</code>s for that config class and everything it injects!</td>
+</tr>
+</tbody></table>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Calling a <code>@Bean</code> method inside a <code>@Component</code> (or <code>proxyBeanMethods = false</code>) class.</strong> Because there is no CGLIB subclass intercepting the call, <code>this.dataSource()</code> executes the method body directly and constructs a second, unmanaged instance outside Box 3. Fix: use <code>@Configuration</code> or inject dependencies as method parameters.</div>
+<div class="pitfall"><strong>Placing your <code>@SpringBootApplication</code> class in a sub-package like <code>com.bookvault.app</code>.</strong> Component scanning only looks at <code>com.bookvault.app.*</code> and completely misses <code>com.bookvault.service.*</code>, so those recipes never enter Box 2. Fix: keep the main class in the root package <code>com.bookvault</code>.</div>
+<div class="pitfall"><strong>Putting <code>@GetMapping</code> on a <code>@Component</code> or <code>@Service</code> instead of <code>@Controller</code>.</strong> The bean is created in Box 3, but Box 6's <code>RequestMappingHandlerMapping</code> only scans <code>@Controller</code> beans for web routes. Result: silent 404s.</div>
+<div class="pitfall"><strong>Using <code>@ConditionalOnBean</code> inside your own user <code>@Configuration</code> classes.</strong> By <strong>Rule 1 (Order of Steps)</strong>, Box 2A scans your classes in filesystem/import order. If Config A checks <code>@ConditionalOnBean(B.class)</code> before Config B has been parsed into <code>beanDefinitionMap</code>, the check returns <code>false</code> even though B exists! Only use <code>@ConditionalOnMissingBean</code> inside Auto-Configuration (Box 2B), which runs <em>after</em> all user recipes in Box 2A are registered.</div>
+<div class="pitfall"><strong>Returning a concrete class instead of an interface from a <code>@Bean</code> method.</strong> Writing <code>@Bean HikariDataSource ds()</code> instead of <code>@Bean DataSource ds()</code> limits type information in Box 2 before instantiation and can cause subtle proxy casting issues when JDK dynamic proxies are used.</div>
+
+<h2><span class="n">§9</span>Recap, Reference &amp; Glossary</h2>
+<ul class="recap">
+  <li><strong>Box 2A holds your recipes (<code>Map&lt;String, BeanDefinition&gt;</code>):</strong> zero business objects exist while Box 2 is being populated.</li>
+  <li><strong>Two channels into Box 2A:</strong> <code>@ComponentScan</code> (for classes you own: <code>@Component</code>, <code>@Service</code>, <code>@Repository</code>, <code>@Controller</code>) and <code>@Configuration</code> + <code>@Bean</code> methods (for 3rd-party classes you don't own).</li>
+  <li><strong>Stereotypes are not identical:</strong> <code>@Repository</code> activates SQL exception translation in Box 4; <code>@Controller</code> activates URL route registration in Box 6.</li>
+  <li><strong>Full mode vs Lite mode:</strong> <code>@Configuration</code> is subclassed by CGLIB so calling a <code>@Bean</code> method checks <code>singletonObjects</code> (Box 3) first; <code>@Component</code> / <code>proxyBeanMethods=false</code> does not proxy, so direct method calls create duplicate objects.</li>
+  <li><strong>Always prefer method parameter injection</strong> in <code>@Bean</code> methods — it is clean and safe in both Full and Lite mode.</li>
+  <li><strong>Every <code>@EnableXxx</code> annotation is just <code>@Import</code></strong> pulling more recipes into Box 2.</li>
+</ul>
+
+<h2>Reference — Quick Cheat-Sheet</h2>
+<table>
+<thead><tr><th>You want to…</th><th>Write this</th><th>What happens in Box 2 / Box 3</th></tr></thead>
+<tbody>
+<tr><td>Register a class you wrote</td><td><code>@Service</code> / <code>@Repository</code> / <code>@Controller</code> / <code>@Component</code></td><td><code>@ComponentScan</code> reads bytecode via ASM and puts a class recipe in Box 2.</td></tr>
+<tr><td>Register a 3rd-party class</td><td><code>@Bean</code> method inside <code>@Configuration</code></td><td><code>ConfigurationClassPostProcessor</code> registers a factory-method recipe named after the method.</td></tr>
+<tr><td>Pass one bean into another <code>@Bean</code></td><td><code>@Bean B b(A a) { return new B(a); }</code></td><td>Box 3 resolves <code>A</code> from <code>singletonObjects</code> and passes it in.</td></tr>
+<tr><td>Skip CGLIB proxy on config class</td><td><code>@Configuration(proxyBeanMethods = false)</code></td><td>Runs in Lite mode; faster startup, never call <code>@Bean</code> methods directly.</td></tr>
+<tr><td>Pull in another config class</td><td><code>@Import(OtherConfig.class)</code></td><td>Adds <code>OtherConfig</code>'s recipes into Box 2.</td></tr>
+<tr><td>Register a bean conditionally</td><td><code>@ConditionalOnProperty</code> / <code>@ConditionalOnMissingBean</code></td><td>Evaluates condition before adding recipe to <code>beanDefinitionMap</code>.</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>BeanDefinition (Box 2 recipe)</dt><dd>The metadata object stored in <code>beanDefinitionMap</code> describing a bean's class, factory method, scope, and dependencies before any object is instantiated.</dd>
+  <dt>Stereotype annotation</dt><dd><code>@Component</code> and its specialized meta-annotations (<code>@Service</code>, <code>@Repository</code>, <code>@Controller</code>) that mark a class for component scanning.</dd>
+  <dt>Component scanning</dt><dd>Walking a package tree using ASM bytecode inspection to discover stereotype-annotated classes and add their recipes to Box 2.</dd>
+  <dt>Full mode (<code>@Configuration</code>)</dt><dd>The default mode where Spring wraps a configuration class in a CGLIB subclass that checks <code>singletonObjects</code> (Box 3) before executing any <code>@Bean</code> method.</dd>
+  <dt>Lite mode</dt><dd>Declaring <code>@Bean</code> methods inside a <code>@Component</code> or <code>@Configuration(proxyBeanMethods = false)</code> where no CGLIB proxy is created.</dd>
+  <dt>ConfigurationClassPostProcessor</dt><dd>The built-in <code>BeanFactoryPostProcessor</code> that executes Box 2A (scanning packages, parsing <code>@Bean</code> methods, processing <code>@Import</code>, and creating CGLIB config subclasses).</dd>
+  <dt>@Import</dt><dd>An annotation that pulls additional configuration classes, <code>ImportSelector</code>s, or <code>ImportBeanDefinitionRegistrar</code>s into Box 2.</dd>
+  <dt>@Conditional</dt><dd>A gatekeeper annotation on a class or <code>@Bean</code> method that skips registering the recipe in Box 2 unless its <code>Condition.matches()</code> returns <code>true</code>.</dd>
+</dl>
+
+<h2>Official Documentation &amp; Primary Sources</h2>
+<p>
+Read <a href="https://docs.spring.io/spring-framework/reference/core/beans/java/basic-concepts.html">Spring Framework Reference — Java-based Container Configuration: Basic Concepts (<code>@Bean</code> and <code>@Configuration</code>)</a> (especially the section <em>"Full @Configuration vs 'lite' @Bean mode"</em>) and <a href="https://docs.spring.io/spring-framework/reference/core/beans/classpath-scanning.html">Classpath Scanning and Managed Components</a>.
+</p>
+<p class="sources" style="margin-top:2rem">Sources: <a href="https://docs.spring.io/spring-framework/reference/core/beans/classpath-scanning.html">Spring Framework Reference — Classpath Scanning</a>; <a href="https://docs.spring.io/spring-framework/reference/core/beans/java/configuration-annotation.html">Using the @Configuration Annotation</a>; <a href="https://docs.spring.io/spring-boot/reference/using/structuring-your-code.html">Spring Boot Reference — Structuring Your Code</a>. Targeting Spring Framework 6.x / Spring Boot 3.x. Authored per Knowledge-Base-2 <code>rules/03-teaching.md</code> and <code>rules/topic-styles/framework.md</code>.</p>
+
+</body>
+</html>

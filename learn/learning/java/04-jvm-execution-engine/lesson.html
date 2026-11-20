@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Execution Engine — JVM</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<h1>The Execution Engine</h1>
+<p class="crumb">Java › JVM cluster · lesson 4 of 4 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — turning bytecode into action</p>
+
+<div class="tldr">
+<strong>In one line —</strong> The engine is the part that actually runs the bytecode. It <strong>reads it line by line</strong> so
+the program can start right away. Then it <strong>turns the busy parts into fast machine code</strong> so they run quickly. It
+also picks which method to call (the five <code>invoke*</code> steps) and can call code written in C (JNI). This is why
+saying "Java is slow because it's interpreted" is only half true.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>This is the last part of step 6 in the <a href="../01-jvm-bytecode-pipeline/lesson.html">pipeline</a>. The loader (lesson 2)
+brought the class in. The memory (lesson 3) gave it frames. The engine is what actually <em>runs</em> the instructions.</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+<p>There are two goals that pull against each other: <strong>start fast</strong> (don't wait to translate everything first) and
+<strong>run fast</strong> (don't keep reading a busy loop the slow way forever). The engine gets both by doing two things:
+read the code line by line at first, then speed up the parts that run a lot. The spec allows exactly this — an
+implementation may turn bytecode "into the native instruction set of the host CPU (sometimes referred to as just-in-time, or
+JIT, code generation)"
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html">JVM Spec SE 21, §2.13</a>)</span>.</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+<figure>
+<svg viewBox="0 0 760 250" width="100%" role="img" aria-label="Execution engine: interpreter, profiler, JIT">
+  <style>
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}.b2{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#m);fill:none}
+  </style>
+  <defs><marker id="m" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+  <rect class="b2" x="20" y="90" width="150" height="60" rx="6"/><text class="t" x="45" y="115">bytecode</text><text class="c" x="35" y="135">in frames</text>
+  <rect class="b" x="220" y="90" width="150" height="60" rx="6"/><text class="t" x="240" y="115">Interpreter</text><text class="c" x="232" y="135">fetch·decode·exec</text>
+  <rect class="b" x="220" y="15" width="150" height="55" rx="6"/><text class="t" x="248" y="38">Profiler</text><text class="c" x="235" y="56">counts hot methods</text>
+  <rect class="b2" x="430" y="90" width="150" height="60" rx="6"/><text class="t" x="455" y="112">JIT (C1→C2)</text><text class="c" x="440" y="132">native code cache</text>
+  <rect class="b" x="620" y="90" width="120" height="60" rx="6"/><text class="t" x="640" y="112">CPU runs</text><text class="c" x="632" y="132">native code</text>
+  <line class="a" x1="170" y1="120" x2="218" y2="120"/>
+  <line class="a" x1="295" y1="90" x2="295" y2="72"/>
+  <line class="a" x1="370" y1="120" x2="428" y2="120"/>
+  <line class="a" x1="580" y1="120" x2="618" y2="120"/>
+  <path class="a" d="M505,150 C505,200 300,200 295,152"/><text class="c" x="360" y="195">deoptimize on bad assumption</text>
+</svg>
+<figcaption>Interpret immediately; the profiler flags hot methods; the JIT compiles them to native code (and can deoptimize). Per JVM Spec §2.11 (interpreter loop) &amp; §2.13 (JIT).</figcaption>
+</figure>
+
+<h3>The interpreter</h3>
+<p>The basic loop: look at the current instruction, do it, move to the next one, repeat
+<span class="sources">(§2.11)</span>. It needs no warm-up, so the program starts right away. But going one line at a time is
+slow for code that runs millions of times.</p>
+
+<h3>The JIT (the fast-code maker)</h3>
+<p>A counter watches how often each method and loop runs. Once a method has run enough times, it is "busy," and the JIT turns
+it into fast machine code that gets saved and reused. In practice it works in two levels: a quick one gets you fast machine
+code sooner, and a stronger one later rewrites the busiest methods with better tricks —
+<strong>inlining</strong> (pasting a small method's body straight in), <strong>escape analysis</strong> (skipping objects that
+never leave the method), unrolling loops, and dropping dead code. If the JIT made a smart guess that later turns out wrong,
+it can <strong>fall back</strong> to reading the code line by line again. This is why a warmed-up server can be nearly as fast
+as C++.</p>
+
+<h3>Choosing which method to call — the five <code>invoke</code> steps</h3>
+<table>
+<thead><tr><th>Opcode</th><th>Used for</th><th>Binding</th></tr></thead>
+<tbody>
+<tr><td><code>invokestatic</code></td><td><code>static</code> methods</td><td>Direct</td></tr>
+<tr><td><code>invokespecial</code></td><td>constructors, <code>private</code>, <code>super.</code></td><td>Direct (no override)</td></tr>
+<tr><td><code>invokevirtual</code></td><td>normal instance methods</td><td>Virtual — runtime type</td></tr>
+<tr><td><code>invokeinterface</code></td><td>interface methods</td><td>Virtual — searches impl</td></tr>
+<tr><td><code>invokedynamic</code></td><td>lambdas, dynamic langs</td><td>Lazy, via bootstrap method</td></tr>
+</tbody></table>
+<p><code>invokevirtual</code> and <code>invokeinterface</code> are how Java does <strong>polymorphism</strong>: the real method
+is chosen from the object's <em>actual</em> type at run time <span class="sources">(§2.11.8, §5.4.6)</span>.
+<code>invokedynamic</code> (Java 7+) is how a lambda gets wired up the first time you use it.</p>
+
+<h3>Calling C code (JNI)</h3>
+<p>When Java calls a <code>native</code> method (written in C or C++), the engine steps out into that code using the thread's
+native stack. Newer Java also has a safer way to do this, called the Foreign Function &amp; Memory API.</p>
+
+<h2><span class="n">§4</span>When this matters</h2>
+<ul>
+  <li><strong>"Slow for a minute, then fast"</strong> — that's the slow line-by-line start, then the fast-code kicking in. Tools: <code>-XX:+PrintCompilation</code>, and CDS/AppCDS to start faster.</li>
+  <li><strong>Benchmarks can lie</strong> — if you measure too early you measure the slow start, not the real speed. Use JMH, which warms up first.</li>
+  <li><strong>Cost of polymorphism</strong> — understanding how the engine picks the method, and how the JIT often makes it fast anyway.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>A new cook reads the recipe one line at a time (the interpreter) — slow, but starts right away. A helper notices which
+dishes get ordered again and again and hands the cook a memorized shortcut card for those (the fast-code maker). If a
+shortcut turns out wrong because the recipe changed, they tear up the card and go back to reading (fall back). That way the
+kitchen opens fast <em>and</em> is quick at rush hour.</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← jvm-runtime-data-areas:</strong> the engine is what puts values on and off the work piles inside frames.</li>
+  <li><strong>→ type-system-and-oop:</strong> <code>invokevirtual</code> is polymorphism, seen at the bytecode level.</li>
+  <li><strong>→ java8-functional:</strong> lambdas use <code>invokedynamic</code>.</li>
+  <li><strong>Same idea elsewhere:</strong> Chrome's V8 (JavaScript) and C# work the same way — read first, then speed up the busy parts.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — see the JIT fire</h2>
+<pre>$ java -XX:+PrintCompilation Hello        <span class="c"># prints each method as it's compiled</span>
+$ java -XX:+UnlockDiagnosticVMOptions -XX:+PrintInlining ...   <span class="c"># see inlining decisions</span></pre>
+<div class="ann">In a tight loop that calls <code>add</code> a few million times, you will see the interpreter run first. Then a line
+appears in the log showing <code>add</code> being turned into fast code once it counts as busy — the engine speeding itself
+up, live.</div>
+<div class="try"><strong>Guess the answer:</strong> after warm-up, which is faster — always calling the same subclass, or calling many
+different ones? Why might the JIT be able to speed up the first but not the second? <em>(Hint: the JIT bets on the type it
+keeps seeing.)</em></div>
+
+<h2><span class="n">§8</span>Watch out for</h2>
+<div class="pitfall"><strong>"Java is interpreted."</strong> It starts by reading line by line, then turns busy code into fast machine code. Saying just "interpreted" is a red flag in senior interviews.</div>
+<div class="pitfall"><strong>Testing speed without warm-up.</strong> The first runs measure the slow start. Use JMH and let the fast code kick in first.</div>
+<div class="pitfall"><strong>Expecting the JIT to fix a bad plan.</strong> It speeds up how code runs, not a slow algorithm. It won't fix an O(n²).</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>The engine = <strong>interpreter + JIT + method choosing + JNI</strong>.</li>
+  <li>Read line by line to <strong>start fast</strong>; turn busy code into machine code to <strong>run fast</strong> (and it can fall back if a guess was wrong).</li>
+  <li>Five <code>invoke*</code> steps; <code>invokevirtual</code>/<code>invokeinterface</code> = polymorphism; <code>invokedynamic</code> = lambdas.</li>
+  <li>The garbage collector works next to the engine, on the heap — see <em>memory-model-and-gc</em>.</li>
+</ul>
+
+<hr/>
+<h2>Reference — useful flags</h2>
+<table>
+<thead><tr><th>Flag</th><th>Shows / does</th></tr></thead>
+<tbody>
+<tr><td><code>-XX:+PrintCompilation</code></td><td>Log each JIT compilation</td></tr>
+<tr><td><code>-XX:+PrintInlining</code></td><td>Log inlining decisions (diagnostic)</td></tr>
+<tr><td><code>-Xint</code></td><td>Interpret only (no JIT) — for comparison</td></tr>
+<tr><td><code>-Xcomp</code></td><td>Compile everything eagerly</td></tr>
+<tr><td><code>-XX:+TieredCompilation</code></td><td>C1→C2 tiering (default on)</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Interpreter</dt><dd>Executes bytecode instruction-by-instruction; instant startup.</dd>
+  <dt>JIT</dt><dd>Just-In-Time compiler; turns hot bytecode into native code at run time.</dd>
+  <dt>C1 / C2</dt><dd>HotSpot's fast-but-light and slow-but-aggressive JIT tiers.</dd>
+  <dt>Escape analysis</dt><dd>JIT optimization that stack-allocates or eliminates non-escaping objects.</dd>
+  <dt>Deoptimization</dt><dd>Reverting compiled code to the interpreter when a speculation fails.</dd>
+  <dt>invokedynamic</dt><dd>Lazily-linked call site; how lambdas and dynamic languages dispatch.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html">JVM Spec SE 21 — §2.11 Instruction Set</a> (the interpreter loop &amp; <code>invoke*</code>) and <a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html">§2.13 Public Design, Private Implementation</a> (JIT).</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>The Java® Virtual Machine Specification, Java SE 21</em> (§2.11, §2.13, §5.4.6). Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

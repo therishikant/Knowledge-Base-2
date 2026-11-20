@@ -1,0 +1,87 @@
+{
+  "topic": "java",
+  "subtopic": "03-jvm-runtime-data-areas",
+  "questions": [
+    {
+      "number": 1,
+      "question": "List the runtime data areas and label each shared vs per-thread. Map each to the error it throws when exhausted.",
+      "level": "easy",
+      "areas": ["theory", "diagram"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 2,
+      "question": "What is a frame? When is it created and destroyed, and where does it live?",
+      "level": "easy",
+      "areas": ["theory"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 3,
+      "question": "Name the three parts of a frame and what each holds. What does index 0 of the local variable array mean for an instance method?",
+      "level": "medium",
+      "areas": ["theory", "diagram"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 4,
+      "question": "Walk the frame lifecycle for main() calling add(2,3): what happens to the operand stacks on call, compute, and return?",
+      "level": "medium",
+      "areas": ["practical", "diagram"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 5,
+      "question": "Distinguish the JVM stack from the operand stack. How many operand stacks exist during deep recursion?",
+      "level": "medium",
+      "areas": ["theory"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 6,
+      "question": "Why does deep recursion throw StackOverflowError and not OutOfMemoryError? Which area is involved and what flag tunes it?",
+      "level": "medium",
+      "areas": ["practical", "trade-offs"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 7,
+      "question": "For a local `long`, how many slots does it take, and why? What does `javap -v` report as stack= and locals=?",
+      "level": "medium",
+      "areas": ["practical", "theory"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 8,
+      "question": "A primitive local vs an object reference vs the object itself — where does each live (frame vs heap), and why does that split motivate the Java Memory Model?",
+      "level": "hard",
+      "areas": ["theory", "diagram"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 9,
+      "question": "Metaspace vs PermGen: what changed in Java 8, where does class metadata live now, and which OOM variant disappeared?",
+      "level": "medium",
+      "areas": ["theory"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    }
+  ]
+}

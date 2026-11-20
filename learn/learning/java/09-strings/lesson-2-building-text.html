@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Building Text — Strings, Part 2 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .step{display:flex;gap:.8rem;margin:.9rem 0} .step .num{flex:0 0 2rem;height:2rem;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.95rem}
+  .step .body{flex:1} .step .body strong{display:block}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Building Text</h1>
+<p class="crumb">Java › strings cluster · lesson 9, <strong>part 2 of 3</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — <code>+</code>, <code>StringBuilder</code>, and the everyday toolbox</p>
+
+<p class="nav"><strong>Strings cluster:</strong>
+  <a href="lesson.html">1. What a String really is</a> ·
+  <strong>2. Building text</strong> ·
+  <a href="lesson-3-characters-and-encoding.html">3. Characters, bytes &amp; encoding</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> Because a string can never be changed, <em>every</em> join makes a new object.
+One join on one line is fine — the compiler quietly uses a <strong>StringBuilder</strong> for you. A join
+<em>inside a loop</em> is not fine: it copies the whole text again on every pass. There, you must make the
+builder yourself, append to it, and turn it into a string once at the end.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+<a href="lesson.html">Part 1</a> ended on a promise. Strings are frozen, which is wonderful for safety — but
+programs do need to <em>assemble</em> text: a CSV line, a log message, a SQL query, an HTML fragment. This lesson
+is how you do that without accidentally writing slow code, plus a tour of the methods you will reach for every
+single day.
+</p>
+<p>Everything here rests on one fact from part 1: <strong>a String never changes.</strong> If you do not have that
+firmly in your head, go back and re-read §3.2 before continuing.</p>
+
+<h2><span class="n">§2</span>Why it exists — the cost of being frozen</h2>
+
+<h3>The loop that looks innocent</h3>
+<p>Here is code that appears in almost every beginner's project:</p>
+<pre>String s = <span class="s">""</span>;
+<span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; 20000; i++) {
+    s += <span class="s">"x"</span>;          <span class="c">// looks like "add one letter"</span>
+}</pre>
+<p>
+It does not add one letter. It <em>cannot</em>, because <code>s</code> is frozen. What actually happens on each
+pass is: make a fresh buffer big enough for everything so far plus one, copy every old character into it, add the
+new one, build a new String, and throw the previous one away as garbage.
+</p>
+<p>So the work on each pass grows with what you have already built:</p>
+<pre>pass 1:  copy 0 chars
+pass 2:  copy 1 char
+pass 3:  copy 2 chars
+...
+pass n:  copy n-1 chars
+------------------------------
+total:   0+1+2+...+(n-1)  =  n(n-1)/2  copies</pre>
+<p>
+That is <strong>O(n²)</strong>. For n = 20,000 it is about <strong>200 million</strong> character copies, plus
+20,000 throwaway String objects and 20,000 throwaway arrays for the garbage collector to clean up. The measured
+cost on JDK 8 (see §7): <strong>470 ms</strong> for the loop above, versus <strong>0 ms</strong> for the builder
+version. Same answer, same 20,000 characters.
+</p>
+
+<figure>
+<svg viewBox="0 0 760 270" width="100%" role="img" aria-label="Concatenation in a loop copies everything each pass; a builder appends in place">
+  <style>
+    .old{fill:#f2efe8;stroke:#b5aea0;stroke-width:1.2}
+    .new{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.2}
+    .buf{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.3}
+    .free{fill:#fdfbf6;stroke:#1f6b4d;stroke-width:1.1;stroke-dasharray:3 3}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .h{font:12px Georgia,serif;fill:#2b2b28;font-weight:bold}
+    .a{stroke:#6b675e;stroke-width:1.2;marker-end:url(#mc);fill:none}
+  </style>
+  <defs><marker id="mc" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <text class="h" x="20" y="18">s += "x"  —  a new object every pass, copying all of it</text>
+  <rect class="old" x="20" y="30" width="22" height="22"/><rect class="new" x="42" y="30" width="22" height="22"/>
+  <text class="c" x="80" y="46">pass 2 — copy 1, add 1</text>
+
+  <rect class="old" x="20" y="60" width="22" height="22"/><rect class="old" x="42" y="60" width="22" height="22"/><rect class="new" x="64" y="60" width="22" height="22"/>
+  <text class="c" x="105" y="76">pass 3 — copy 2, add 1</text>
+
+  <rect class="old" x="20" y="90" width="22" height="22"/><rect class="old" x="42" y="90" width="22" height="22"/><rect class="old" x="64" y="90" width="22" height="22"/><rect class="new" x="86" y="90" width="22" height="22"/>
+  <text class="c" x="128" y="106">pass 4 — copy 3, add 1</text>
+
+  <rect class="old" x="20" y="120" width="22" height="22"/><rect class="old" x="42" y="120" width="22" height="22"/><rect class="old" x="64" y="120" width="22" height="22"/><rect class="old" x="86" y="120" width="22" height="22"/><rect class="new" x="108" y="120" width="22" height="22"/>
+  <text class="c" x="150" y="136">pass 5 — copy 4, add 1 … the triangle keeps growing</text>
+  <text class="c" x="20" y="162">grey = re-copied work, red = the one new letter. Every grey box is pure waste, and every row left a dead object behind.</text>
+
+  <text class="h" x="20" y="200">StringBuilder.append("x")  —  one buffer, written in place</text>
+  <rect class="buf" x="20" y="212" width="22" height="22"/><rect class="buf" x="42" y="212" width="22" height="22"/><rect class="buf" x="64" y="212" width="22" height="22"/><rect class="buf" x="86" y="212" width="22" height="22"/>
+  <rect class="free" x="108" y="212" width="22" height="22"/><rect class="free" x="130" y="212" width="22" height="22"/><rect class="free" x="152" y="212" width="22" height="22"/><rect class="free" x="174" y="212" width="22" height="22"/>
+  <line class="a" x1="100" y1="248" x2="118" y2="236"/>
+  <text class="c" x="215" y="226">solid = used, dashed = spare room already reserved</text>
+  <text class="c" x="215" y="242">each append writes ONE cell. No copying, no garbage.</text>
+  <text class="c" x="20" y="264">The buffer is only copied when it runs out of room (it then doubles), and once more at the end by toString().</text>
+</svg>
+<figcaption>The triangle of wasted copies is why <code>+</code> in a loop is O(n²). A builder writes into spare
+room it already owns, so the same job is O(n).</figcaption>
+</figure>
+
+<h3>Why Java did not just make String mutable</h3>
+<p>
+It could have. It would have made this loop fast — and thrown away every benefit in
+<a href="lesson.html">part 1</a>: safe sharing, free thread safety, safe map keys, the cached hash, the pool.
+Java's choice is to keep the common case (passing text around) safe and give you a <em>separate</em> tool for the
+rare case (assembling text). That tool is <code>StringBuilder</code>.
+</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>3.1 What the compiler already does for you</h3>
+<p>
+A single expression like <code>"Hi " + name + ", you are " + age</code> is <strong>not</strong> slow. On JDK 8 the
+compiler rewrites it into one builder behind your back
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jls/se8/html/jls-15.html#jls-15.18.1">JLS SE 8 §15.18.1</a>:
+"an implementation may choose to perform conversion and concatenation in one step ... using a StringBuffer or
+similar")</span>:
+</p>
+<pre><span class="c">// what you write</span>
+String msg = <span class="s">"Hi "</span> + name + <span class="s">", you are "</span> + age;
+
+<span class="c">// what javac actually emits (JDK 8)</span>
+String msg = <span class="k">new</span> StringBuilder()
+        .append(<span class="s">"Hi "</span>).append(name)
+        .append(<span class="s">", you are "</span>).append(age)
+        .toString();</pre>
+<p>
+You can see this yourself with <code>javap -c YourClass</code>: the bytecode is full of
+<code>invokevirtual StringBuilder.append</code> calls.
+</p>
+<div class="callout"><strong>Java 9 changed the machinery again.</strong> From JDK 9, <code>javac</code> emits a
+single <code>invokedynamic</code> instruction and lets the runtime build an optimal recipe for that exact
+concatenation — often beating the hand-written builder
+<span class="sources">(<a href="https://openjdk.org/jeps/280">JEP 280 — Indify String Concatenation</a>)</span>.
+The advice is unchanged: write the readable <code>+</code> on one line, and use a builder for loops.</div>
+
+<p>Now you can see exactly why the loop is different. The rewrite is per <em>expression</em>, and the expression
+lives inside the loop body, so you get a new builder every single pass:</p>
+<pre><span class="k">for</span> (...) {
+    s = <span class="k">new</span> StringBuilder().append(s).append(<span class="s">"x"</span>).toString();  <span class="c">// built and thrown away, n times</span>
+}</pre>
+<div class="idiom"><strong>The rule in one sentence:</strong> <code>+</code> is fine when the whole join happens in
+<em>one expression</em>; make the builder yourself the moment the join is spread across <em>several statements or
+passes of a loop</em>.</div>
+
+<h3>3.2 Inside a StringBuilder</h3>
+<p>A builder is the mutable twin of a String. It holds a character array and a count of how much of it is used:</p>
+<pre><span class="k">class</span> StringBuilder {       <span class="c">// (simplified, from AbstractStringBuilder)</span>
+    <span class="k">char</span>[] value;            <span class="c">// NOT final — this is the whole point</span>
+    <span class="k">int</span> count;               <span class="c">// how many cells are actually in use</span>
+}</pre>
+<p>Three facts follow from that, and they explain everything a builder does:</p>
+
+<div class="step"><div class="num">1</div><div class="body"><strong>It has spare room.</strong>
+<code>new StringBuilder()</code> starts with room for 16 characters
+<span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/api/java/lang/StringBuilder.html#StringBuilder--">Oracle, StringBuilder API</a>)</span>.
+<code>append</code> just writes into the next free cell and bumps <code>count</code>. No allocation, no copying.</div></div>
+
+<div class="step"><div class="num">2</div><div class="body"><strong>When it runs out, it doubles.</strong>
+The new capacity is <code>(old * 2) + 2</code>. Measured in §7: capacity 16 → append a 17th character → capacity
+becomes 34. Because it doubles rather than growing by one, the copies get rarer and rarer, and the <em>total</em>
+copying over n appends stays O(n).</div></div>
+
+<div class="step"><div class="num">3</div><div class="body"><strong><code>toString()</code> copies once.</strong>
+It must, because the String it returns has to be frozen and the builder will keep mutating. So building text costs
+exactly one real copy — at the end — instead of one per step.</div></div>
+
+<div class="callout"><strong>Size it up front if you know.</strong> <code>new StringBuilder(1024)</code> skips the
+doubling entirely. A nice micro-win in hot code, and free to write.</div>
+
+<h3>3.3 Chaining: why <code>append</code> returns the builder</h3>
+<p>
+<code>append</code> changes the builder <em>and</em> returns <code>this</code> — the very same object. That is what
+makes <code>sb.append("a").append("b")</code> work. It is not making copies; every link in the chain is the same
+object. Verified in §7: <code>b == b.append("c")</code> prints <code>true</code>.
+</p>
+<p>
+This matters for a subtle reason. Methods like <code>reverse()</code> and <code>deleteCharAt()</code> mutate in
+place, so unlike strings there is <em>no new object to assign</em>. Writing <code>sb.reverse();</code> on its own
+line is correct here — the exact opposite of the string rule from part 1.
+</p>
+<table>
+<thead><tr><th></th><th><code>String</code></th><th><code>StringBuilder</code></th></tr></thead>
+<tbody>
+<tr><td>Can change?</td><td>Never</td><td>Yes, in place</td></tr>
+<tr><td><code>x.reverse()</code> / <code>x.trim()</code> alone</td><td>Does nothing — must assign</td><td>Works — the object changed</td></tr>
+<tr><td>Safe to share between threads?</td><td>Yes, always</td><td>No</td></tr>
+<tr><td>Safe as a map key?</td><td>Yes</td><td>No — and it does not even implement <code>equals</code></td></tr>
+<tr><td>Building text in a loop</td><td>O(n²)</td><td>O(n)</td></tr>
+</tbody></table>
+
+<div class="pitfall"><strong>A builder is not a string.</strong> <code>StringBuilder</code> does not override
+<code>equals</code> or <code>hashCode</code>, so two builders with identical contents are never "equal", and a
+builder is useless as a map key. Call <code>toString()</code> the moment you want to compare or store it.</div>
+
+<h3>3.4 StringBuffer — the older, slower twin</h3>
+<p>
+<code>StringBuffer</code> arrived in Java 1.0 and every one of its methods is <code>synchronized</code>, so it is
+thread-safe. That was a reasonable default in 1996. But almost all text building happens inside one method, on one
+thread, so almost everybody was paying for a lock they did not need. Java 5 added <code>StringBuilder</code> — the
+identical API with the locks removed
+<span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/api/java/lang/StringBuilder.html">Oracle, StringBuilder API</a>:
+"This class provides an API compatible with StringBuffer, but with no guarantee of synchronization ... it is
+recommended that this class be used in preference")</span>.
+</p>
+<div class="idiom"><strong>Use <code>StringBuilder</code>.</strong> Choose <code>StringBuffer</code> only if one
+buffer is genuinely shared and appended to by several threads — which, in practice, is a design you should probably
+change anyway.</div>
+
+<h3>3.5 The everyday method toolbox</h3>
+<p>Remember the golden rule for all of these: <strong>they all return a new string; none of them change yours.</strong></p>
+<table>
+<thead><tr><th>Group</th><th>Methods</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Ask a question</td><td><code>length</code>, <code>isEmpty</code>, <code>contains</code>, <code>startsWith</code>, <code>endsWith</code>, <code>indexOf</code>, <code>lastIndexOf</code></td><td><code>indexOf</code> returns <strong>-1</strong> when not found, not 0</td></tr>
+<tr><td>Take a piece</td><td><code>substring(from)</code>, <code>substring(from, to)</code>, <code>charAt</code></td><td><code>to</code> is <em>exclusive</em>; out of range throws <code>StringIndexOutOfBoundsException</code></td></tr>
+<tr><td>Transform</td><td><code>toUpperCase</code>, <code>toLowerCase</code>, <code>trim</code>, <code>replace</code></td><td><code>replace(char,char)</code> and <code>replace(CharSequence,CharSequence)</code> are plain text; <code>replaceAll</code> is <strong>regex</strong></td></tr>
+<tr><td>Cut and glue</td><td><code>split</code>, <code>String.join</code></td><td><code>split</code> takes a <strong>regex</strong>; <code>String.join</code> needs Java 8+</td></tr>
+<tr><td>Compare</td><td><code>equals</code>, <code>equalsIgnoreCase</code>, <code>compareTo</code></td><td><code>compareTo</code> returns negative / 0 / positive, which is what sorting uses</td></tr>
+<tr><td>Format</td><td><code>String.format</code>, <code>String.valueOf</code></td><td><code>%s</code> text, <code>%d</code> integer, <code>%.2f</code> 2 decimals, <code>%%</code> a literal percent sign</td></tr>
+<tr><td>Java 11+</td><td><code>isBlank</code>, <code>strip</code>, <code>repeat</code>, <code>lines</code></td><td><code>strip</code> is the Unicode-aware <code>trim</code>; not available on JDK 8</td></tr>
+</tbody></table>
+
+<div class="pitfall"><strong><code>split</code> takes a regular expression, not plain text.</strong>
+<code>"a.b.c".split(".")</code> gives you an <em>empty</em> array, because <code>.</code> in regex means "any
+character". You want <code>split("\\.")</code>. The same trap hits <code>replaceAll</code> with characters like
+<code>|</code>, <code>*</code>, <code>+</code>, <code>(</code> and <code>$</code>.</div>
+
+<h3>3.6 A piece of history worth knowing: <code>substring</code></h3>
+<p>
+Before Java 7u6, <code>substring</code> did not copy. The small string shared the big string's array and just kept
+an offset and a length. Clever — until you read a 10 MB file, took a 5-character substring, and the whole 10 MB
+array stayed in memory because the little string still pointed at it. A famous memory leak. Since 7u6
+<code>substring</code> always copies the characters it needs, so the big array can be collected
+<span class="sources">(OpenJDK bug <a href="https://bugs.openjdk.org/browse/JDK-6924259">JDK-6924259</a>)</span>.
+</p>
+<p>
+This is a good illustration of the trade this whole lesson is about: sharing costs no copy but holds memory;
+copying costs time but frees memory. Java chose copying.
+</p>
+
+<h2><span class="n">§4</span>When to use which</h2>
+<table>
+<thead><tr><th>What you are doing</th><th>Use</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>One message, one expression</td><td><code>"a " + b + " c"</code></td><td>Most readable; the compiler already optimises it</td></tr>
+<tr><td>Appending in a loop, or across several <code>if</code> branches</td><td><code>StringBuilder</code></td><td>Turns O(n²) into O(n)</td></tr>
+<tr><td>Joining a collection with a separator</td><td><code>String.join</code> / <code>Collectors.joining</code></td><td>Says exactly what you mean; handles separators correctly</td></tr>
+<tr><td>Numbers, padding, decimals</td><td><code>String.format</code></td><td>Keeps the layout visible in one template</td></tr>
+<tr><td>A long multi-line block</td><td>Text block <code>"""…"""</code> (Java 15+)</td><td>No <code>\n</code> soup — see <a href="../12-modern-java-9-to-21/lesson.html">lesson 12</a></td></tr>
+<tr><td>Several threads appending to one buffer</td><td><code>StringBuffer</code></td><td>Its methods are synchronized</td></tr>
+<tr><td>Building a SQL query</td><td><strong>Neither</strong> — use a <code>PreparedStatement</code></td><td>Gluing user input into SQL is SQL injection</td></tr>
+</tbody></table>
+
+<div class="pitfall"><strong>Never build SQL, HTML, or shell commands by concatenation with user input.</strong>
+<code>"SELECT * FROM users WHERE name='" + input + "'"</code> is the textbook SQL injection hole — the user types
+<code>' OR '1'='1</code> and reads your whole table. Use parameter placeholders
+(<code>PreparedStatement</code>), or a proper escaping library for HTML. Builders make this <em>easier</em> to get
+wrong, so flag it in review.</div>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Strings are words carved in stone (part 1). Now imagine your homework is to write a 500-word essay, one word at a
+time, in stone.
+</p>
+<p>
+If you only have stones, here is what each new word costs you: fetch a bigger slab, <em>re-carve every word you
+have already written</em>, then carve the new one, and throw the old slab away. By word 500 you are re-carving 499
+words to add one. You will be there all day, and the yard is full of discarded slabs.
+</p>
+<p>
+A <strong>StringBuilder</strong> is a whiteboard. You write the next word in the empty space at the end. Nothing
+is re-written. If you run out of board, you get a board twice as big — which happens rarely, and less and less
+often. When the essay is finished, you take <em>one</em> photo of the whiteboard. That photo is your stone.
+</p>
+<p>
+<em>"So why not write everything on whiteboards?"</em> Because whiteboards are not safe to hand to other people —
+anyone can rub out your words, and two people writing on one board at once makes a mess. Stones are safe to lend.
+So: whiteboard while you are working, stone the moment you are done.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson.html">part 1</a>:</strong> everything here exists because strings are immutable.</li>
+  <li><strong>← <a href="../06-memory-model-and-gc/lesson.html">memory &amp; GC</a>:</strong> the loop version's real cost is garbage — thousands of short-lived objects churning the young generation.</li>
+  <li><strong>← <a href="../07-java8-functional/lesson.html">streams</a>:</strong> <code>stream.collect(Collectors.joining(", "))</code> is the functional way to glue a collection; it uses a <code>StringBuilder</code> inside.</li>
+  <li><strong>↔ <a href="../08-collections-and-equality/lesson.html">collections</a>:</strong> a builder's array doubling is the same growth trick as <code>ArrayList</code> — amortised O(1) appends.</li>
+  <li><strong>→ <a href="lesson-3-characters-and-encoding.html">part 3</a>:</strong> <code>length()</code> counts <code>char</code>s, not letters you can see. That matters the moment emoji or accents appear.</li>
+  <li><strong>→ <a href="../12-modern-java-9-to-21/lesson.html">modern Java</a>:</strong> text blocks and formatted output.</li>
+  <li><strong>Same idea elsewhere:</strong> Python has <code>"".join(list)</code> for the same reason, C# has <code>StringBuilder</code> by the same name, and JavaScript engines optimise <code>+=</code> with internal "rope" structures. One concept, three syntaxes.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — one file, dissected</h2>
+<p>Full source: <a href="../code/StringDemo2.java">code/StringDemo2.java</a>, compiled and run on JDK 1.8.0_411.</p>
+
+<pre><span class="k">long</span> t1 = System.nanoTime();
+String s = <span class="s">""</span>;
+<span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; 20000; i++) s += <span class="s">"x"</span>;
+<span class="k">long</span> t2 = System.nanoTime();
+
+StringBuilder sb = <span class="k">new</span> StringBuilder();
+<span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; 20000; i++) sb.append(<span class="s">"x"</span>);
+String s2 = sb.toString();</pre>
+<div class="ann">The same job twice. Both produce 20,000 characters. The first does ~200 million character copies
+and creates 20,000 dead objects; the second writes into one buffer that doubles about 11 times. The measured gap
+is <strong>470 ms vs 0 ms</strong>. This is not a micro-optimisation — it is two different complexity classes.
+<em>(This is a rough wall-clock timing, not a JMH benchmark; the point is the shape of the difference, not the exact
+millisecond.)</em></div>
+
+<pre>StringBuilder b = <span class="k">new</span> StringBuilder(<span class="s">"ab"</span>);
+b == b.append(<span class="s">"c"</span>)      <span class="c">// true — append returns THIS, not a copy</span>
+b.reverse()              <span class="c">// mutates in place</span></pre>
+<div class="ann">Proof that a builder is mutable: the object before and after <code>append</code> is the same object.
+That is what makes chaining work. Note the role reversal from part 1 — here, calling a method on a line by itself
+<em>does</em> change things.</div>
+
+<pre>StringBuilder g = <span class="k">new</span> StringBuilder();
+g.capacity()                    <span class="c">// 16 — the default spare room</span>
+g.append(<span class="s">"1234567890123456"</span>);  <span class="c">// exactly fills it</span>
+g.capacity()                    <span class="c">// still 16</span>
+g.append(<span class="s">"7"</span>);                 <span class="c">// one too many -> grow</span>
+g.capacity()                    <span class="c">// 34  =  16 * 2 + 2</span></pre>
+<div class="ann">The doubling rule, observed rather than remembered. Doubling is what keeps the <em>total</em> cost
+of n appends linear: each character is copied only a handful of times across the whole run, not once per append.</div>
+
+<pre>String csv = <span class="s">"  ana,bob , cara  "</span>;
+csv.trim()                          <span class="c">// "ana,bob , cara"</span>
+csv.trim().split(<span class="s">"\\s*,\\s*"</span>)    <span class="c">// regex: comma with optional spaces around it</span>
+String.join(<span class="s">" | "</span>, parts)
+csv.trim().replace(<span class="s">','</span>, <span class="s">';'</span>)
+<span class="s">"hello world"</span>.substring(6)
+<span class="s">"hello world"</span>.indexOf(<span class="s">'o'</span>)        <span class="c">// 4 — the FIRST one</span>
+<span class="s">"apple"</span>.compareTo(<span class="s">"banana"</span>)      <span class="c">// -1 — 'a' is one before 'b'</span>
+String.format(<span class="s">"%s scored %.1f%%"</span>, <span class="s">"ana"</span>, 91.25)</pre>
+<div class="ann">The toolbox in action. Three things to notice: the split pattern is a <strong>regex</strong>, which
+is why it can swallow the stray spaces in <code>"bob , cara"</code>; <code>compareTo</code> returns a
+<em>difference</em>, not a boolean, which is exactly what sorting needs; and <code>%%</code> is how you print a
+literal percent sign. The last line also rounds 91.25 to 91.3.</div>
+
+<pre>System.out.println(<span class="s">"csv still : ["</span> + csv + <span class="s">"]"</span>);</pre>
+<div class="ann">The punchline. After <code>trim</code>, <code>split</code> and <code>replace</code>, the original
+<code>csv</code> still has every one of its leading and trailing spaces. Nothing was modified. Everything was
+copied.</div>
+
+<h3>Real output <span class="sources">(JDK 1.8.0_411)</span></h3>
+<pre>concat  : 20000 chars in 470 ms
+builder : 20000 chars in 0 ms
+same object after append: true
+b       : abc
+reversed: cba
+capacity at start   : 16
+capacity at 16 chars: 16
+capacity at 17 chars: 34
+trim      : [ana,bob , cara]
+split     : [ana, bob, cara]
+join      : ana | bob | cara
+replace   : ana;bob ; cara
+substring : world
+indexOf   : 4
+contains  : true
+compareTo : -1
+format    : ana scored 91.3%
+csv still : [  ana,bob , cara  ]</pre>
+
+<div class="try"><strong>Predict, then run.</strong>
+<ol>
+  <li>What does <code>"a.b.c".split("\\.").length</code> give? And <code>"a.b.c".split(".").length</code>? Why are they different?</li>
+  <li>Change the loop count from 20,000 to 40,000. The builder time should stay flat. What happens to the concat time — does it double, or roughly quadruple? Explain the answer <em>before</em> you run it.</li>
+  <li>Add <code>StringBuilder x = new StringBuilder("hi"); System.out.println(x.equals(new StringBuilder("hi")));</code> — why is it <code>false</code>?</li>
+</ol></div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+
+<div class="pitfall"><strong>1. <code>+</code> inside a loop.</strong> The headline mistake. O(n²) time plus a flood
+of garbage. Hoist a <code>StringBuilder</code> outside the loop.</div>
+
+<div class="pitfall"><strong>2. Creating the builder <em>inside</em> the loop.</strong> A real version of the same
+bug: <code>for(...) { StringBuilder sb = new StringBuilder(); ... }</code> throws the buffer away each pass. Declare
+it before the loop.</div>
+
+<div class="pitfall"><strong>3. Forgetting <code>split</code> and <code>replaceAll</code> are regex.</strong>
+Splitting on <code>"."</code>, <code>"|"</code> or <code>"$"</code> will not do what you expect. Escape them
+(<code>"\\."</code>) or use <code>Pattern.quote(text)</code>.</div>
+
+<div class="pitfall"><strong>4. Assuming <code>split</code> keeps trailing empties.</strong>
+<code>"a,b,,".split(",")</code> gives <code>["a","b"]</code> — trailing empty strings are dropped. Pass a negative
+limit, <code>split(",", -1)</code>, to keep them.</div>
+
+<div class="pitfall"><strong>5. <code>indexOf</code> returning -1.</strong> Feeding that straight into
+<code>substring</code> throws <code>StringIndexOutOfBoundsException</code>. Always check for -1 first.</div>
+
+<div class="pitfall"><strong>6. Using a <code>StringBuilder</code> where a <code>String</code> belongs.</strong> It
+has no useful <code>equals</code>, it is not thread-safe, and it cannot be a key. Call <code>toString()</code> as
+soon as the text is finished, then pass the string around.</div>
+
+<div class="pitfall"><strong>7. Concatenating user input into SQL/HTML/shell commands.</strong> Injection. Use
+<code>PreparedStatement</code> parameters or a proper escaper — never string glue.</div>
+
+<div class="pitfall"><strong>8. Logging with <code>+</code> on a disabled level.</strong>
+<code>log.debug("x=" + expensive())</code> builds the whole message even when debug is off. Use the placeholder
+form, <code>log.debug("x={}", value)</code>.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>Because strings are frozen, every join creates a new object. That is the one fact behind this whole lesson.</li>
+  <li><code>+</code> in <strong>one expression</strong> is fine — the compiler turns it into one builder (JDK 8) or one <code>invokedynamic</code> (JDK 9+).</li>
+  <li><code>+</code> in a <strong>loop</strong> is O(n²): each pass copies everything so far. Measured: 470 ms vs 0 ms for 20,000 appends.</li>
+  <li><code>StringBuilder</code> = mutable <code>char[]</code> + count. Starts at capacity 16, grows <code>old*2+2</code>, copies once in <code>toString()</code>. Net: O(n).</li>
+  <li><code>append</code> returns <code>this</code>, which is why chaining works and why a builder mutates in place — the opposite of <code>String</code>.</li>
+  <li><code>StringBuffer</code> is the synchronized older twin. Prefer <code>StringBuilder</code> unless one buffer is genuinely shared across threads.</li>
+  <li>Every <code>String</code> method returns a new string; the original is never touched.</li>
+  <li><code>split</code> and <code>replaceAll</code> take <strong>regex</strong>; <code>replace</code> takes plain text.</li>
+  <li>Never glue user input into SQL, HTML, or shell commands.</li>
+</ul>
+
+<hr/>
+<h2>Reference — cheat sheet</h2>
+<table>
+<thead><tr><th>Goal</th><th>Code</th></tr></thead>
+<tbody>
+<tr><td>One-off message</td><td><code>"user " + id + " logged in"</code></td></tr>
+<tr><td>Build in a loop</td><td><code>StringBuilder sb = new StringBuilder(); for(...) sb.append(x); sb.toString();</code></td></tr>
+<tr><td>Pre-size the buffer</td><td><code>new StringBuilder(1024)</code></td></tr>
+<tr><td>Join a list</td><td><code>String.join(", ", list)</code></td></tr>
+<tr><td>Join a stream</td><td><code>stream.collect(Collectors.joining(", ", "[", "]"))</code></td></tr>
+<tr><td>Split on a literal dot</td><td><code>s.split("\\.")</code></td></tr>
+<tr><td>Split keeping empties</td><td><code>s.split(",", -1)</code></td></tr>
+<tr><td>Plain-text replace</td><td><code>s.replace("a", "b")</code></td></tr>
+<tr><td>Regex replace</td><td><code>s.replaceAll("\\s+", " ")</code></td></tr>
+<tr><td>Format with 2 decimals</td><td><code>String.format("%.2f", x)</code></td></tr>
+<tr><td>Pad to width 10</td><td><code>String.format("%-10s", s)</code> (left) / <code>"%10s"</code> (right)</td></tr>
+<tr><td>Repeat (Java 11+)</td><td><code>"ab".repeat(3)</code></td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Concatenation</dt><dd>Joining two pieces of text, written with <code>+</code> in Java.</dd>
+  <dt>Capacity</dt><dd>How many characters a builder's array can hold before it must grow. Not the same as length.</dd>
+  <dt>Amortised O(1)</dt><dd>Each append is cheap <em>on average</em>, because the rare doubling cost is spread over many cheap appends.</dd>
+  <dt>Constant folding</dt><dd>The compiler joining constants at compile time (see part 1, §3.5).</dd>
+  <dt>invokedynamic</dt><dd>A bytecode instruction that lets the runtime decide how to implement a call — used for string concatenation from Java 9 (JEP 280).</dd>
+  <dt>Regex</dt><dd>Regular expression: a pattern language. <code>split</code> and <code>replaceAll</code> use it; <code>replace</code> does not.</dd>
+  <dt>Synchronized</dt><dd>Guarded by a lock so only one thread at a time may run the method — what <code>StringBuffer</code> adds over <code>StringBuilder</code>.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p>
+<a href="https://docs.oracle.com/javase/8/docs/api/java/lang/StringBuilder.html">Oracle — <code>java.lang.StringBuilder</code></a>:
+read the class description and the paragraph on capacity. Then skim
+<a href="https://openjdk.org/jeps/280">JEP 280 — Indify String Concatenation</a> to see why the compiler's job
+here changed in Java 9.
+</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>StringBuilder</em>, <em>StringBuffer</em> and
+<em>String</em> API docs (Java SE 8); Oracle, <em>Java Language Specification</em> SE 8 §15.18.1 (string
+concatenation); OpenJDK <a href="https://openjdk.org/jeps/280">JEP 280</a>; OpenJDK issue
+<a href="https://bugs.openjdk.org/browse/JDK-6924259">JDK-6924259</a> (substring now copies). Code compiled and run
+on JDK 1.8.0_411. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+<p class="nav" style="margin-top:2rem">
+  <a href="lesson.html">← Part 1 — What a String really is</a> ·
+  Next: <a href="lesson-3-characters-and-encoding.html"><strong>Part 3 — Characters, bytes &amp; encoding</strong></a>
+</p>
+
+</body>
+</html>

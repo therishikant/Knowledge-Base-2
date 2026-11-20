@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Generics &amp; Erasure — Types &amp; OOP, Part 3 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Generics &amp; Erasure</h1>
+<p class="crumb">Java › type system &amp; OOP cluster · lesson 5, <strong>part 3 of 3</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — type safety that the compiler keeps and the JVM forgets</p>
+
+<p class="nav"><strong>Type &amp; OOP cluster:</strong>
+  <a href="lesson.html">1. What a type really is</a> ·
+  <a href="lesson-2-inheritance-and-polymorphism.html">2. Inheritance &amp; polymorphism</a> ·
+  <strong>3. Generics &amp; erasure</strong>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> <strong>Generics</strong> let you write one class or method that works for many types while the
+compiler still checks every use — so <code>List&lt;String&gt;</code> can never hold a number and you never write a cast. The catch
+is <strong>erasure</strong>: after checking, the compiler <em>deletes</em> the type argument, so at run time
+<code>List&lt;String&gt;</code> and <code>List&lt;Integer&gt;</code> are literally the same class. Almost every generics "gotcha"
+is a direct consequence of that one deletion.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+<a href="lesson.html">Part 1</a> built single types. <a href="lesson-2-inheritance-and-polymorphism.html">Part 2</a> connected them
+into hierarchies. Both answered "what kind of thing is this?"
+</p>
+<p>
+This part answers a different question: <strong>"a container of <em>what</em>?"</strong> A <code>List</code> is not interesting on
+its own; what matters is what it holds. Generics are how Java attaches that answer to a type, and they are the reason the entire
+Collections API (lesson 8) and the entire Streams API (lesson 7) are usable without casting.
+</p>
+<p>
+It also closes a thread from part 2. Once types form a family tree, an awkward question appears: a <code>Dog</code> is an
+<code>Animal</code>, so is a <code>List&lt;Dog&gt;</code> a <code>List&lt;Animal&gt;</code>? The answer is <strong>no</strong>, and
+understanding why is the most valuable thing in this lesson.
+</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+
+<h3>2.1 Life before 2004</h3>
+<p>Generics arrived in Java 5. Before that, every collection held plain <code>Object</code>, and code looked like this:</p>
+<pre>List names = <span class="k">new</span> ArrayList();
+names.add(<span class="s">"Asha"</span>);
+names.add(Integer.valueOf(42));            <span class="c">// nobody stopped this</span>
+
+String first = (String) names.get(0);      <span class="c">// cast, every single time</span>
+String second = (String) names.get(1);     <span class="c">// ClassCastException at RUN time</span></pre>
+<p>Two separate miseries:</p>
+<ul>
+  <li><strong>No safety.</strong> Nothing stopped the wrong type going in. The mistake surfaced far away, much later, in unrelated code — and the stack trace pointed at the innocent reader, not the guilty writer.</li>
+  <li><strong>Casts everywhere.</strong> Every read needed a cast. Noisy to write, and each cast was an unchecked promise waiting to fail.</li>
+</ul>
+
+<h3>2.2 What generics changed</h3>
+<pre>List&lt;String&gt; names = <span class="k">new</span> ArrayList&lt;String&gt;();
+names.add(<span class="s">"Asha"</span>);
+names.add(Integer.valueOf(42));   <span class="c">// COMPILE ERROR — caught instantly, at the guilty line</span>
+
+String first = names.get(0);      <span class="c">// no cast needed</span></pre>
+<p>
+The bug moved from run time to compile time, and from the reader's line to the writer's line. That is the whole value proposition.
+The casts did not disappear — the compiler now writes them for you, and it can only do that because it has already proved they are
+safe <span class="sources">(<a href="https://docs.oracle.com/javase/tutorial/java/generics/why.html">Oracle Java Tutorials — Why Use Generics?</a>)</span>.
+</p>
+
+<h3>2.3 Why the type vanishes at run time</h3>
+<p>
+When generics were designed, there were already millions of lines of Java and thousands of compiled libraries in the wild.
+Sun had a hard constraint: <strong>old code and new code must work together</strong>, and old <code>.class</code> files must keep
+running on the new JVM.
+</p>
+<p>They had two options:</p>
+<table>
+  <thead><tr><th>Option</th><th>How</th><th>Cost</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Reified generics</strong> (C# took this route)</td><td>teach the JVM about type arguments; <code>List&lt;String&gt;</code> becomes a real, distinct run-time type</td><td>a new, incompatible JVM and a broken ecosystem</td></tr>
+    <tr><td><strong>Erasure</strong> (Java took this route)</td><td>check everything in the compiler, then delete the type arguments and emit ordinary pre-generics bytecode</td><td>no run-time type information — all the gotchas in §3.4</td></tr>
+  </tbody>
+</table>
+<p>
+Java chose compatibility. Generics are therefore a <em>compile-time-only</em> feature: a very thorough proof, followed by a
+deliberate forgetting <span class="sources">(<a href="https://docs.oracle.com/javase/tutorial/java/generics/erasure.html">Oracle Java Tutorials — Type Erasure</a>)</span>.
+</p>
+<div class="callout">
+<strong>This is a trade-off worth being able to argue.</strong> Erasure bought Java a smooth migration that C# paid for with a
+version break. The bill arrives as <code>new T()</code> being impossible, generic arrays being unsafe, and
+<code>instanceof List&lt;String&gt;</code> being illegal. Project Valhalla is a long-running effort to bring some reification back.
+</div>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>3.1 A type parameter is a blank you fill at the call site</h3>
+<p>
+<code>&lt;T&gt;</code> is a placeholder for a type, exactly as a method parameter is a placeholder for a value. You fill it in when
+you use the class.
+</p>
+<pre><span class="k">class</span> Box&lt;T&gt; {              <span class="c">// T is a blank</span>
+    <span class="k">private</span> T item;
+    <span class="k">void</span> put(T item) { <span class="k">this</span>.item = item; }
+    T get()          { <span class="k">return</span> item; }
+}
+
+Box&lt;String&gt; b = <span class="k">new</span> Box&lt;String&gt;();   <span class="c">// the blank is filled with String</span>
+b.put(<span class="s">"hello"</span>);
+String s = b.get();                 <span class="c">// no cast — the compiler knows</span>
+<span class="c">// b.put(42);                     // compile error — the blank says String</span></pre>
+<p>The conventional single letters are worth knowing because the JDK uses them everywhere:</p>
+<table>
+  <thead><tr><th>Letter</th><th>Means</th></tr></thead>
+  <tbody>
+    <tr><td><code>T</code></td><td>Type — the general-purpose one</td></tr>
+    <tr><td><code>E</code></td><td>Element — used by collections</td></tr>
+    <tr><td><code>K</code>, <code>V</code></td><td>Key and Value — used by maps</td></tr>
+    <tr><td><code>R</code></td><td>Result — used by functions</td></tr>
+    <tr><td><code>N</code></td><td>Number</td></tr>
+  </tbody>
+</table>
+
+<h3>3.2 Generic methods and bounded types</h3>
+<p>
+A method can declare its own type parameter, written <strong>before the return type</strong>. The compiler usually infers it from
+the arguments, so you rarely spell it out at the call site:
+</p>
+<pre><span class="k">static</span> &lt;T&gt; T firstOrDefault(List&lt;T&gt; list, T fallback) {
+    <span class="k">return</span> list.isEmpty() ? fallback : list.get(0);
+}</pre>
+<p>
+Sometimes a blank cannot be <em>completely</em> blank. If your method must compare values, <code>T</code> has to have a
+<code>compareTo</code>. That is a <strong>bound</strong>:
+</p>
+<pre><span class="k">static</span> &lt;T <span class="k">extends</span> Comparable&lt;T&gt;&gt; T max(List&lt;T&gt; list) { ... }</pre>
+<p>
+Read <code>&lt;T extends Comparable&lt;T&gt;&gt;</code> as "any T, as long as it can be compared with itself". Inside the method you
+may now call <code>compareTo</code>. Note that <code>extends</code> here means "is a subtype of", and it works for interfaces too —
+the keyword is reused.
+</p>
+
+<h3>3.3 Erasure — what the compiler actually emits</h3>
+<p>Compilation happens in two steps, and the order is the whole story:</p>
+
+<figure>
+<svg viewBox="0 0 760 290" width="100%" role="img" aria-label="Generic source is checked by the compiler, then type arguments are erased and casts are inserted into the bytecode">
+  <style>
+    .src{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .chk{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .byt{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .h{font:12px Georgia,serif;fill:#2b2b28;font-weight:bold}
+    .ar{stroke:#6b675e;stroke-width:1.5;marker-end:url(#mg);fill:none}
+  </style>
+  <defs><marker id="mg" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="src" x="20" y="40" width="210" height="120" rx="7"/>
+  <text class="h" x="36" y="64">1. YOU WRITE</text>
+  <text class="t" x="36" y="92">List&lt;String&gt; l =</text>
+  <text class="t" x="52" y="110">new ArrayList&lt;String&gt;();</text>
+  <text class="t" x="36" y="132">l.add("hi");</text>
+  <text class="t" x="36" y="150">String s = l.get(0);</text>
+
+  <rect class="chk" x="275" y="40" width="210" height="120" rx="7"/>
+  <text class="h" x="291" y="64">2. COMPILER CHECKS</text>
+  <text class="c" x="291" y="90">is "hi" a String? yes</text>
+  <text class="c" x="291" y="110">is get(0) assignable</text>
+  <text class="c" x="291" y="128">to a String? yes</text>
+  <text class="c" x="291" y="152">proof complete</text>
+
+  <rect class="byt" x="530" y="40" width="210" height="120" rx="7"/>
+  <text class="h" x="546" y="64">3. BYTECODE KEEPS</text>
+  <text class="t" x="546" y="92">List l =</text>
+  <text class="t" x="562" y="110">new ArrayList();</text>
+  <text class="t" x="546" y="132">l.add("hi");</text>
+  <text class="t" x="546" y="150">String s = (String) l.get(0);</text>
+
+  <line class="ar" x1="232" y1="100" x2="271" y2="100"/>
+  <line class="ar" x1="487" y1="100" x2="526" y2="100"/>
+
+  <text class="c" x="546" y="186" style="fill:#7a1f1f">↑ &lt;String&gt; is GONE; a cast was inserted</text>
+  <text class="c" x="20" y="230">The JVM never sees a type argument. It runs ordinary pre-generics bytecode —</text>
+  <text class="c" x="20" y="250">which is exactly why Java 5 code could run on an unmodified JVM and talk to</text>
+  <text class="c" x="20" y="270">libraries compiled years earlier.</text>
+</svg>
+<figcaption>Check, then erase, then insert the casts you did not write. Generics are a promise kept entirely inside
+<code>javac</code> (Oracle Java Tutorials — Type Erasure).</figcaption>
+</figure>
+
+<p>The erasure rules themselves are short:</p>
+<table>
+  <thead><tr><th>You write</th><th>The bytecode has</th></tr></thead>
+  <tbody>
+    <tr><td><code>List&lt;String&gt;</code></td><td><code>List</code></td></tr>
+    <tr><td>unbounded <code>T</code></td><td><code>Object</code></td></tr>
+    <tr><td><code>T extends Comparable&lt;T&gt;</code></td><td><code>Comparable</code> (the first bound)</td></tr>
+    <tr><td>every read of a <code>T</code></td><td>a compiler-inserted cast</td></tr>
+  </tbody>
+</table>
+
+<h3>3.4 The five consequences of erasure</h3>
+<p>Every generics restriction you have ever hit comes from the table above. Here they are, with the reason attached:</p>
+<table>
+  <thead><tr><th>You cannot…</th><th>Because at run time…</th><th>Do this instead</th></tr></thead>
+  <tbody>
+    <tr><td><code>new T()</code></td><td>there is no <code>T</code> to construct</td><td>pass a <code>Class&lt;T&gt;</code> or a factory (<code>Supplier&lt;T&gt;</code>)</td></tr>
+    <tr><td><code>new T[10]</code></td><td>arrays <em>do</em> know their type; <code>T</code> does not</td><td>use a <code>List&lt;T&gt;</code>, or create <code>Object[]</code> and cast internally</td></tr>
+    <tr><td><code>x instanceof List&lt;String&gt;</code></td><td>only <code>List</code> exists</td><td><code>x instanceof List&lt;?&gt;</code></td></tr>
+    <tr><td>overload on <code>f(List&lt;String&gt;)</code> and <code>f(List&lt;Integer&gt;)</code></td><td>both erase to <code>f(List)</code> — same signature</td><td>give the methods different names</td></tr>
+    <tr><td>use a primitive as a type argument</td><td><code>T</code> erases to <code>Object</code>, and <code>int</code> is not an <code>Object</code></td><td><code>List&lt;Integer&gt;</code> (with autoboxing costs — lesson 6)</td></tr>
+  </tbody>
+</table>
+<p>
+There is also a <code>static</code> rule worth naming: <strong>a <code>static</code> member cannot use the class's type
+parameter.</strong> <code>T</code> belongs to an <em>instance</em>, and a <code>static</code> member belongs to the class, which is
+shared by every <code>T</code> at once. A <code>static</code> method must declare its own <code>&lt;T&gt;</code>.
+</p>
+
+<h3>3.5 Invariance — why <code>List&lt;Dog&gt;</code> is not a <code>List&lt;Animal&gt;</code></h3>
+<p>This is the single most-asked generics question. The rule is: <strong>generics are invariant.</strong> Even though
+<code>Dog</code> is a subtype of <code>Animal</code>, <code>List&lt;Dog&gt;</code> is <em>not</em> a subtype of
+<code>List&lt;Animal&gt;</code>. Here is why that must be true:</p>
+
+<figure>
+<svg viewBox="0 0 760 300" width="100%" role="img" aria-label="If a List of Dog could be assigned to a List of Animal, a Cat could be inserted into the Dog list">
+  <style>
+    .ok{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .bad{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.4}
+    .nt{fill:#f7f5ef;stroke:#bdb7aa;stroke-width:1.2}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .h{font:12px Georgia,serif;fill:#2b2b28;font-weight:bold}
+    .ar{stroke:#7a1f1f;stroke-width:1.5;marker-end:url(#mi);fill:none}
+    .blk{stroke:#1f6b4d;stroke-width:2.4;fill:none}
+  </style>
+  <defs><marker id="mi" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker></defs>
+
+  <text class="h" x="20" y="28">Suppose Java allowed it. Follow the four lines.</text>
+
+  <rect class="ok" x="20" y="48" width="330" height="40" rx="6"/>
+  <text class="t" x="34" y="73">List&lt;Dog&gt; dogs = new ArrayList&lt;&gt;();</text>
+
+  <rect class="bad" x="20" y="100" width="330" height="40" rx="6"/>
+  <text class="t" x="34" y="125">List&lt;Animal&gt; animals = dogs;</text>
+  <path class="blk" d="M356,104 L376,136 M376,104 L356,136"/>
+  <text class="c" x="390" y="126">Java stops you HERE — and this is why:</text>
+
+  <rect class="bad" x="20" y="152" width="330" height="40" rx="6"/>
+  <text class="t" x="34" y="177">animals.add(new Cat());</text>
+  <text class="c" x="364" y="177">perfectly legal — a Cat IS an Animal</text>
+
+  <rect class="bad" x="20" y="204" width="330" height="40" rx="6"/>
+  <text class="t" x="34" y="229">Dog d = dogs.get(0);</text>
+  <text class="c" x="364" y="229">boom — a Cat comes out of a List&lt;Dog&gt;</text>
+
+  <line class="ar" x1="185" y1="88" x2="185" y2="98"/>
+  <line class="ar" x1="185" y1="140" x2="185" y2="150"/>
+  <line class="ar" x1="185" y1="192" x2="185" y2="202"/>
+
+  <rect class="nt" x="20" y="258" width="720" height="32" rx="5"/>
+  <text class="c" x="34" y="279">Invariance is not pedantry — it is the only way to keep the no-cast promise. Arrays got this wrong (see below).</text>
+</svg>
+<figcaption>The four-line proof. Allowing step 2 would let step 3 insert a <code>Cat</code>, and step 4 would then hand a
+<code>Cat</code> to code expecting a <code>Dog</code> — with no cast anywhere to catch it.</figcaption>
+</figure>
+
+<div class="callout">
+<strong>Arrays made the opposite choice, and it is a known wart.</strong> <code>Dog[]</code> <em>is</em> an <code>Animal[]</code>
+(arrays are <em>covariant</em>). So <code>Object[] objs = new String[1]; objs[0] = 42;</code> compiles — and throws
+<code>ArrayStoreException</code> at run time. Arrays need a run-time check precisely because the compile-time check was given away.
+Generics refused to repeat that mistake. Interview-ready one-liner: <strong>arrays are covariant and reified; generics are
+invariant and erased</strong> <span class="sources">(Bloch, <em>Effective Java</em>, Item 28)</span>.
+</div>
+
+<h3>3.6 Wildcards — getting flexibility back safely</h3>
+<p>
+Invariance is correct, but it makes a method like "sum any list of numbers" impossible to write with plain generics.
+<strong>Wildcards</strong> are the controlled relaxation.
+</p>
+<table>
+  <thead><tr><th>Wildcard</th><th>Read as</th><th>You may</th><th>You may not</th></tr></thead>
+  <tbody>
+    <tr><td><code>List&lt;? extends Number&gt;</code></td><td>"a list of some unknown subtype of Number"</td><td><strong>read</strong> items as <code>Number</code></td><td><strong>add</strong> anything (except <code>null</code>)</td></tr>
+    <tr><td><code>List&lt;? super Integer&gt;</code></td><td>"a list of some unknown supertype of Integer"</td><td><strong>add</strong> <code>Integer</code>s</td><td>read as anything better than <code>Object</code></td></tr>
+    <tr><td><code>List&lt;?&gt;</code></td><td>"a list of something, I don't care what"</td><td>read as <code>Object</code>, call <code>size()</code></td><td>add anything (except <code>null</code>)</td></tr>
+  </tbody>
+</table>
+<p>Why the restrictions are exactly right, in one sentence each:</p>
+<ul>
+  <li><strong><code>? extends</code> cannot accept writes</strong> because nobody knows which subtype it really is — it might be a <code>List&lt;Double&gt;</code>, so adding an <code>Integer</code> would corrupt it.</li>
+  <li><strong><code>? super</code> cannot give you a precise read</strong> because it might be a <code>List&lt;Object&gt;</code>, so the only thing you can safely promise about an item is that it is an <code>Object</code>.</li>
+</ul>
+<div class="idiom">
+<strong>PECS — "Producer Extends, Consumer Super."</strong> If the parameter <em>produces</em> values you read, use
+<code>? extends T</code>. If it <em>consumes</em> values you write, use <code>? super T</code>. If you do both, use plain
+<code>T</code> and accept the lost flexibility <span class="sources">(Bloch, <em>Effective Java</em>, Item 31)</span>.
+</div>
+<p>You can see PECS in the JDK's own signature for <code>Collections.copy</code>:</p>
+<pre><span class="k">static</span> &lt;T&gt; <span class="k">void</span> copy(List&lt;? <span class="k">super</span> T&gt; dest, List&lt;? <span class="k">extends</span> T&gt; src)
+<span class="c">//              consumer (we write)        producer (we read)</span></pre>
+<div class="callout">
+<strong>A rule of thumb for API design:</strong> use wildcards on <em>method parameters</em> to accept more callers; do not use them
+on <em>return types</em>, because you would force every caller to deal with a wildcard too.
+</div>
+
+<h3>3.7 Raw types and heap pollution</h3>
+<p>
+A <strong>raw type</strong> is a generic type used with no type argument — plain <code>List</code> instead of
+<code>List&lt;String&gt;</code>. It exists only for backward compatibility with pre-Java-5 code, and using one switches off
+<em>all</em> generic checking for that reference.
+</p>
+<pre>List&lt;String&gt; strings = <span class="k">new</span> ArrayList&lt;String&gt;();
+List raw = strings;                   <span class="c">// raw — checks off</span>
+raw.add(Integer.valueOf(42));         <span class="c">// warning only; succeeds</span>
+String s = strings.get(0);            <span class="c">// ClassCastException on a line with no cast!</span></pre>
+<p>
+That corrupted state — a <code>List&lt;String&gt;</code> holding a non-String — is called <strong>heap pollution</strong>. Note where
+the explosion happens: not on the line that did the damage, but on an innocent line somewhere else. This is exactly the
+pre-generics misery of §2.1, re-created by opting out.
+</p>
+<div class="idiom">
+<strong>Never use raw types in new code.</strong> If you genuinely do not care about the element type, write <code>List&lt;?&gt;</code> —
+it is safe, because the compiler refuses to let you add anything to it <span class="sources">(Bloch, <em>Effective Java</em>, Item 26)</span>.
+Treat every "unchecked" warning as an error you have not fixed yet; suppress it only on the narrowest possible scope, with a comment
+explaining why it is provably safe.
+</div>
+
+<h3>3.8 Where the type information <em>does</em> survive</h3>
+<p>
+Erasure removes type arguments from <em>values</em>, but <strong>generic signatures of classes, fields and methods are kept in the
+class file</strong> as metadata, so the compiler can check code compiled against a library later. That is why your IDE knows
+<code>Collections.sort</code> takes a <code>List&lt;T&gt;</code> even though the bytecode works on a raw <code>List</code>.
+</p>
+<p>
+Frameworks exploit this through reflection. Spring and Jackson can discover that a field is a <code>List&lt;Customer&gt;</code> by
+reading <code>Field.getGenericType()</code>. The famous "super type token" trick —
+<code>new TypeReference&lt;List&lt;Customer&gt;&gt;(){}</code> — works because an anonymous <em>subclass</em> records its superclass's
+type argument in the class file. Clever, and a direct workaround for erasure.
+</p>
+
+<h3>3.9 Enums — the other way to make a type precise</h3>
+<p>
+Generics narrow a type by parameter. An <strong>enum</strong> narrows it by listing every legal value. An
+<code>enum Status { OPEN, CLOSED }</code> is a class whose instances are fixed at compile time — so an invalid status is not a
+run-time error, it is a compile error.
+</p>
+<p>Enums are real classes: they may have fields, constructors and methods, and each constant is a singleton, which is why
+<code>==</code> is the correct comparison for them. Use an enum any time a <code>String</code> or <code>int</code> constant is
+standing in for "one of a small, known set"
+<span class="sources">(Bloch, <em>Effective Java</em>, Item 34)</span>.</p>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong>Write a generic class</strong> when the logic is identical for every element type: containers, caches, result wrappers, repositories.</li>
+  <li><strong>Write a generic method</strong> when just one operation varies by type — far more common than a whole generic class.</li>
+  <li><strong>Add a bound</strong> (<code>&lt;T extends Something&gt;</code>) the moment you need to call a method on <code>T</code>.</li>
+  <li><strong>Use <code>? extends T</code></strong> on parameters you only read from; <strong><code>? super T</code></strong> on parameters you only write into.</li>
+  <li><strong>Use <code>List&lt;?&gt;</code></strong> rather than a raw <code>List</code> whenever the element type genuinely does not matter.</li>
+  <li><strong>Use an enum</strong> instead of string or int constants for any fixed set of values.</li>
+  <li><strong>Do not reach for generics</strong> when one concrete type is all you will ever need — <code>&lt;T&gt;</code> that is only ever <code>String</code> is noise.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine a box in a shop. A plain cardboard box takes anything — shoes, fruit, a cat. That is convenient right up to the moment
+you reach in expecting shoes and grab the cat.
+</p>
+<p>
+Now imagine the shop gives you boxes with a label slot on the front: <em>SHOES ONLY</em>. The person packing the box can see the
+label, so they will not put fruit in. And you, opening it, do not need to check — the label already promised.
+</p>
+<p>
+That is <strong>generics</strong>. <code>Box&lt;Shoes&gt;</code> is a box with a label.
+</p>
+<p>
+Here is the strange part. The shop checks the label very carefully while packing — and then <strong>peels it off</strong> before
+the box leaves. Once the box is on the truck, no one can tell what is inside. Why peel it off? Because the delivery trucks are old
+and were built before labels existed, and they must still be able to carry every box. That is <strong>erasure</strong>: the
+checking is real, but the label does not survive the journey.
+</p>
+<p>
+And this explains the weird rules. You cannot ask a box on the truck "what is your label?" — it is gone. You cannot tell the truck
+"make me a new one of whatever this is" — it does not know. The checking all happened back at the shop.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson-2-inheritance-and-polymorphism.html">part 2</a>:</strong> invariance exists precisely <em>because</em> subtyping exists. No hierarchy, no problem to solve.</li>
+  <li><strong>← <a href="../01-jvm-bytecode-pipeline/lesson.html">jvm-bytecode-pipeline</a>:</strong> erasure is a <code>javac</code> decision; <code>javap -c</code> on your own class shows the inserted <code>checkcast</code> instructions.</li>
+  <li><strong>→ <a href="../08-collections-and-equality/lesson.html">collections-and-equality</a>:</strong> the entire Collections API is generics in practice — <code>List&lt;E&gt;</code>, <code>Map&lt;K,V&gt;</code>, <code>Comparator&lt;T&gt;</code>.</li>
+  <li><strong>→ <a href="../07-java8-functional/lesson.html">java8-functional</a>:</strong> <code>Function&lt;T,R&gt;</code>, <code>Predicate&lt;T&gt;</code> and <code>Stream&lt;T&gt;</code> are generic interfaces; PECS is why <code>Stream.map</code> takes <code>Function&lt;? super T, ? extends R&gt;</code>.</li>
+  <li><strong>→ <a href="../06-memory-model-and-gc/lesson.html">memory-model-and-gc</a>:</strong> no primitives as type arguments means boxing, which means many small objects on the heap.</li>
+  <li><strong>→ <a href="../12-modern-java-9-to-21/lesson.html">modern-java-9-to-21</a>:</strong> <code>var</code>, the diamond <code>&lt;&gt;</code>, and <code>sealed</code> types all reduce the ceremony around this.</li>
+  <li><strong>Transfers, but carefully:</strong> C# generics are <em>reified</em> (<code>new T()</code> works, <code>typeof(List&lt;int&gt;)</code> is real). TypeScript generics are erased like Java's. Knowing which model a language uses tells you instantly which tricks will work.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — one file, dissected</h2>
+<p>
+Full source: <a href="../code/TypeDemo3.java">code/TypeDemo3.java</a>. Compile with <code>javac TypeDemo3.java</code>, run with
+<code>java TypeDemo3</code>. Output below is real, from JDK 1.8.0_411.
+</p>
+
+<h3>Chunk 1 — a generic class</h3>
+<pre><span class="k">static class</span> Box&lt;T&gt; {
+    <span class="k">private</span> T item;
+    <span class="k">void</span> put(T item) { <span class="k">this</span>.item = item; }
+    T get()          { <span class="k">return</span> item; }
+}
+...
+Box&lt;String&gt; box = <span class="k">new</span> Box&lt;String&gt;();
+box.put(<span class="s">"hello"</span>);
+String s = box.get();        <span class="c">// no cast</span>
+<span class="c">// box.put(42);            // compile error — this is the whole point</span></pre>
+<div class="ann">The commented line is the feature. The value of generics is measured in code that <em>refuses to compile</em>, which
+makes it invisible in the output — so read the comment as the real result. In the bytecode, <code>item</code> is just an
+<code>Object</code> and <code>box.get()</code> is followed by <code>checkcast java/lang/String</code>.</div>
+
+<h3>Chunk 2 — proving erasure in three lines</h3>
+<pre>List&lt;String&gt;  strings = <span class="k">new</span> ArrayList&lt;String&gt;();
+List&lt;Integer&gt; ints    = <span class="k">new</span> ArrayList&lt;Integer&gt;();
+System.out.println(strings.getClass() == ints.getClass());   <span class="c">// true</span></pre>
+<div class="ann">Two different declared types, <strong>one</strong> run-time class. If you only remember one experiment from this
+lesson, remember this one — it answers "are generics reified in Java?" definitively, and every gotcha in §3.4 follows from it.</div>
+
+<h3>Chunk 3 — heap pollution, caught in the act</h3>
+<pre>List raw = strings;                   <span class="c">// raw type: all checks off</span>
+raw.add(Integer.valueOf(42));         <span class="c">// compiles with a warning, runs fine</span>
+<span class="k">try</span> {
+    String oops = strings.get(0);     <span class="c">// the compiler inserted a hidden cast HERE</span>
+} <span class="k">catch</span> (ClassCastException e) { ... }</pre>
+<div class="ann">Look at where it fails. The damage was done on line 2; the exception lands on line 4, in code that is entirely
+innocent and contains no visible cast at all. <strong>That distance between cause and symptom is the exact bug generics were
+invented to prevent</strong> — and a raw type hands it straight back to you. This is also why <code>javac</code> printed
+"uses unchecked or unsafe operations" when compiling this file.</div>
+
+<h3>Chunk 4 — a bound lets you call methods on <code>T</code></h3>
+<pre><span class="k">static</span> &lt;T <span class="k">extends</span> Comparable&lt;T&gt;&gt; T max(List&lt;T&gt; list) {
+    T best = list.get(0);
+    <span class="k">for</span> (T candidate : list)
+        <span class="k">if</span> (candidate.compareTo(best) &gt; 0) best = candidate;
+    <span class="k">return</span> best;
+}</pre>
+<div class="ann">Without the bound, <code>T</code> erases to <code>Object</code> and <code>compareTo</code> does not exist. With it,
+<code>T</code> erases to <code>Comparable</code> and the call is legal. One method now works for <code>Integer</code>,
+<code>String</code>, <code>LocalDate</code> and any class you write — the output shows numbers and text going through the same
+code.</div>
+
+<h3>Chunk 5 — PECS, both halves</h3>
+<pre><span class="k">static double</span> sum(List&lt;? <span class="k">extends</span> Number&gt; producer) {   <span class="c">// we only READ</span>
+    <span class="k">double</span> total = 0;
+    <span class="k">for</span> (Number n : producer) total += n.doubleValue();
+    <span class="k">return</span> total;
+}
+
+<span class="k">static void</span> addIntegers(List&lt;? <span class="k">super</span> Integer&gt; consumer) {  <span class="c">// we only WRITE</span>
+    consumer.add(1);
+    consumer.add(2);
+}</pre>
+<div class="ann">Thanks to <code>? extends</code>, <code>sum</code> accepts <code>List&lt;Integer&gt;</code> <em>and</em>
+<code>List&lt;Double&gt;</code> — with a plain <code>List&lt;Number&gt;</code> parameter neither would compile.
+<strong>Try it:</strong> add <code>producer.add(1)</code> inside <code>sum</code> and the compiler refuses, because the list might
+really be a <code>List&lt;Double&gt;</code>. The restriction is not arbitrary; it is the proof.</div>
+
+<h3>Chunk 6 — an enum is a type with a complete value list</h3>
+<pre><span class="k">enum</span> Status {
+    OPEN(<span class="s">"awaiting action"</span>), CLOSED(<span class="s">"finished"</span>);
+    <span class="k">private final</span> String blurb;
+    Status(String blurb) { <span class="k">this</span>.blurb = blurb; }
+}</pre>
+<div class="ann">An enum is a class with <code>private final</code> fields and a constructor — everything from part 1 — with the
+instances fixed at compile time. Each constant is a singleton, which is why <code>Status.valueOf("OPEN") == Status.OPEN</code>
+prints <code>true</code>. <strong>Gotcha:</strong> never persist <code>ordinal()</code> to a database; inserting a new constant
+silently renumbers everything. Store <code>name()</code>, or an explicit code field.</div>
+
+<h3>Real output <span class="sources">(JDK 1.8.0_411)</span></h3>
+<pre>--- 1. generics remove casts and catch mistakes early ---
+   box.get() = hello (length 5)
+
+--- 2. erasure: the type argument is gone at run time ---
+   strings.getClass() = java.util.ArrayList
+   ints.getClass()    = java.util.ArrayList
+   same runtime class? true
+
+--- 3. so a raw reference can smuggle in the wrong type ---
+   ClassCastException on a line with no visible cast: java.lang.Integer cannot be cast to java.lang.String
+
+--- 4. generic methods and bounds ---
+   firstOrDefault(empty, "none") = none
+   max([3, 9, 4])                = 9
+   max(["pear", "apple"])        = pear
+
+--- 5. PECS in action ---
+   sum(List&lt;Integer&gt;) = 6.0
+   sum(List&lt;Double&gt;)  = 4.0
+   after addIntegers(List&lt;Number&gt;) = [1, 2]
+
+--- 6. enums are types with a known, complete set of values ---
+   OPEN (ordinal 0) = awaiting action
+   CLOSED (ordinal 1) = finished
+   Status.valueOf("OPEN") == Status.OPEN ? true</pre>
+<div class="ann">Section 2 is the proof of erasure; section 3 is the price of ignoring it. In section 5, note that
+<code>sum</code> swallowed two differently-parameterised lists through one parameter — that is the flexibility wildcards buy back
+after invariance takes it away. Also note the compiler's own warning when building this file: <em>"uses unchecked or unsafe
+operations"</em>, pointing squarely at the raw type in section 3.</div>
+
+<div class="try"><strong>Predict, then run.</strong>
+(1) Add <code>producer.add(Integer.valueOf(5))</code> inside <code>sum</code>. What is the error, and which sentence in §3.6
+explains it?
+(2) Add <code>static &lt;T&gt; T[] makeArray(int n) { return new T[n]; }</code>. What does the compiler say, and which erasure rule is
+it enforcing?
+(3) Add a second <code>sum(List&lt;String&gt;)</code> overload next to the existing one. Why does the file stop compiling even though
+the parameter types look different?
+(4) Run <code>javap -c TypeDemo3</code> and find the <code>checkcast</code> instructions. Which source lines did they come from,
+given that you never wrote a cast?</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Using raw types.</strong> One raw reference disables checking for everything reached through it and
+re-creates pre-generics bugs. Use <code>List&lt;?&gt;</code> when the type truly does not matter.</div>
+<div class="pitfall"><strong>Ignoring unchecked warnings.</strong> Each one is a place where the compiler has stopped being able to
+guarantee safety. Fix it, or suppress it on the smallest possible scope with a comment justifying it.</div>
+<div class="pitfall"><strong>Expecting <code>List&lt;Dog&gt;</code> to be a <code>List&lt;Animal&gt;</code>.</strong> Generics are
+invariant. Use <code>? extends Animal</code> if you only need to read.</div>
+<div class="pitfall"><strong>Mixing arrays and generics.</strong> <code>new List&lt;String&gt;[10]</code> is illegal, and
+<code>(T[]) new Object[n]</code> is an unchecked lie that can bite later. Prefer a <code>List</code>.</div>
+<div class="pitfall"><strong>Trying to use <code>T</code> in a <code>static</code> member.</strong> The class's <code>T</code> belongs
+to an instance. Declare a fresh <code>&lt;T&gt;</code> on the <code>static</code> method.</div>
+<div class="pitfall"><strong>Putting wildcards in return types.</strong> It pushes the wildcard onto every caller. Keep wildcards in
+parameters, where they widen what you accept.</div>
+<div class="pitfall"><strong>Forgetting boxing costs.</strong> <code>List&lt;Integer&gt;</code> is thousands of separate heap objects
+where <code>int[]</code> is one. In a hot loop this matters.</div>
+<div class="pitfall"><strong>Persisting <code>enum.ordinal()</code>.</strong> Add a constant in the middle and every stored number
+now means something else. Persist <code>name()</code> or an explicit code.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>Generics move container type errors from <strong>run time to compile time</strong>, and remove the casts you used to write by hand.</li>
+  <li><code>&lt;T&gt;</code> is a blank filled at the use site; <code>&lt;T extends X&gt;</code> is a blank with a minimum requirement, which lets you call <code>X</code>'s methods.</li>
+  <li><strong>Erasure:</strong> the compiler checks, then deletes the type argument and inserts casts. Java chose this for backward compatibility; C# chose reification instead.</li>
+  <li>At run time <code>List&lt;String&gt;</code> and <code>List&lt;Integer&gt;</code> are the <strong>same class</strong> — the demo proves it.</li>
+  <li>Erasure explains all the restrictions: no <code>new T()</code>, no <code>new T[]</code>, no <code>instanceof List&lt;String&gt;</code>, no overloading that differs only by type argument, no primitives as type arguments.</li>
+  <li><strong>Generics are invariant:</strong> <code>List&lt;Dog&gt;</code> is not a <code>List&lt;Animal&gt;</code>, and the four-line proof shows why it must not be.</li>
+  <li><strong>Arrays are covariant and reified; generics are invariant and erased.</strong> That is why arrays throw <code>ArrayStoreException</code> and generics do not need to.</li>
+  <li><strong>PECS:</strong> <code>? extends T</code> to read from a producer, <code>? super T</code> to write into a consumer, plain <code>T</code> when you do both.</li>
+  <li><strong>Raw types cause heap pollution</strong> — the failure appears far from the damage. Use <code>&lt;?&gt;</code> instead.</li>
+  <li>Generic <em>signatures</em> survive in the class file, which is how reflection-based frameworks and super type tokens work.</li>
+  <li><strong>Enums</strong> are the other precision tool: a type whose complete set of values is fixed at compile time, each constant a singleton.</li>
+</ul>
+
+<hr/>
+<h2>Reference — quick answers</h2>
+<table>
+  <thead><tr><th>Question</th><th>Answer</th></tr></thead>
+  <tbody>
+    <tr><td>Are Java generics reified?</td><td>No — erased. C# generics are reified.</td></tr>
+    <tr><td>What does an unbounded <code>T</code> erase to?</td><td><code>Object</code>. A bounded one erases to its first bound.</td></tr>
+    <tr><td>Why no <code>new T()</code>?</td><td>No run-time type to construct. Pass a <code>Class&lt;T&gt;</code> or <code>Supplier&lt;T&gt;</code>.</td></tr>
+    <tr><td>Why is <code>List&lt;Dog&gt;</code> not a <code>List&lt;Animal&gt;</code>?</td><td>You could then add a <code>Cat</code> and break the original list.</td></tr>
+    <tr><td>What is PECS?</td><td>Producer Extends, Consumer Super.</td></tr>
+    <tr><td>What can you add to a <code>List&lt;? extends T&gt;</code>?</td><td>Only <code>null</code>.</td></tr>
+    <tr><td>What can you read from a <code>List&lt;? super T&gt;</code>?</td><td>Only <code>Object</code>.</td></tr>
+    <tr><td>What is a raw type?</td><td>A generic type used without arguments; it disables all generic checks.</td></tr>
+    <tr><td>What is heap pollution?</td><td>A parameterised variable referring to an object of the wrong parameterisation.</td></tr>
+    <tr><td>Can a <code>static</code> method use the class's <code>T</code>?</td><td>No — it must declare its own.</td></tr>
+    <tr><td>Can generic signatures be seen by reflection?</td><td>Yes — declarations keep them; individual objects do not.</td></tr>
+    <tr><td>Which Java version added generics?</td><td>Java 5 (2004). The diamond <code>&lt;&gt;</code> came in Java 7.</td></tr>
+  </tbody>
+</table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Generic type</dt><dd>A class or interface declaring one or more type parameters, e.g. <code>List&lt;E&gt;</code>.</dd>
+  <dt>Type parameter</dt><dd>The blank in a declaration (<code>T</code>).</dd>
+  <dt>Type argument</dt><dd>The concrete type you supply at the use site (<code>String</code>).</dd>
+  <dt>Parameterised type</dt><dd>A generic type with its arguments filled in: <code>List&lt;String&gt;</code>.</dd>
+  <dt>Bounded type parameter</dt><dd><code>&lt;T extends Number&gt;</code> — restricts which types may fill the blank.</dd>
+  <dt>Type erasure</dt><dd>Compile-time checking followed by deletion of type arguments from the bytecode.</dd>
+  <dt>Reification</dt><dd>Type information surviving to run time; Java arrays have it, Java generics do not.</dd>
+  <dt>Invariance</dt><dd><code>List&lt;Dog&gt;</code> is unrelated to <code>List&lt;Animal&gt;</code>.</dd>
+  <dt>Covariance</dt><dd>Subtyping that follows the element type — how Java arrays behave.</dd>
+  <dt>Wildcard</dt><dd><code>?</code> — an unknown type argument, optionally bounded by <code>extends</code> or <code>super</code>.</dd>
+  <dt>PECS</dt><dd>Producer Extends, Consumer Super — the rule for choosing a wildcard.</dd>
+  <dt>Raw type</dt><dd>A generic type used with no type argument; all checks are disabled.</dd>
+  <dt>Heap pollution</dt><dd>A parameterised reference pointing at an object of the wrong parameterisation.</dd>
+  <dt>Super type token</dt><dd>An anonymous subclass used to capture a generic type at run time, e.g. <code>new TypeReference&lt;List&lt;X&gt;&gt;(){}</code>.</dd>
+  <dt>Enum</dt><dd>A type whose complete set of instances is fixed at compile time; each constant is a singleton.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/tutorial/java/generics/index.html">Oracle Java Tutorials — Generics</a>
+(especially "Type Erasure", "Wildcards", and "Restrictions on Generics"), with
+<a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-4.html#jls-4.6">JLS SE 21, §4.6 — Type Erasure</a> for the formal
+definition.</p>
+
+<p class="nav" style="margin-top:2rem">← <a href="lesson-2-inheritance-and-polymorphism.html">Part 2 — Inheritance &amp; polymorphism</a>
+&nbsp;·&nbsp; Next topic: <a href="../06-memory-model-and-gc/lesson.html">Lesson 6 — Where your data lives</a> →</p>
+
+<p class="sources">Sources: Oracle, <em>Java Tutorials</em> (Generics trail: Why Use Generics, Type Erasure, Wildcards, Restrictions);
+Oracle, <em>Java Language Specification SE 21</em> §4.6, §4.8, §8.4.8; Bloch, <em>Effective Java</em> (Items 26, 28, 31, 34).
+Code compiled and run on JDK 1.8.0_411; the output in §7 is real program output, including the compiler's unchecked-operations
+warning. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

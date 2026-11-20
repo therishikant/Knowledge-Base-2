@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lambdas — Java 8 &amp; Functional, Part 1 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem;line-height:1.9}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Lambdas — Passing Behaviour Around</h1>
+<p class="crumb">Java › Java 8 &amp; functional cluster · lesson 7, <strong>part 1 of 9</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the one idea everything else is built on</p>
+
+<p class="nav"><strong>Java 8 &amp; functional cluster:</strong>
+  <strong>1. Lambdas</strong> ·
+  <a href="lesson-2-functional-interfaces.html">2. Functional interfaces &amp; method refs</a> ·
+  <a href="lesson-3-stream-pipeline.html">3. How a stream actually runs</a> ·
+  <a href="lesson-4-intermediate-operations.html">4. Intermediate operations</a> ·
+  <a href="lesson-5-terminal-operations.html">5. Terminal operations &amp; reduce</a> ·
+  <a href="lesson-6-collectors-and-groupingby.html">6. Collectors &amp; groupingBy</a> ·
+  <a href="lesson-7-optional.html">7. Optional</a> ·
+  <a href="lesson-8-default-methods-and-java-time.html">8. default methods &amp; java.time</a> ·
+  <a href="lesson-9-stream-recall-playbook.html">9. Recall &amp; interview playbook</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> Before Java 8 you could pass <em>data</em> into a method (a number, a list, an object). Java 8 let you
+also pass <strong>an action</strong> — a small piece of code — as if it were data. That small piece of code, written in short form, is
+a <strong>lambda</strong>. Everything else in this cluster (streams, <code>Optional</code>, <code>CompletableFuture</code>) is just
+a different place to hand your action to.
+</div>
+
+<div class="callout">
+<strong>How to read this cluster.</strong> Nine short parts instead of one long one. Parts 1–2 give you the raw material
+(lambdas, functional interfaces). Parts 3–6 are the <strong>stream deep dive</strong> — how a pipeline runs, then every
+intermediate operation, every terminal operation, and the whole <code>Collectors</code> catalogue with
+<code>groupingBy</code> taken all the way down. Parts 7–8 finish the Java 8 feature set. Part 9 is the
+<strong>memory system</strong>: how to never again blank on a method name in an interview.
+</div>
+
+<h2>What each part covers</h2>
+<table>
+  <thead><tr><th>Part</th><th>The question it answers</th></tr></thead>
+  <tbody>
+  <tr><td><strong>1 — Lambdas</strong> <em>(you are here)</em></td><td>What is a lambda, really? Why did Java need one?</td></tr>
+  <tr><td><a href="lesson-2-functional-interfaces.html">2 — Functional interfaces &amp; method refs</a></td><td>What type is a lambda? What are <code>Function</code>, <code>Predicate</code>, <code>Supplier</code>, <code>Consumer</code> and when do I use each? What is <code>String::toUpperCase</code>?</td></tr>
+  <tr><td><a href="lesson-3-stream-pipeline.html">3 — How a stream actually runs</a></td><td>What <em>is</em> a stream? Why does nothing happen until the last line? What does "lazy" mean — proved with real output?</td></tr>
+  <tr><td><a href="lesson-4-intermediate-operations.html">4 — Intermediate operations</a></td><td>Every middle step: <code>filter</code>, <code>map</code>, <code>flatMap</code>, <code>distinct</code>, <code>sorted</code>, <code>limit</code>, <code>skip</code>, <code>peek</code>, <code>mapToInt</code>, <code>boxed</code>…</td></tr>
+  <tr><td><a href="lesson-5-terminal-operations.html">5 — Terminal operations &amp; reduce</a></td><td>Every last step: <code>collect</code>, <code>forEach</code>, <code>count</code>, <code>min</code>/<code>max</code>, <code>anyMatch</code>, <code>findFirst</code>, <code>toArray</code>, and <code>reduce</code> from scratch.</td></tr>
+  <tr><td><a href="lesson-6-collectors-and-groupingby.html">6 — Collectors &amp; groupingBy</a></td><td>The part you keep forgetting. <code>toList</code>, <code>toMap</code>, <code>joining</code>, <code>counting</code>, <code>groupingBy</code> (all three shapes), <code>partitioningBy</code>, <code>mapping</code>, <code>collectingAndThen</code>.</td></tr>
+  <tr><td><a href="lesson-7-optional.html">7 — Optional</a></td><td>How to say "there might be no answer" in the type, instead of returning <code>null</code>.</td></tr>
+  <tr><td><a href="lesson-8-default-methods-and-java-time.html">8 — default methods &amp; java.time</a></td><td>How <code>Collection</code> grew a <code>stream()</code> method without breaking the world; the date/time API that replaced <code>Date</code>.</td></tr>
+  <tr><td><a href="lesson-9-stream-recall-playbook.html">9 — Recall &amp; interview playbook</a></td><td>A naming system so the method name comes back on demand, a one-page cheat sheet, and 25 worked interview problems.</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+This cluster sits on top of the <a href="../05-type-system-and-oop/lesson.html">type system</a>. That matters more than it
+sounds: a lambda is <strong>not</strong> a new kind of thing in Java. Java still has only classes, objects and interfaces. A lambda
+is a <em>short way of writing an object</em> that implements a one-method interface. If you hold on to that one sentence, nothing
+in Java 8 will ever feel like magic.
+</p>
+<p>
+Below this lesson: <a href="../05-type-system-and-oop/lesson.html">types and interfaces</a>, and
+<a href="../04-jvm-execution-engine/lesson.html">how the JVM dispatches calls</a>. Above it: streams
+(<a href="lesson-3-stream-pipeline.html">part 3</a> onward), <a href="../08-collections-and-equality/lesson.html">collections</a>,
+and <a href="../11-concurrency/lesson-3-thread-pools-and-futures.html">concurrency</a>.
+</p>
+
+<h3>The "before Java 8 → after" bridge</h3>
+<table>
+  <thead><tr><th>You want to…</th><th>Java 7 and earlier</th><th>Java 8 onward</th></tr></thead>
+  <tbody>
+  <tr><td>Pass an action to a method</td><td>An anonymous inner class (five lines of ceremony)</td><td>A lambda (one line)</td></tr>
+  <tr><td>Loop over a list and transform it</td><td><code>for</code> loop + a temporary <code>List</code> you fill in</td><td><code>list.stream().map(...).collect(...)</code></td></tr>
+  <tr><td>Say "there may be no result"</td><td>Return <code>null</code> and hope the caller checks</td><td>Return <code>Optional&lt;T&gt;</code></td></tr>
+  <tr><td>Add a method to a published interface</td><td>Impossible — you break every implementer</td><td><code>default</code> method</td></tr>
+  <tr><td>Work with dates</td><td><code>Date</code>/<code>Calendar</code> — mutable, confusing</td><td><code>java.time</code> — immutable, clear</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+
+<h3>The problem, in plain words</h3>
+<p>
+Imagine a method that sorts a list of people. Sorting is mostly the same every time — compare two things, put the smaller one
+first, repeat. The <strong>only</strong> part that changes between "sort by name" and "sort by age" is <em>one tiny decision</em>:
+given two people, which one comes first?
+</p>
+<p>
+So the sorting method wants you to hand it that tiny decision. But before Java 8, the only way to hand a piece of code to a method
+was to wrap it inside an object:
+</p>
+
+<pre>Collections.sort(people, <span class="k">new</span> Comparator&lt;Person&gt;() {   <span class="c">// 1. make a nameless class</span>
+    <span class="k">public</span> <span class="k">int</span> compare(Person a, Person b) {            <span class="c">// 2. name the method</span>
+        <span class="k">return</span> a.getAge() - b.getAge();                  <span class="c">// 3. the ONE line you cared about</span>
+    }                                                   <span class="c">// 4. close it all</span>
+});</pre>
+
+<p>
+Four lines of packaging around one line of thought. That is the problem Java 8 solved. The packaging is <em>noise</em> — the
+compiler already knows the interface is <code>Comparator</code>, it already knows the only method is <code>compare</code>, and it
+already knows the arguments are two <code>Person</code>s. So why make you type all of it?
+</p>
+
+<pre>people.sort((a, b) -&gt; a.getAge() - b.getAge());   <span class="c">// same thing, Java 8</span></pre>
+
+<h3>Why not just add "functions" to Java, like JavaScript has?</h3>
+<p>
+This is the question that unlocks everything. Java could have added a brand-new "function" type. It deliberately did not, for
+three reasons:
+</p>
+<ol>
+  <li><strong>Twenty years of existing libraries already used interfaces.</strong> <code>Runnable</code>, <code>Comparator</code>,
+      <code>ActionListener</code> — thousands of APIs already said "give me an object with one method". If a lambda <em>is</em> such
+      an object, every one of those APIs instantly accepts lambdas with zero changes. That is exactly what happened.</li>
+  <li><strong>The type system stays simple.</strong> No new kind of type to teach, to store in a field, or to put in a generic
+      parameter. A lambda's type is just an interface name you already understand.</li>
+  <li><strong>The JVM barely had to change.</strong> Lambdas are wired up at run time by the
+      <code>invokedynamic</code> instruction (see <a href="../04-jvm-execution-engine/lesson.html">lesson 4</a>), which already
+      existed for other languages on the JVM.</li>
+</ol>
+
+<div class="callout">
+<strong>The sentence to memorise.</strong> <em>A lambda is an object that implements an interface which has exactly one abstract
+method.</em> Say it out loud. Every confusing thing about lambdas dissolves into this.
+</div>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>Step 1 — the shape of a lambda</h3>
+<p>A lambda has exactly two halves, separated by an arrow <code>-&gt;</code>:</p>
+<pre>(a, b)   -&gt;   a.getAge() - b.getAge()
+  ^            ^
+  |            |
+what comes in  what to do with it (and give back)</pre>
+
+<p>Four syntax forms, all the same idea:</p>
+<table>
+  <thead><tr><th>Written</th><th>Means</th><th>Notes</th></tr></thead>
+  <tbody>
+  <tr><td><code>() -&gt; "hi"</code></td><td>no input, returns <code>"hi"</code></td><td>empty brackets are required when there is no parameter</td></tr>
+  <tr><td><code>x -&gt; x + 1</code></td><td>one input, returns <code>x + 1</code></td><td>with exactly one parameter you may drop the brackets</td></tr>
+  <tr><td><code>(x, y) -&gt; x + y</code></td><td>two inputs</td><td>two or more always need brackets</td></tr>
+  <tr><td><code>x -&gt; { int y = x * 2; return y; }</code></td><td>a block body</td><td>braces mean you must write <code>return</code> yourself</td></tr>
+  </tbody>
+</table>
+<div class="idiom"><strong>Idiom.</strong> Prefer the short expression form <code>x -&gt; x + 1</code>. The moment you need braces and a
+<code>return</code>, ask whether the logic deserves its own named method instead. A lambda longer than about three lines is almost
+always better as a method, then referenced with <code>::</code> (<a href="lesson-2-functional-interfaces.html">part 2</a>).</div>
+
+<h3>Step 2 — where the type comes from</h3>
+<p>
+A lambda on its own has <strong>no type</strong>. <code>x -&gt; x + 1</code> compiled by itself is meaningless — is <code>x</code> an
+<code>int</code>? a <code>String</code>? The type comes from <em>where you put it</em>. This is called the <strong>target
+type</strong>.
+</p>
+
+<figure>
+<svg viewBox="0 0 780 290" width="100%" role="img" aria-label="How the compiler gives a lambda its type from the target type">
+  <style>
+    .bx{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}.gn{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .rd{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}.tb{font:bold 12.5px Georgia,serif;fill:#2b2b28}
+    .c{font:11.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.5;marker-end:url(#mk);fill:none}
+  </style>
+  <defs><marker id="mk" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="rd" x="20" y="20" width="330" height="60" rx="6"/>
+  <text class="tb" x="36" y="42">1. You write</text>
+  <text class="t" x="36" y="64">list.sort( (a,b) -&gt; a.age - b.age );</text>
+
+  <rect class="bx" x="430" y="20" width="330" height="60" rx="6"/>
+  <text class="tb" x="446" y="42">2. Compiler looks at the slot</text>
+  <text class="t" x="446" y="64">sort(Comparator&lt;Person&gt; c)</text>
+
+  <rect class="gn" x="430" y="110" width="330" height="76" rx="6"/>
+  <text class="tb" x="446" y="132">3. Compiler fills in the blanks</text>
+  <text class="t" x="446" y="152">a, b are Person · returns int</text>
+  <text class="t" x="446" y="170">the method implemented is compare</text>
+
+  <rect class="rd" x="20" y="110" width="330" height="76" rx="6"/>
+  <text class="tb" x="36" y="132">4. At run time</text>
+  <text class="t" x="36" y="152">invokedynamic builds one object</text>
+  <text class="t" x="36" y="170">implementing Comparator&lt;Person&gt;</text>
+
+  <line class="a" x1="352" y1="50" x2="428" y2="50"/>
+  <line class="a" x1="595" y1="82" x2="595" y2="108"/>
+  <line class="a" x1="428" y1="148" x2="352" y2="148"/>
+
+  <text class="c" x="20" y="225">The lambda body never says what type a and b are. It does not need to —</text>
+  <text class="c" x="20" y="245">the method signature it is passed into already decided. This is "target typing".</text>
+  <text class="c" x="20" y="272">Consequence: the SAME lambda text can mean different types in different places.</text>
+</svg>
+<figcaption>Target typing: a lambda gets its types from the parameter slot it lands in. <span class="sources">(Model per <a href="https://docs.oracle.com/javase/specs/jls/se8/html/jls-15.html#jls-15.27">JLS §15.27, Lambda Expressions</a>.)</span></figcaption>
+</figure>
+
+<p>Concretely, the exact same characters mean two different things in two different places:</p>
+<pre>Runnable r       = () -&gt; System.out.println(<span class="s">"go"</span>);   <span class="c">// becomes a Runnable</span>
+Supplier&lt;Void&gt; s = () -&gt; { System.out.println(<span class="s">"go"</span>); <span class="k">return</span> <span class="k">null</span>; };</pre>
+
+<h3>Step 3 — what the lambda is allowed to see (capture)</h3>
+<p>
+A lambda body can read variables from around it. Those variables are <strong>captured</strong> — copied into the object the lambda
+becomes. Java has one firm rule here:
+</p>
+<div class="callout"><strong>Effectively final.</strong> A local variable used inside a lambda must never be reassigned after it is
+set — either declared <code>final</code>, or simply never changed (that is what "effectively final" means). The compiler rejects
+anything else.</div>
+<pre><span class="k">int</span> base = 10;
+Supplier&lt;Integer&gt; f = () -&gt; base + 1;   <span class="c">// fine — base never changes</span>
+
+<span class="k">int</span> counter = 0;
+Runnable bad = () -&gt; counter++;          <span class="c">// COMPILE ERROR</span>
+                                         <span class="c">// "local variables referenced from a lambda</span>
+                                         <span class="c">//  expression must be final or effectively final"</span></pre>
+<p>
+<strong>Why the rule?</strong> A local variable lives on the thread's <a href="../03-jvm-runtime-data-areas/lesson.html">stack
+frame</a>, and that frame disappears when the method returns. But the lambda object lives on the heap and may run much later, on a
+different thread. So Java copies the value into the lambda. If you were allowed to change the original afterwards, the copy and the
+original would silently disagree — a bug factory. Java removes the possibility instead of documenting it.
+</p>
+<p>
+Fields are different: <code>this.counter++</code> is allowed, because the lambda captures the <em>object reference</em>
+<code>this</code> and reads the field through it each time. (That is also why a lambda created inside an instance method can be a
+quiet source of memory leaks — it keeps the whole enclosing object alive.)
+</p>
+
+<h3>Step 4 — lambda vs anonymous inner class: not the same thing</h3>
+<table>
+  <thead><tr><th></th><th>Anonymous inner class</th><th>Lambda</th></tr></thead>
+  <tbody>
+  <tr><td>What <code>this</code> means</td><td>the anonymous object itself</td><td>the <strong>enclosing</strong> object — a lambda has no <code>this</code> of its own</td></tr>
+  <tr><td>Class files produced</td><td>one <code>.class</code> per site (<code>Outer$1.class</code>)</td><td>none — linked at run time by <code>invokedynamic</code></td></tr>
+  <tr><td>Can have state/fields</td><td>yes</td><td>no</td></tr>
+  <tr><td>Can implement</td><td>any interface or class</td><td>only a one-abstract-method interface</td></tr>
+  <tr><td>Shadowing a local name</td><td>allowed</td><td>not allowed — the lambda shares the enclosing scope</td></tr>
+  </tbody>
+</table>
+<div class="pitfall"><strong>Classic interview question:</strong> "What does <code>this</code> refer to inside a lambda?" Answer:
+the enclosing instance, <em>not</em> the lambda. Lambdas do not introduce a new scope for <code>this</code>, for names, or for
+<code>super</code>. An anonymous inner class does.</div>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong>Comparators</strong> — <code>list.sort(comparing(Person::getAge))</code>. The single most common real use.</li>
+  <li><strong>Callbacks and event handlers</strong> — "when this finishes, do that": <code>button.setOnAction(e -&gt; save())</code>,
+      <code>future.thenApply(x -&gt; x + 1)</code>.</li>
+  <li><strong>Handing work to a thread pool</strong> — <code>executor.submit(() -&gt; doJob())</code>.</li>
+  <li><strong>Map helpers</strong> — <code>map.computeIfAbsent(key, k -&gt; new ArrayList&lt;&gt;())</code>,
+      <code>map.merge(k, 1, Integer::sum)</code>, <code>map.forEach((k, v) -&gt; ...)</code>.</li>
+  <li><strong>Lazy values</strong> — pass a <code>Supplier</code> so expensive work only happens if it is actually needed
+      (<code>orElseGet</code>, logging).</li>
+  <li><strong>Streams</strong> — every stream operation takes a lambda. That is the whole of parts 3–6.</li>
+</ul>
+<div class="pitfall"><strong>Do not</strong> use a lambda where a plain loop is clearer: when you need an index, when you must
+break out early with complex conditions, when you are mutating several variables at once, or when you need to throw a
+checked exception. Lambdas are a tool, not a style contest.</div>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Think about a vending machine. The machine already knows how to do the hard, boring parts: take the money, turn the spiral, drop
+the item, give change. What it does <em>not</em> know is <strong>which item you want</strong>. So it gives you a keypad and you
+press <code>B4</code>.
+</p>
+<p>
+A method like <code>sort</code> is the vending machine. It knows all the boring sorting work. The one thing it cannot know is how
+<em>you</em> want things ordered. The lambda is you pressing <code>B4</code>.
+</p>
+<p>
+And the naive question: <em>"why couldn't we do this before?"</em> You could — but you had to fill in a whole paper form just to
+press one button. The lambda is the keypad replacing the form. The machine is identical inside; only the way you tell it your choice
+got shorter.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="../05-type-system-and-oop/lesson.html">type system &amp; OOP</a>:</strong> a lambda's type <em>is</em> an
+      interface. Interfaces with one abstract method have existed since Java 1.0 — only the shorthand is new.</li>
+  <li><strong>← <a href="../04-jvm-execution-engine/lesson.html">JVM execution engine</a>:</strong> <code>invokedynamic</code> builds
+      the lambda object the first time it is reached, then caches it. No class file per lambda.</li>
+  <li><strong>← <a href="../03-jvm-runtime-data-areas/lesson.html">runtime data areas</a>:</strong> the "effectively final" rule
+      exists because locals live on a stack frame that dies, while the lambda object lives on the heap.</li>
+  <li><strong>→ <a href="lesson-2-functional-interfaces.html">part 2</a>:</strong> which interfaces can a lambda become, and what are
+      they all called?</li>
+  <li><strong>→ <a href="../11-concurrency/lesson-3-thread-pools-and-futures.html">concurrency</a>:</strong>
+      <code>executor.submit(() -&gt; ...)</code> and <code>CompletableFuture</code> are lambdas all the way down.</li>
+  <li><strong>Same idea elsewhere:</strong> JavaScript arrow functions <code>(a,b) =&gt; a+b</code>, Python <code>lambda a,b: a+b</code>,
+      Kotlin <code>{ a, b -&gt; a + b }</code>. Identical concept; Java's twist is that it must land in an interface.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — dissected</h2>
+<p>Run file: <a href="../code/LambdaDemo.java">code/LambdaDemo.java</a> (JDK 1.8). Each block below is annotated.</p>
+
+<h3>a) The same behaviour, two ways</h3>
+<pre><span class="k">@FunctionalInterface</span>
+<span class="k">interface</span> Greeter { String greet(String name); }   <span class="c">// exactly ONE abstract method</span>
+
+Greeter anon = <span class="k">new</span> Greeter() {                        <span class="c">// the old way</span>
+    <span class="k">public</span> String greet(String n) { <span class="k">return</span> <span class="s">"Hi "</span> + n; }
+};
+Greeter lambda = n -&gt; <span class="s">"Hi "</span> + n;                       <span class="c">// the Java 8 way — identical behaviour</span></pre>
+<div class="ann">
+<code>@FunctionalInterface</code> is optional but you should always write it. It does nothing at run time; it tells the
+<em>compiler</em> "fail the build if anyone ever adds a second abstract method here", which protects every caller that passed a
+lambda. Note that the interface is <em>yours</em> — lambdas are not limited to the JDK's interfaces.
+</div>
+
+<h3>b) The four core shapes</h3>
+<pre>Function&lt;String,Integer&gt; length = s -&gt; s.length();      <span class="c">// takes one, gives one back</span>
+Predicate&lt;String&gt;        isLong = s -&gt; s.length() &gt; 3;  <span class="c">// takes one, answers true/false</span>
+Consumer&lt;String&gt;         shout  = s -&gt; System.out.println(<span class="s">"shout: "</span> + s.toUpperCase());
+Supplier&lt;String&gt;         now    = () -&gt; <span class="s">"a fresh value"</span>;  <span class="c">// takes nothing, produces one</span></pre>
+<div class="ann">
+These four cover maybe 90% of all lambdas you will ever write. Part 2 turns them into a memorable system; for now just notice the
+pattern — <strong>in → out</strong>, <strong>in → boolean</strong>, <strong>in → nothing</strong>, <strong>nothing → out</strong>.
+</div>
+
+<h3>c) Composition — small behaviours glued into bigger ones</h3>
+<pre>Function&lt;Integer,Integer&gt; twice = n -&gt; n * 2;
+Function&lt;Integer,Integer&gt; plus3 = n -&gt; n + 3;
+
+twice.andThen(plus3).apply(5)   <span class="c">// twice FIRST, then plus3  → (5*2)+3 = 13</span>
+twice.compose(plus3).apply(5)   <span class="c">// plus3 FIRST, then twice  → (5+3)*2 = 16</span></pre>
+<div class="ann">
+<strong>Gotcha worth memorising:</strong> <code>andThen</code> reads left-to-right (do me, <em>and then</em> the other);
+<code>compose</code> reads right-to-left, like maths <em>f(g(x))</em>. Interviewers love this because the names sound similar but the
+order is opposite. <code>Predicate</code> has the matching trio <code>and</code>, <code>or</code>, <code>negate</code>.
+</div>
+
+<h3>d) Capture, and the Comparator payoff</h3>
+<pre>people.sort(Comparator.comparingInt(Person::getAge)      <span class="c">// primary key</span>
+                      .thenComparing(Person::getName));   <span class="c">// tie-breaker</span>
+people.sort(Comparator.comparing(Person::getName).reversed());</pre>
+<div class="ann">
+This is the most interview-relevant line in the file. <code>comparing</code> / <code>comparingInt</code> build a comparator
+from a "how do I get the sort key" lambda; <code>thenComparing</code> chains tie-breakers; <code>reversed()</code> flips the whole
+thing. Use <code>comparingInt</code>/<code>comparingLong</code>/<code>comparingDouble</code> for primitives to avoid boxing.
+<strong>Never</strong> write <code>(a,b) -&gt; a.getAge() - b.getAge()</code> in production — subtraction overflows for large or
+negative values.
+</div>
+
+<h3>Real output <span class="sources">(verified on JDK 1.8.0_411)</span></h3>
+<pre>anon   : Hi ann
+lambda : Hi ann
+Function  : 5
+Predicate : false
+shout: BOB
+Supplier  : a fresh value
+andThen(twice,plus3).apply(5) = 13
+compose(twice,plus3).apply(5) = 16
+and/negate = true / false
+static      : 42
+unbound     : CAROL
+bound       : ID-77
+constructor : []
+captured    : 11
+sorted      : [bob(25), ann(30), carol(30)]
+reversed    : [carol(30), bob(25), ann(30)]</pre>
+<div class="ann">
+Look at <code>sorted</code>: the list was <code>carol(30), ann(30), bob(25)</code>. After
+<code>comparingInt(age).thenComparing(name)</code> it became <code>bob(25), ann(30), carol(30)</code> — age first, then name used
+only to break the 30/30 tie. That is exactly what <code>thenComparing</code> is for.
+</div>
+
+<div class="try"><strong>Predict the output.</strong> Given
+<code>Function&lt;Integer,Integer&gt; f = n -&gt; n * 2;</code> and <code>Function&lt;Integer,Integer&gt; g = n -&gt; n + 10;</code>,
+what do <code>f.andThen(g).apply(3)</code> and <code>f.compose(g).apply(3)</code> print?<br/>
+<em>(Answers: 16 and 26. If you had them backwards, re-read §7c — this exact trap shows up in interviews.)</em>
+</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Thinking a lambda is a new type.</strong> It is not. It is an instance of an interface. The sentence
+"a lambda is an object implementing a one-method interface" answers roughly half of all lambda interview questions.</div>
+<div class="pitfall"><strong>Trying to mutate a local variable inside a lambda.</strong> Compile error, always. If you truly need a
+counter, use an <code>AtomicInteger</code>, a field, or — far better — restructure so you do not need mutation at all
+(<code>count()</code>, <code>reduce</code>, a collector).</div>
+<div class="pitfall"><strong>Expecting <code>this</code> to mean the lambda.</strong> Inside a lambda, <code>this</code> is the
+enclosing object. Inside an anonymous inner class it is the anonymous object. This difference breaks code when people mechanically
+convert one into the other.</div>
+<div class="pitfall"><strong>Checked exceptions.</strong> <code>Function.apply</code> declares no checked exception, so you cannot
+throw <code>IOException</code> from inside a plain lambda. You must catch it inside, wrap it in an unchecked exception, or define
+your own throwing interface. This surprises everyone the first time.</div>
+<div class="pitfall"><strong>Giant lambdas.</strong> A twenty-line lambda inside a stream is unreadable and untestable. Extract it to
+a named method and pass a method reference — same code, with a name that explains it.</div>
+<div class="pitfall"><strong>Lambdas holding onto objects.</strong> A lambda stored in a long-lived list, created inside an instance
+method, captures <code>this</code> and keeps the whole enclosing object alive — a real
+<a href="../06-memory-model-and-gc/lesson-3-collectors-leaks-and-tuning.html">memory leak</a> pattern.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>A <strong>lambda</strong> is a short way to create an object implementing an interface that has exactly <strong>one abstract method</strong>.</li>
+  <li>It exists so you can pass <strong>behaviour</strong> to a method the same way you pass data.</li>
+  <li>Java reused interfaces instead of inventing a function type, so every pre-Java-8 API accepts lambdas for free.</li>
+  <li>Its parameter types come from the <strong>target type</strong> — the slot it is assigned or passed into.</li>
+  <li>Captured local variables must be <strong>final or effectively final</strong>, because the frame they live in will die.</li>
+  <li><code>this</code> inside a lambda = the <strong>enclosing object</strong>; a lambda creates no new scope.</li>
+  <li><code>andThen</code> runs left-to-right; <code>compose</code> runs right-to-left.</li>
+  <li>Build comparators with <code>Comparator.comparing(...)</code> + <code>thenComparing(...)</code> + <code>reversed()</code>, never with subtraction.</li>
+</ul>
+
+<hr/>
+<h2>Reference — lambda syntax at a glance</h2>
+<table>
+  <thead><tr><th>Form</th><th>Example</th><th>Typical interface</th></tr></thead>
+  <tbody>
+  <tr><td>No args</td><td><code>() -&gt; 42</code></td><td><code>Supplier</code>, <code>Runnable</code></td></tr>
+  <tr><td>One arg</td><td><code>x -&gt; x * 2</code></td><td><code>Function</code>, <code>Predicate</code>, <code>Consumer</code></td></tr>
+  <tr><td>Two args</td><td><code>(a, b) -&gt; a + b</code></td><td><code>BiFunction</code>, <code>Comparator</code>, <code>BinaryOperator</code></td></tr>
+  <tr><td>Explicit types</td><td><code>(String a, String b) -&gt; a + b</code></td><td>rare; only when inference fails</td></tr>
+  <tr><td>Block body</td><td><code>x -&gt; { ... return y; }</code></td><td>multi-statement; <code>return</code> required</td></tr>
+  <tr><td>Void block</td><td><code>x -&gt; { log(x); }</code></td><td><code>Consumer</code></td></tr>
+  </tbody>
+</table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Lambda expression</dt><dd>A compact anonymous function: <code>parameters -&gt; body</code>.</dd>
+  <dt>Functional interface</dt><dd>An interface with exactly one abstract method; the type a lambda becomes.</dd>
+  <dt>Target type</dt><dd>The type of the slot a lambda is assigned to, which supplies its parameter and return types.</dd>
+  <dt>Capture</dt><dd>A lambda reading a variable from the surrounding scope; the value is copied in.</dd>
+  <dt>Effectively final</dt><dd>A variable never reassigned after initialisation, even without the <code>final</code> keyword.</dd>
+  <dt>invokedynamic</dt><dd>The JVM instruction that links a lambda to an implementation the first time it runs.</dd>
+  <dt>Behaviour parameterisation</dt><dd>The design idea of passing an action into a method so one method serves many cases.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/tutorial/java/javaOO/lambdaexpressions.html">Oracle — Lambda Expressions (Java Tutorials)</a>,
+especially "Syntax of Lambda Expressions" and "Accessing Local Variables of the Enclosing Scope", plus
+<a href="https://docs.oracle.com/javase/specs/jls/se8/html/jls-15.html#jls-15.27">JLS §15.27</a> for the exact typing rules.</p>
+
+<p class="nav" style="margin-top:2rem">Next: <a href="lesson-2-functional-interfaces.html">Part 2 — Functional interfaces &amp; method references</a> →</p>
+<p class="sources">Sources: Oracle, <em>The Java Tutorials</em> — Lambda Expressions; <em>Java Language Specification SE 8</em> §15.27;
+Oracle <code>java.util.function</code> API docs. Code compiled and run on JDK 1.8.0_411. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spring &amp; Spring Boot — Topic Overview</title>
+<style>
+  :root{
+    --ink:#2b2b28; --muted:#6b675e; --rule:#d9d3c7; --bg:#fdfbf6;
+    --accent:#7a1f1f; --accent2:#1f4d7a; --deep:#7a1f1f; --skim:#1f6b4d;
+    --code-bg:#f4f0e6; --spring:#6db33f;
+  }
+  *{box-sizing:border-box}
+  html{font-size:17px}
+  body{
+    margin:0 auto; max-width:860px; padding:4rem 1.5rem 6rem;
+    background:var(--bg); color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  h1{font-size:2.4rem; line-height:1.1; margin:0 0 .3rem; letter-spacing:-.01em}
+  .subtitle{color:var(--muted); font-style:italic; font-size:1.15rem; margin:0 0 2rem}
+  h2{font-size:1.5rem; margin:2.6rem 0 .6rem; border-bottom:2px solid var(--rule); padding-bottom:.25rem}
+  h3{font-size:1.15rem; margin:1.6rem 0 .4rem}
+  p{margin:.6rem 0}
+  a{color:var(--accent2)}
+  code{background:var(--code-bg); padding:.08em .35em; border-radius:3px; font-family:"SF Mono",Menlo,Consolas,monospace; font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .a{color:#6db33f}
+  .mission{
+    background:#fff8ee; border:1px solid var(--rule); border-left:5px solid var(--accent);
+    padding:1.1rem 1.3rem; border-radius:6px; margin:1.5rem 0 2rem;
+  }
+  .mission h2{border:0; margin:0 0 .4rem; font-size:1.15rem; color:var(--accent)}
+  .mission ul{margin:.3rem 0 0; padding-left:1.2rem}
+  figure{margin:1.6rem 0; text-align:center}
+  figcaption{color:var(--muted); font-size:.9rem; font-style:italic; margin-top:.5rem}
+  table{border-collapse:collapse; width:100%; margin:1rem 0; font-size:.94rem}
+  th,td{border:1px solid var(--rule); padding:.5rem .6rem; text-align:left; vertical-align:top}
+  th{background:#f1ece0}
+  .tag{font-size:.72rem; font-weight:700; padding:.1em .5em; border-radius:10px; color:#fff; white-space:nowrap}
+  .tag.deep{background:var(--deep)} .tag.skim{background:var(--skim)}
+  .glossary dt{font-weight:700; margin-top:.6rem}
+  .glossary dd{margin:0 0 .2rem; color:#3f3b34}
+  .refs{background:var(--code-bg); border-radius:6px; padding:1rem 1.3rem}
+  .refs li{margin:.25rem 0}
+  .sources{font-size:.85rem; color:var(--muted)}
+  .callout{background:#eef3f7; border-left:4px solid var(--accent2); padding:.8rem 1.1rem; border-radius:0 6px 6px 0; margin:1.2rem 0}
+  .app{background:#eefaf4; border-left:4px solid var(--spring); padding:.8rem 1.1rem; border-radius:0 6px 6px 0; margin:1.2rem 0}
+  .lvl{background:var(--accent); color:#fff; font-size:.78rem; padding:.18rem .55rem; border-radius:4px; vertical-align:middle; margin-right:.5rem; letter-spacing:.03em; font-family:"SF Mono",Menlo,Consolas,monospace}
+  .tag.box{background:var(--accent2)} .tag.phase{background:#4e8c2b}
+  .box-card{background:#fff; border:1.5px solid var(--rule); border-left:5px solid var(--accent2); border-radius:8px; padding:1rem 1.25rem; margin:1.2rem 0}
+  .box-card h3{margin:0 0 .4rem; color:var(--accent)}
+  .box-meta{font-size:.86rem; color:var(--muted); margin-bottom:.5rem; font-family:"SF Mono",Menlo,Consolas,monospace}
+  .rule-grid{display:grid; grid-template-columns:1fr; gap:1rem; margin:1.2rem 0}
+  .rule-card{background:#fff8ee; border:1.5px solid #e2cfa9; border-left:5px solid #b85d00; border-radius:7px; padding:.9rem 1.2rem}
+  .rule-card h3{margin:0 0 .35rem; color:#7a1f1f; font-size:1.08rem}
+  hr{border:0; border-top:1px solid var(--rule); margin:2.5rem 0}
+</style>
+</head>
+<body>
+
+<h1>Spring &amp; Spring Boot — The Master Map</h1>
+<p class="subtitle">How to see the whole machine from startup to shutdown, open every box in plain Java, and derive any interview answer without memorizing.</p>
+
+<div class="mission">
+  <h2>Mission — Why and How We Learn This</h2>
+  <ul>
+    <li><strong>Intuition over memorization:</strong> Every Spring annotation is just a sticky note. Once you see the <strong>6 real Java objects (Boxes 1–6)</strong> that read those sticky notes, interview questions become common sense.</li>
+    <li><strong>Zoom in one level at a time:</strong>
+      <ol style="margin:.3rem 0">
+        <li><strong>Level 0 (The Whole Machine):</strong> What happens from <code>main()</code> startup &rarr; HTTP request &rarr; shutdown across the 6 main boxes.</li>
+        <li><strong>Level 1 (Inside Each Box):</strong> What plain-Java data structure (<code>Map</code>, <code>List</code>, <code>Proxy</code>, <code>ThreadLocal</code>) sits inside each of the 6 boxes.</li>
+        <li><strong>Level 2 (The 18 Lessons):</strong> Each lesson zooms into one box on this map, using simple English and step-by-step arrow flows.</li>
+      </ol>
+    </li>
+    <li><strong>Your foundation:</strong> You already know Java (classes, interfaces, reflection, maps, threads). Spring is 100% written in plain Java using those exact pieces. Target: <strong>Spring Framework 6.x / Spring Boot 3.x on Java 17+</strong>.</li>
+  </ul>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="lvl">LEVEL 0</span>The Whole Machine: Startup &rarr; Request &rarr; Shutdown</h2>
+
+<p>
+Strip away every annotation. When you run a Spring Boot application, it is a normal Java program with a <code>main()</code> method that goes through <strong>3 Phases</strong> and uses <strong>6 Core Boxes</strong>
+<span class="sources">(<a href="https://docs.spring.io/spring-framework/reference/core/beans/introduction.html">Spring Framework Reference — IoC Container</a>; <a href="https://docs.spring.io/spring-boot/reference/features/spring-application.html">Spring Boot Reference — SpringApplication</a>)</span>:
+</p>
+
+<figure>
+<svg viewBox="0 0 860 610" width="100%" role="img" aria-label="Level 0 Master Map: Phase 1 Startup, Phase 2 HTTP Request Loop, Phase 3 Shutdown across 6 Boxes">
+  <style>
+    .p-bg1{fill:#f6faf2;stroke:#4e8c2b;stroke-width:1.6}
+    .p-bg2{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.6}
+    .p-bg3{fill:#fdf2f2;stroke:#7a1f1f;stroke-width:1.6}
+    .bx{fill:#ffffff;stroke:#2b2b28;stroke-width:1.5}
+    .bx-hi{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.8}
+    .p-title{font:bold 13.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .b-title{font:bold 13px Georgia,serif;fill:#7a1f1f}
+    .b-sub{font:11.5px "SF Mono",Menlo,monospace;fill:#1f4d7a}
+    .b-txt{font:11.5px Georgia,serif;fill:#3f3b34}
+    .arr{stroke:#2b2b28;stroke-width:1.6;marker-end:url(#ah0);fill:none}
+    .arr-r{stroke:#7a1f1f;stroke-width:1.6;marker-end:url(#ahr);fill:none}
+  </style>
+  <defs>
+    <marker id="ah0" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2b2b28"/></marker>
+    <marker id="ahr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker>
+  </defs>
+
+  <!-- PHASE 1: STARTUP -->
+  <rect class="p-bg1" x="10" y="10" width="840" height="255" rx="8"/>
+  <text class="p-title" x="24" y="32">PHASE 1: STARTUP — main() calls SpringApplication.run(App.class, args)</text>
+
+  <!-- Box 1 -->
+  <rect class="bx-hi" x="24" y="48" width="235" height="92" rx="6"/>
+  <text class="b-title" x="36" y="68">BOX 1: Environment</text>
+  <text class="b-sub" x="36" y="85">List&lt;PropertySource&gt;</text>
+  <text class="b-txt" x="36" y="103">Reads CLI args, OS env vars,</text>
+  <text class="b-txt" x="36" y="119">application.yml &amp; active profiles.</text>
+
+  <!-- Box 2 -->
+  <rect class="bx-hi" x="295" y="48" width="265" height="92" rx="6"/>
+  <text class="b-title" x="307" y="68">BOX 2: BeanDefinition Registry</text>
+  <text class="b-sub" x="307" y="85">Map&lt;String, BeanDefinition&gt;</text>
+  <text class="b-txt" x="307" y="103">Scans @Component/@Bean + Boot</text>
+  <text class="b-txt" x="307" y="119">AutoConfig. Builds RECIPES only!</text>
+
+  <!-- Box 3 -->
+  <rect class="bx-hi" x="596" y="48" width="240" height="92" rx="6"/>
+  <text class="b-title" x="608" y="68">BOX 3: ApplicationContext</text>
+  <text class="b-sub" x="608" y="85">Map&lt;String, Object&gt; singletons</text>
+  <text class="b-txt" x="608" y="103">Loops over recipes, calls new(),</text>
+  <text class="b-txt" x="608" y="119">injects dependencies, stores beans.</text>
+
+  <line class="arr" x1="259" y1="94" x2="293" y2="94"/>
+  <line class="arr" x1="560" y1="94" x2="594" y2="94"/>
+
+  <!-- Box 4 -->
+  <rect class="bx-hi" x="140" y="162" width="380" height="86" rx="6"/>
+  <text class="b-title" x="154" y="182">BOX 4: BeanPostProcessors &amp; AOP Proxies</text>
+  <text class="b-sub" x="154" y="199">postProcessAfterInitialization(bean)</text>
+  <text class="b-txt" x="154" y="217">Runs @PostConstruct. If bean has @Transactional / @Async /</text>
+  <text class="b-txt" x="154" y="233">@PreAuthorize, wraps it in a generated Proxy before saving in Box 3!</text>
+
+  <!-- Box 5 startup -->
+  <rect class="bx-hi" x="560" y="162" width="276" height="86" rx="6"/>
+  <text class="b-title" x="574" y="182">BOX 5: Embedded Tomcat Starts</text>
+  <text class="b-sub" x="574" y="199">ServerSocket(8080) + Thread Pool</text>
+  <text class="b-txt" x="574" y="217">Created as a bean, binds port 8080,</text>
+  <text class="b-txt" x="574" y="233">registers DispatcherServlet. App is LIVE.</text>
+
+  <path class="arr-r" d="M680,140 L680,152 L330,152 L330,160"/>
+  <line class="arr" x1="520" y1="205" x2="558" y2="205"/>
+
+  <!-- PHASE 2: REQUEST LOOP -->
+  <rect class="p-bg2" x="10" y="280" width="840" height="215" rx="8"/>
+  <text class="p-title" x="24" y="302">PHASE 2: RUNNING — Every HTTP Request (e.g. GET /books/42) on 1 Request Thread</text>
+
+  <rect class="bx" x="24" y="320" width="175" height="82" rx="6"/>
+  <text class="b-title" x="34" y="340">BOX 5: Tomcat + Filters</text>
+  <text class="b-sub" x="34" y="356">SecurityFilterChain</text>
+  <text class="b-txt" x="34" y="373">1 thread grabs request.</text>
+  <text class="b-txt" x="34" y="388">Checks JWT &rarr; ThreadLocal.</text>
+
+  <rect class="bx" x="225" y="320" width="205" height="82" rx="6"/>
+  <text class="b-title" x="235" y="340">BOX 6: DispatcherServlet</text>
+  <text class="b-sub" x="235" y="356">Front Controller</text>
+  <text class="b-txt" x="235" y="373">Matches URL &rarr; parses JSON</text>
+  <text class="b-txt" x="235" y="388">&rarr; calls @RestController.</text>
+
+  <rect class="bx" x="456" y="320" width="200" height="82" rx="6"/>
+  <text class="b-title" x="466" y="340">BOX 4: @Service Proxy</text>
+  <text class="b-sub" x="466" y="356">@Transactional Wrapper</text>
+  <text class="b-txt" x="466" y="373">Borrows DB Connection &rarr;</text>
+  <text class="b-txt" x="466" y="388">puts in ThreadLocal &rarr; target.</text>
+
+  <rect class="bx" x="682" y="320" width="154" height="82" rx="6"/>
+  <text class="b-title" x="692" y="340">BOX 4: Repo Proxy</text>
+  <text class="b-sub" x="692" y="356">SimpleJpaRepository</text>
+  <text class="b-txt" x="692" y="373">Uses ThreadLocal DB</text>
+  <text class="b-txt" x="692" y="388">conn &rarr; runs SQL.</text>
+
+  <line class="arr" x1="199" y1="361" x2="223" y2="361"/>
+  <line class="arr" x1="430" y1="361" x2="454" y2="361"/>
+  <line class="arr" x1="656" y1="361" x2="680" y2="361"/>
+
+  <!-- ThreadLocal bar -->
+  <rect class="bx-hi" x="24" y="420" width="812" height="58" rx="6"/>
+  <text class="b-title" x="38" y="441">Request Thread's Private Backpack (java.lang.ThreadLocal)</text>
+  <text class="b-txt" x="38" y="461">1. SecurityContextHolder (Who is logged in)   |   2. TransactionSynchronizationManager (Active JDBC Connection &amp; JPA PersistenceContext)</text>
+
+  <!-- PHASE 3: SHUTDOWN -->
+  <rect class="p-bg3" x="10" y="510" width="840" height="88" rx="8"/>
+  <text class="p-title" x="24" y="532">PHASE 3: SHUTDOWN — SIGTERM / Ctrl+C triggers JVM Shutdown Hook</text>
+  <text class="b-txt" x="24" y="556">1. Box 5 (Tomcat) stops accepting new requests &amp; waits for active Phase 2 threads to finish (Graceful Shutdown).</text>
+  <text class="b-txt" x="24" y="576">2. Box 3 (ApplicationContext.close()) calls @PreDestroy / DisposableBean.destroy() on all beans &rarr; closes HikariCP DB pool &rarr; JVM exits.</text>
+</svg>
+<figcaption>The Level 0 Master Map: Every annotation and every interview question in Spring Boot lives inside one of these 6 Boxes across Startup, Request, or Shutdown.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2><span class="lvl">LEVEL 1</span>Opening the 6 Boxes: What Plain-Java Code Is Inside Each?</h2>
+
+<p>
+Why do Spring concepts sometimes feel abstract? Because people say words like <em>"IoC Container"</em>, <em>"BeanPostProcessor"</em>, or <em>"PersistenceContext"</em> without telling you what Java collection or loop they actually are. Let's open all 6 boxes in plain Java:
+</p>
+
+<div class="box-card">
+  <h3>Box 1: <code>Environment</code> — Just an Ordered List of Maps</h3>
+  <div class="box-meta">Lives in: Phase 1 (Startup) &amp; queried anytime | Covered in: Lesson 08</div>
+  <p>Under the hood, <code>Environment</code> holds two simple Java fields: a <code>Set&lt;String&gt; activeProfiles</code> (e.g. <code>["prod"]</code>) and a <code>List&lt;PropertySource&gt;</code> (an ordered list of key-value Maps):</p>
+<pre><span class="c">// Inside Box 1 (Environment): searched from index 0 downward — FIRST MATCH WINS!</span>
+List&lt;Map&lt;String, Object&gt;&gt; propertySources = List.of(
+    commandLineArgsMap,        <span class="c">// 0: --server.port=9000        (highest priority)</span>
+    osEnvVarsMap,              <span class="c">// 1: SERVER_PORT=8081</span>
+    applicationProdYmlMap,     <span class="c">// 2: application-prod.yml</span>
+    applicationYmlMap          <span class="c">// 3: application.yml           (lowest priority)</span>
+);</pre>
+  <p><strong>Intuition unlocked:</strong> You never need to memorize "which config overrides which" as disconnected trivia. Command-line args override <code>application.yml</code> simply because the <code>for</code>-loop checks index <code>0</code> first and returns immediately!</p>
+</div>
+
+<div class="box-card">
+  <h3>Box 2: <code>BeanDefinition</code> Registry — The Recipe Book (Zero Objects Exist Yet!)</h3>
+  <div class="box-meta">Lives in: Phase 1 (Startup, Step A) | Covered in: Lessons 02, 04, 05, 07</div>
+  <p>Spring does <strong>not</strong> create objects while scanning your classes. Instead, it builds a <strong>Recipe Map</strong> first:</p>
+<pre><span class="c">// Inside Box 2 (DefaultListableBeanFactory):</span>
+Map&lt;String, BeanDefinition&gt; beanDefinitionMap = <span class="k">new</span> ConcurrentHashMap&lt;&gt;();
+
+<span class="c">// Step 2A: Scan YOUR package (@ComponentScan + @Configuration/@Bean)</span>
+beanDefinitionMap.put(<span class="s">"bookService"</span>, <span class="k">new</span> BeanDefinition(BookService.<span class="k">class</span>, <span class="s">"singleton"</span>, <span class="k">false</span>));
+
+<span class="c">// Step 2B: Read Spring Boot's AutoConfiguration.imports file (~150 default configs)</span>
+<span class="c">// Guarded by @ConditionalOnClass(DataSource.class) and @ConditionalOnMissingBean(DataSource.class):</span>
+<span class="k">if</span> (isPresentOnClasspath(<span class="s">"javax.sql.DataSource"</span>) &amp;&amp; !beanDefinitionMap.containsKey(<span class="s">"dataSource"</span>)) {
+    beanDefinitionMap.put(<span class="s">"dataSource"</span>, <span class="k">new</span> BeanDefinition(HikariDataSource.<span class="k">class</span>, <span class="s">"singleton"</span>, <span class="k">false</span>));
+}
+
+<span class="c">// Step 2C: BeanFactoryPostProcessor — Last chance to edit Recipes before any 'new' is called!</span></pre>
+  <p><strong>Intuition unlocked:</strong> Why does your custom <code>@Bean DataSource</code> automatically replace Spring Boot's default database pool? Because Step 2A registers <em>your</em> recipe first, and in Step 2B Boot checks <code>@ConditionalOnMissingBean</code>, sees your recipe is already in the Map, and backs off!</p>
+</div>
+
+<div class="box-card">
+  <h3>Box 3 &amp; Box 4: <code>ApplicationContext</code> &amp; <code>BeanPostProcessor</code> — The Factory, Proxy Wrapper &amp; Warehouse</h3>
+  <div class="box-meta">Lives in: Phase 1 (Startup, Step B) &amp; holds beans during Phase 2 | Covered in: Lessons 02, 03, 04, 06</div>
+  <p>Once all recipes in Box 2 are finalized, Spring loops through <code>beanDefinitionMap</code>, cooks each non-lazy singleton, passes it through <strong>Box 4 (the Assembly-Line Inspectors / Proxy wrappers)</strong>, and puts the finished object into the <strong>Warehouse Map</strong>:</p>
+<pre><span class="c">// Inside Box 3 (DefaultListableBeanFactory):</span>
+Map&lt;String, Object&gt; singletonObjects = <span class="k">new</span> ConcurrentHashMap&lt;&gt;();
+
+Object createBean(String name, BeanDefinition recipe) {
+    <span class="c">// 1. INSTANTIATE: Resolve constructor dependencies recursively via getBean(), then call new</span>
+    Object rawBean = recipe.getConstructor().newInstance(resolveConstructorArgs(recipe));
+
+    <span class="c">// 2. POPULATE: Inject @Autowired fields/setters and @Value("${...}") from Box 1</span>
+    populateFieldsAndValues(rawBean);
+
+    <span class="c">// 3. INITIALIZE &amp; WRAP (Box 4 — BeanPostProcessors run here!):</span>
+    runPostConstruct(rawBean); <span class="c">// BeanPostProcessor.postProcessBeforeInitialization</span>
+
+    Object finalBean = rawBean;
+    <span class="k">if</span> (hasAnnotation(rawBean, Transactional.<span class="k">class</span>, Async.<span class="k">class</span>, PreAuthorize.<span class="k">class</span>)) {
+        <span class="c">// BeanPostProcessor.postProcessAfterInitialization swaps rawBean for a PROXY!</span>
+        finalBean = generateProxyWrapper(rawBean);
+    }
+
+    <span class="c">// 4. STORE: What goes into singletonObjects is the PROXY, not the raw object!</span>
+    singletonObjects.put(name, finalBean);
+    <span class="k">return</span> finalBean;
+}</pre>
+  <p><strong>Intuition unlocked (3 classic interview questions solved in 5 seconds):</strong></p>
+  <ol>
+    <li><strong>Why is a <code>@Value</code> field <code>null</code> inside the constructor?</strong> Look at the code: Step 1 (<code>newInstance</code> constructor) runs <em>before</em> Step 2 (<code>populateFieldsAndValues</code>)!</li>
+    <li><strong>Why do Circular Dependencies fail with Constructor Injection?</strong> In Step 1, <code>A</code>'s constructor calls <code>getBean("B")</code>, whose constructor calls <code>getBean("A")</code> before <code>A</code> has finished Step 1. Deadlock in the recursion!</li>
+    <li><strong>Why does calling <code>this.myTransactionalMethod()</code> inside the same class skip <code>@Transactional</code>?</strong> Outside callers get <code>finalBean</code> (the Proxy) from <code>singletonObjects</code>. Inside your class, <code>this</code> is <code>rawBean</code>—calling <code>this.method()</code> never touches the Proxy wrapper!</li>
+  </ol>
+</div>
+
+<div class="box-card">
+  <h3>Box 5 &amp; Box 6: Embedded Tomcat, <code>FilterChain</code>, <code>DispatcherServlet</code> &amp; <code>ThreadLocal</code></h3>
+  <div class="box-meta">Lives in: Phase 2 (Every HTTP Request) | Covered in: Lessons 09, 10, 11, 12, 13</div>
+  <p>When an HTTP request arrives on port 8080, Tomcat grabs <strong>one thread</strong> from its pool (default 200 threads) and runs this exact pipeline on that single thread:</p>
+<pre><span class="c">// On Tomcat Worker Thread #17 (handling GET /books/42):</span>
+<span class="c">// --- BOX 5: Servlet Container &amp; FilterChain (Runs BEFORE Spring MVC knows which Controller matches) ---</span>
+securityFilter.doFilter(req, res) {
+    Authentication user = verifyJwtOrCookie(req);
+    SecurityContextHolder.getContext().setAuthentication(user); <span class="c">// Stored in ThreadLocal!</span>
+    chain.doFilter(req, res); <span class="c">// hands off to Box 6</span>
+}
+
+<span class="c">// --- BOX 6: DispatcherServlet (Spring MVC's single Front Controller) ---</span>
+dispatcherServlet.doDispatch(req, res) {
+    <span class="k">try</span> {
+        HandlerMethod handler = handlerMapping.lookup(req); <span class="c">// "GET /books/{id}" -&gt; BookController.getBook(Long)</span>
+        interceptors.preHandle(req, res, handler);
+        Object[] args = argumentResolvers.resolve(req, handler); <span class="c">// "@PathVariable" -&gt; 42L; "@RequestBody" -&gt; Jackson</span>
+        Object result = handler.invoke(args); <span class="c">// Calls BookController -&gt; @Service Proxy -&gt; @Repository Proxy</span>
+        messageConverters.writeJson(result, res); <span class="c">// Jackson writes JSON to HTTP response</span>
+    } <span class="k">catch</span> (Exception ex) {
+        controllerAdviceExceptionResolver.handle(ex, res); <span class="c">// @ExceptionHandler returns ProblemDetail JSON</span>
+    }
+}</pre>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="lvl">PLAYBOOK</span>The 3 Universal Rules That Answer 90% of Interview Questions</h2>
+
+<p>
+Whenever an interviewer asks you a tricky <em>"Why does X happen in Spring?"</em> or <em>"What is the difference between X and Y?"</em> question, don't reach for a memorized definition. Ask which of these <strong>3 Universal Rules</strong> applies:
+</p>
+
+<div class="rule-grid">
+  <div class="rule-card">
+    <h3>Rule 1: Follow the Order of Steps (What runs before what?)</h3>
+    <p>Spring is a strict pipeline. If Step A runs before Step B, Step A cannot see what Step B produces:</p>
+    <ul style="margin:.3rem 0">
+      <li><strong>Recipes (Box 2) before Objects (Box 3):</strong> <code>BeanFactoryPostProcessor</code> edits recipes before any constructor runs. Your code is scanned (Box 2A) before Boot Auto-Config (Box 2B), so <code>@ConditionalOnMissingBean</code> lets your bean win.</li>
+      <li><strong>Constructor &rarr; Field Injection/<code>@Value</code> &rarr; <code>@PostConstruct</code> &rarr; Proxy (Box 4):</strong> A constructor cannot read an <code>@Autowired</code> or <code>@Value</code> field because field population happens on the next line after <code>new</code>. Put startup logic that needs injected fields in the constructor parameters or <code>@PostConstruct</code>.</li>
+      <li><strong>Servlet <code>Filter</code> (Box 5) before <code>DispatcherServlet</code> (Box 6):</strong> Spring Security runs in a Box 5 <code>Filter</code>. Therefore, a 401/403 rejected in the Security Filter never reaches your Box 6 <code>@ControllerAdvice</code> exception handler unless you explicitly forward it!</li>
+    </ul>
+  </div>
+
+  <div class="rule-card">
+    <h3>Rule 2: Who Are You Calling — The Proxy Wrapper or the Raw <code>this</code> Object?</h3>
+    <p>In Spring, cross-cutting features (<code>@Transactional</code>, <code>@Async</code>, <code>@Cacheable</code>, <code>@Retryable</code>, <code>@PreAuthorize</code>, <code>@Configuration</code>) work by wrapping your object in a generated <strong>Proxy</strong> (Box 4):</p>
+    <ul style="margin:.3rem 0">
+      <li><strong>External call (<code>controller &rarr; serviceProxy.outer()</code>):</strong> Goes through the Proxy doorway &rarr; opens transaction / switches thread / checks cache &rarr; calls <code>target.outer()</code>. <strong>Works!</strong></li>
+      <li><strong>Self-invocation (<code>target.outer() &rarr; this.inner()</code>):</strong> Inside <code>target</code>, the Java keyword <code>this</code> points to the unproxied raw object. Calling <code>this.inner()</code> bypasses the Proxy doorway completely. <strong>Silently skips <code>@Transactional</code> / <code>@Async</code> / <code>@Cacheable</code>!</strong></li>
+      <li><strong>Subclassing rules (CGLIB):</strong> CGLIB creates a subclass (<code>class MyService$$Proxy extends MyService</code>) and overrides methods. In Java, you cannot override a <code>private</code> or <code>final</code> method — so annotations on <code>private</code>/<code>final</code> methods cannot be intercepted by a proxy.</li>
+    </ul>
+  </div>
+
+  <div class="rule-card">
+    <h3>Rule 3: Where Does State Live — Shared Singleton Map vs Per-Thread <code>ThreadLocal</code>?</h3>
+    <p>In a running app, hundreds of HTTP requests execute at the same time on different threads:</p>
+    <ul style="margin:.3rem 0">
+      <li><strong>Beans live in <code>singletonObjects</code> (Box 3):</strong> There is only <strong>one</strong> instance of <code>BookController</code> and <code>BookService</code> shared by all 200 Tomcat threads. Never store per-user data in a bean field (race condition!).</li>
+      <li><strong>Request state lives in <code>ThreadLocal</code> (Phase 2 backpack):</strong> The active DB <code>Connection</code> / JPA <code>PersistenceContext</code> (<code>TransactionSynchronizationManager</code>) and the logged-in user (<code>SecurityContextHolder</code>) are attached to the <strong>current thread</strong>.</li>
+      <li><strong>Consequence:</strong>
+        (a) When the <code>@Transactional</code> method finishes, the <code>ThreadLocal</code> DB session closes — touching a lazy JPA collection later in the Controller throws <code>LazyInitializationException</code>!
+        (b) When you jump to another thread via <code>@Async</code> or <code>CompletableFuture</code>, the new thread has an <strong>empty</strong> <code>ThreadLocal</code> backpack (no caller transaction, no security user unless propagated)!</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="lvl">LEVEL 2</span>Where Every Lesson Sits on the Master Map (18 Lessons)</h2>
+
+<div class="app">
+<strong>The app we build as we go — <em>BookVault</em>.</strong> A small library service that grows lesson by lesson, living in
+<code>learn/learning/spring/code/</code>:
+<em>plain servlet version (L1) → hand-rolled mini container (L2) → real Spring beans (L3–L5) → proxied service (L6) → Boot app (L7–L8)
+→ REST API (L9–L10) → JPA persistence &amp; transactions (L11–L12) → secured (L13) → tested (L14) → observable &amp; production-shaped
+(L15) → async/eventful (L16) → architected (L18)</em>. You never start a new toy project; you keep deepening one.
+</div>
+
+<p>Every lesson opens with a <strong>"You Are Here on the Map"</strong> banner showing which Phase and which Box (1–6) you are zooming into. Tags:
+<span class="tag deep">DEEP</span> = framework machinery worth real time; <span class="tag skim">SKIM</span> = mostly surface
+API you can look up.</p>
+
+<table>
+  <thead><tr><th>#</th><th>Subtopic (Click to Zoom into Level 2)</th><th>Map Location (Phase &amp; Box)</th><th>Depth</th><th>What it unlocks (why this order)</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><strong><a href="01-problem-and-philosophy/lesson.html">01-problem-and-philosophy</a></strong></td><td><span class="tag phase">PRE-MAP</span> Why Boxes 1–6 Exist</td><td><span class="tag deep">DEEP</span></td>
+        <td>Hand-roll the no-Spring version: manual <code>new</code>, servlets, JDBC try/finally. Feel the 4 pains that force us to invent Boxes 1–6.</td></tr>
+    <tr><td>2</td><td><strong><a href="02-ioc-container-and-beans/lesson.html">02-ioc-container-and-beans</a></strong></td><td><span class="tag phase">PHASE 1</span> <span class="tag box">BOX 2 &amp; BOX 3</span></td><td><span class="tag deep">DEEP</span></td>
+        <td><code>BeanDefinition</code> (Box 2 Recipe Map) → <code>BeanFactory</code> / <code>ApplicationContext</code> (Box 3 Singleton Map). Scopes, lazy vs eager, and our 60-line <code>MiniContainer.java</code>.</td></tr>
+    <tr><td>3</td><td><strong><a href="03-dependency-injection/lesson.html">03-dependency-injection</a></strong></td><td><span class="tag phase">PHASE 1</span> <span class="tag box">BOX 3 (Wiring)</span></td><td><span class="tag deep">DEEP</span></td>
+        <td>Recursive <code>getBean()</code> loop: constructor vs setter vs field injection, <code>@Autowired</code> rules, <code>@Qualifier</code>/<code>@Primary</code>, circular dependencies.</td></tr>
+    <tr><td>4</td><td><strong><a href="04-bean-lifecycle-and-extension-points/lesson.html">04-bean-lifecycle-and-extension-points</a></strong></td><td><span class="tag phase">PHASE 1 &amp; 3</span> <span class="tag box">BOX 2C &amp; BOX 4</span></td><td><span class="tag deep">DEEP</span></td>
+        <td>The 4-stage bean assembly line: <code>BeanFactoryPostProcessor</code> (Box 2C) vs <code>BeanPostProcessor</code> (Box 4), <code>@PostConstruct</code>/<code>@PreDestroy</code>, <code>FactoryBean</code>.</td></tr>
+    <tr><td>5</td><td><strong><a href="05-configuration-and-component-model/lesson.html">05-configuration-and-component-model</a></strong></td><td><span class="tag phase">PHASE 1</span> <span class="tag box">BOX 2A (Your Recipes)</span></td><td><span class="tag deep">DEEP</span></td>
+        <td>Stereotypes, component scanning, <code>@Bean</code> vs <code>@Component</code>, why <code>@Configuration</code> classes are CGLIB-proxied, <code>@Import</code>, <code>@Conditional</code>.</td></tr>
+    <tr><td>6</td><td><strong><a href="06-aop-and-proxies/lesson.html">06-aop-and-proxies</a></strong></td><td><span class="tag phase">PHASE 1 &amp; 2</span> <span class="tag box">BOX 4 (Proxies)</span></td><td><span class="tag deep">DEEP</span></td>
+        <td>Cross-cutting concerns, JDK dynamic proxy vs CGLIB subclass, advice types, pointcut expressions, and why <code>this.method()</code> self-invocation bypasses the proxy.</td></tr>
+    <tr><td>7</td><td><strong><a href="07-spring-boot-and-autoconfiguration/lesson.html">07-spring-boot-and-autoconfiguration</a></strong></td><td><span class="tag phase">PHASE 1</span> <span class="tag box">BOX 2B &amp; Full Boot</span></td><td><span class="tag deep">DEEP</span></td>
+        <td><code>SpringApplication.run()</code> end-to-end, <code>AutoConfiguration.imports</code>, <code>@ConditionalOnClass/MissingBean</code>, starters, fat JARs, and the <code>--debug</code> report.</td></tr>
+    <tr><td>8</td><td><strong><a href="08-externalized-configuration-and-profiles/lesson.html">08-externalized-configuration-and-profiles</a></strong></td><td><span class="tag phase">PHASE 1</span> <span class="tag box">BOX 1 (Environment)</span></td><td><span class="tag deep">DEEP</span></td>
+        <td><code>Environment</code> &amp; the <code>List&lt;PropertySource&gt;</code> precedence ladder, <code>@Value</code> vs <code>@ConfigurationProperties</code>, relaxed binding, and <code>@Profile</code>.</td></tr>
+    <tr><td>9</td><td><strong><a href="09-web-mvc-request-lifecycle/lesson.html">09-web-mvc-request-lifecycle</a></strong></td><td><span class="tag phase">PHASE 2</span> <span class="tag box">BOX 5 &rarr; BOX 6</span></td><td><span class="tag deep">DEEP</span></td>
+        <td>Embedded Tomcat → <code>FilterChain</code> → <code>DispatcherServlet</code> → <code>HandlerMapping</code>/<code>HandlerAdapter</code> → argument resolvers → Jackson. Filters vs interceptors vs AOP.</td></tr>
+    <tr><td>10</td><td><strong><a href="10-building-rest-apis/lesson.html">10-building-rest-apis</a></strong></td><td><span class="tag phase">PHASE 2</span> <span class="tag box">INSIDE BOX 6</span></td><td><span class="tag deep">DEEP</span></td>
+        <td><code>@RestController</code> idioms, DTOs vs entities, <code>@Valid</code> Bean Validation, <code>ResponseEntity</code>, <code>@ControllerAdvice</code> + RFC 9457 <code>ProblemDetail</code>, <code>RestClient</code>.</td></tr>
+    <tr><td>11</td><td><strong><a href="11-data-access-and-spring-data-jpa/lesson.html">11-data-access-and-spring-data-jpa</a></strong></td><td><span class="tag phase">PHASE 1 &amp; 2</span> <span class="tag box">BOX 4 + ThreadLocal</span></td><td><span class="tag deep">DEEP</span></td>
+        <td><code>DataSource</code> &amp; HikariCP, how a repository interface becomes a Box 4 proxy, JPA <code>PersistenceContext</code> (1st-level cache in <code>ThreadLocal</code>), dirty checking, N+1 problem.</td></tr>
+    <tr><td>12</td><td><strong><a href="12-transactions/lesson.html">12-transactions</a></strong></td><td><span class="tag phase">PHASE 2</span> <span class="tag box">BOX 4 + ThreadLocal</span></td><td><span class="tag deep">DEEP</span></td>
+        <td><code>PlatformTransactionManager</code>, <code>ThreadLocal</code> DB Connection, the 7 propagation modes, isolation levels, rollback rules, and <code>LazyInitializationException</code>.</td></tr>
+    <tr><td>13</td><td><strong><a href="13-spring-security/lesson.html">13-spring-security</a></strong></td><td><span class="tag phase">PHASE 2</span> <span class="tag box">BOX 5 + ThreadLocal</span></td><td><span class="tag deep">DEEP</span></td>
+        <td>Box 5's <code>SecurityFilterChain</code>, <code>AuthenticationManager</code>, <code>SecurityContextHolder</code> (<code>ThreadLocal</code>), session vs JWT/OAuth2, CSRF/CORS, method security.</td></tr>
+    <tr><td>14</td><td><strong><a href="14-testing-spring-applications/lesson.html">14-testing-spring-applications</a></strong></td><td><span class="tag phase">TESTING</span> <span class="tag box">Selective Boxes</span></td><td><span class="tag deep">DEEP</span></td>
+        <td>Unit tests (0 boxes), slices (<code>@WebMvcTest</code> = Box 6, <code>@DataJpaTest</code> = Box 3+DB), <code>@SpringBootTest</code> (all 6 boxes), context caching, <code>@MockitoBean</code>, Testcontainers.</td></tr>
+    <tr><td>15</td><td><strong><a href="15-observability-and-production/lesson.html">15-observability-and-production</a></strong></td><td><span class="tag phase">PHASE 2 &amp; 3</span> <span class="tag box">X-Ray + Shutdown</span></td><td><span class="tag skim">SKIM</span></td>
+        <td>Actuator endpoints inspecting Boxes 1–6, health probes, Micrometer metrics/tracing, Phase 3 graceful shutdown, GraalVM native image &amp; AOT (Box 2 &amp; 4 at build time).</td></tr>
+    <tr><td>16</td><td><strong><a href="16-async-events-and-messaging/lesson.html">16-async-events-and-messaging</a></strong></td><td><span class="tag phase">PHASE 2</span> <span class="tag box">Multi-Thread / Events</span></td><td><span class="tag deep">DEEP</span></td>
+        <td><code>@EventListener</code> &amp; <code>@TransactionalEventListener</code>, <code>@Async</code> &amp; why new threads lose <code>ThreadLocal</code> state, <code>@Cacheable</code>, Kafka/Rabbit, Virtual Threads.</td></tr>
+    <tr><td>17</td><td><strong><a href="17-reactive-and-webflux/lesson.html">17-reactive-and-webflux</a></strong></td><td><span class="tag phase">PHASE 2</span> <span class="tag box">Alt Box 5 &amp; 6 (Netty)</span></td><td><span class="tag skim">SKIM</span></td>
+        <td>Replacing Tomcat's thread-per-request with Netty's event loop: <code>Mono</code>/<code>Flux</code>, backpressure, why blocking freezes Netty, and WebFlux vs Java 21 Virtual Threads.</td></tr>
+    <tr><td>18</td><td><strong><a href="18-architecture-and-microservices/lesson.html">18-architecture-and-microservices</a></strong></td><td><span class="tag phase">CAPSTONE</span> <span class="tag box">Inside &amp; Across Apps</span></td><td><span class="tag deep">DEEP</span></td>
+        <td>Organizing Box 3 (Layered vs Hexagonal, Modular Monolith) and connecting multiple Spring Boot services (Spring Cloud, Gateway, Resilience4j, Outbox &amp; Saga).</td></tr>
+  </tbody>
+</table>
+
+<h2>How Spring and Spring Boot relate (the thing people blur)</h2>
+<p>
+<strong>Spring Framework</strong> is the core: the IoC container, AOP, the data-access abstractions, Spring MVC. It is powerful and
+unopinionated — which historically meant a lot of XML and boilerplate to get a "hello world" running.
+<strong>Spring Boot</strong> is not a different framework; it's a <em>layer of opinions</em> on top: starters (curated dependency
+sets), auto-configuration (beans created for you when their libraries are present), an embedded server, and production features
+like Actuator. Boot's own docs put it plainly: it lets you create "stand-alone, production-grade Spring-based Applications that you
+can just run"
+<span class="sources">(<a href="https://docs.spring.io/spring-boot/index.html">Spring Boot Reference Documentation</a>)</span>.
+</p>
+<table>
+  <thead><tr><th></th><th>Spring Framework</th><th>Spring Boot</th></tr></thead>
+  <tbody>
+    <tr><td>Gives you</td><td>The container, AOP, MVC, TX abstractions</td><td>Defaults, starters, auto-config, embedded server, Actuator</td></tr>
+    <tr><td>You configure</td><td>Everything, explicitly</td><td>Only the deviations from the default</td></tr>
+    <tr><td>Deployment</td><td>WAR into Tomcat/JBoss</td><td>Executable fat JAR with Tomcat inside</td></tr>
+    <tr><td>Interview line</td><td>"Spring is the engine."</td><td>"Boot is the car built around it — you can always open the hood."</td></tr>
+  </tbody>
+</table>
+<div class="callout"><strong>Keep this reflex:</strong> whenever Boot does something surprising, ask <em>"which auto-configuration class
+did that, and what condition made it fire?"</em> Run with <code>--debug</code> and read the <strong>condition evaluation report</strong>.
+Boot has no magic that isn't a bean created under an <code>@Conditional</code>.</div>
+
+<h2>Where your interview surface lives</h2>
+<p>Every commonly-asked Spring/Boot interview topic maps onto a lesson above — nothing is dropped, so one deep pass covers the
+interview surface too.</p>
+<table>
+  <thead><tr><th>Interview topics</th><th>Covered in</th></tr></thead>
+  <tbody>
+    <tr><td>IoC vs DI · why DI · tight vs loose coupling · Spring vs no-Spring</td><td><strong>01, 02</strong></td></tr>
+    <tr><td><code>BeanFactory</code> vs <code>ApplicationContext</code> · bean scopes · singleton bean vs singleton pattern · eager vs lazy init</td><td><strong>02</strong></td></tr>
+    <tr><td>Constructor vs field injection · <code>@Autowired</code> by type/name · <code>@Qualifier</code> · <code>@Primary</code> · circular dependency</td><td><strong>03</strong></td></tr>
+    <tr><td>Bean lifecycle · <code>BeanPostProcessor</code> · <code>@PostConstruct</code> · <code>FactoryBean</code> · how annotations get processed</td><td><strong>04, 05</strong></td></tr>
+    <tr><td><code>@Component</code> vs <code>@Bean</code> · <code>@Configuration</code> proxying · component scan · <code>@Conditional</code></td><td><strong>05</strong></td></tr>
+    <tr><td>AOP terminology · JDK vs CGLIB proxy · self-invocation · why <code>@Transactional</code> silently fails</td><td><strong>06, 12</strong></td></tr>
+    <tr><td><code>@SpringBootApplication</code> internals · auto-configuration · starters · fat JAR · overriding a Boot bean</td><td><strong>07</strong></td></tr>
+    <tr><td>Property precedence · profiles · <code>@Value</code> vs <code>@ConfigurationProperties</code></td><td><strong>08</strong></td></tr>
+    <tr><td><code>DispatcherServlet</code> flow · filter vs interceptor · <code>@RequestBody</code> conversion · exception handling</td><td><strong>09, 10</strong></td></tr>
+    <tr><td>REST maturity · idempotency · status codes · validation · global error handling · DTO vs entity</td><td><strong>10</strong></td></tr>
+    <tr><td>Spring Data repository magic · derived queries · lazy loading · N+1 · first-level cache</td><td><strong>11</strong></td></tr>
+    <tr><td>Propagation · isolation · rollback rules · <code>REQUIRES_NEW</code> · transaction + async pitfalls</td><td><strong>12</strong></td></tr>
+    <tr><td>Security filter chain · JWT/OAuth2 · CSRF · method security</td><td><strong>13</strong></td></tr>
+    <tr><td>Test slices · mocking beans · context caching · integration tests with Testcontainers</td><td><strong>14</strong></td></tr>
+    <tr><td>Actuator · metrics · health checks · graceful shutdown · native image</td><td><strong>15</strong></td></tr>
+    <tr><td>Events · <code>@Async</code> · scheduling · caching · Kafka · virtual threads</td><td><strong>16</strong></td></tr>
+    <tr><td>WebFlux vs MVC · backpressure · when reactive pays off</td><td><strong>17</strong></td></tr>
+    <tr><td>Layered vs hexagonal · modular monolith vs microservices · Spring Cloud · resilience patterns</td><td><strong>18</strong></td></tr>
+  </tbody>
+</table>
+
+<h2>How the versions grew (and why your old tutorials lie)</h2>
+<p>Spring's history is a steady march away from boilerplate. Knowing the arc tells you <em>why</em> an API looks the way it does —
+and lets you spot out-of-date advice instantly.</p>
+<table>
+  <thead><tr><th>Era</th><th>What changed</th></tr></thead>
+  <tbody>
+    <tr><td>Spring 1.x (2004)</td><td>XML bean definitions. IoC + AOP + JDBC/TX templates. The alternative to heavyweight EJB2.</td></tr>
+    <tr><td>Spring 2.5 / 3.x</td><td>Annotations (<code>@Component</code>, <code>@Autowired</code>), then <strong>Java config</strong> (<code>@Configuration</code>/<code>@Bean</code>) — XML becomes optional.</td></tr>
+    <tr><td>Spring 4.x (2014)</td><td>Java 8, generics-aware injection, <code>@RestController</code>, conditional beans. <strong>Spring Boot 1.0</strong> arrives.</td></tr>
+    <tr><td>Spring 5.x (2017)</td><td>Reactive stack (<strong>WebFlux</strong>, Reactor), functional bean registration, Kotlin support. Boot 2.x.</td></tr>
+    <tr><td><strong>Spring 6.x / Boot 3.x (2022→)</strong></td><td>Baseline <strong>Java 17</strong>, <code>javax.*</code> → <strong><code>jakarta.*</code></strong>, AOT + <strong>GraalVM native images</strong>, Micrometer <strong>Observability</strong> API, <code>RestClient</code>, <strong>virtual threads</strong> (3.2), <code>ProblemDetail</code> errors.</td></tr>
+  </tbody>
+</table>
+<div class="callout"><strong>The single most common "my tutorial is broken" cause:</strong> Boot 3 moved to <code>jakarta.persistence</code>
+and <code>jakarta.servlet</code>. Any snippet importing <code>javax.persistence.Entity</code> is pre-2022 and will not compile.
+Second most common: <code>WebSecurityConfigurerAdapter</code> was removed — modern security config returns a
+<code>SecurityFilterChain</code> bean.</div>
+
+<hr/>
+
+<h2>Glossary (quick reference)</h2>
+<dl class="glossary">
+  <dt>IoC (Inversion of Control)</dt><dd>You don't call the framework to build your objects; the framework builds them and calls you. "Don't call us, we'll call you."</dd>
+  <dt>DI (Dependency Injection)</dt><dd>The specific form of IoC Spring uses: a dependency is handed to an object from outside (usually via its constructor) instead of being created inside it.</dd>
+  <dt>Bean</dt><dd>Any object whose creation, wiring, and lifetime the Spring container manages.</dd>
+  <dt>BeanDefinition</dt><dd>The container's <em>recipe</em> for a bean (class, scope, constructor args, init method) — created before any bean object exists.</dd>
+  <dt>ApplicationContext</dt><dd>The full-featured IoC container: a <code>BeanFactory</code> plus events, resources, i18n, and auto-detected post-processors.</dd>
+  <dt>Scope</dt><dd>How many instances exist and how long each lives: <code>singleton</code> (default, one per container), <code>prototype</code>, <code>request</code>, <code>session</code>.</dd>
+  <dt>Proxy</dt><dd>A stand-in object that looks like your bean but wraps each call to add behaviour (transaction, security check, cache lookup).</dd>
+  <dt>AOP</dt><dd>Aspect-Oriented Programming: factoring a concern that cuts across many classes (logging, TX, security) into one place and weaving it in.</dd>
+  <dt>Auto-configuration</dt><dd>Boot's conditional <code>@Configuration</code> classes that create sensible default beans — and back off the moment you define your own.</dd>
+  <dt>Starter</dt><dd>A dependency with no code of its own that pulls in a curated, version-aligned set of libraries (e.g. <code>spring-boot-starter-web</code>).</dd>
+  <dt>DispatcherServlet</dt><dd>Spring MVC's single front controller: every HTTP request enters here and is routed to a handler method.</dd>
+  <dt>Persistence context</dt><dd>JPA's per-transaction working set of managed entities — the first-level cache that makes dirty checking possible.</dd>
+  <dt>Propagation</dt><dd>What a transactional method does when a transaction is already running (join it, suspend it, start a new one, fail…).</dd>
+  <dt>Actuator</dt><dd>Boot module exposing production endpoints: health, metrics, env, mappings, thread dumps.</dd>
+</dl>
+
+<h2 id="refs">Primary sources to read</h2>
+<div class="refs">
+<ul>
+  <li><a href="https://docs.spring.io/spring-framework/reference/">Spring Framework Reference Documentation</a> — the definitive source. Start with <em>Core → IoC Container</em>, then <em>AOP</em>, <em>Data Access → Transaction Management</em>, <em>Web → Spring MVC</em>.</li>
+  <li><a href="https://docs.spring.io/spring-boot/index.html">Spring Boot Reference Documentation</a> — especially <em>Using → Auto-configuration</em>, <em>Features → Externalized Configuration</em>, and the <em>Appendix → Common Application Properties</em>.</li>
+  <li><a href="https://docs.spring.io/spring-boot/appendix/auto-configuration-classes/index.html">Spring Boot — list of auto-configuration classes</a> — read a few real ones; it's the fastest way to kill the "magic" feeling.</li>
+  <li><a href="https://spring.io/guides">spring.io Guides</a> — short, official, runnable walkthroughs.</li>
+  <li><a href="https://docs.spring.io/spring-data/jpa/reference/">Spring Data JPA Reference</a> and <a href="https://docs.spring.io/spring-security/reference/">Spring Security Reference</a> — for lessons 11–13.</li>
+</ul>
+</div>
+
+<p class="sources" style="margin-top:2rem">Sources fetched &amp; cited: Spring Framework Reference (Core IoC Container, AOP, Data Access, Web MVC);
+Spring Boot Reference (Using/Features/Appendix); Spring Data JPA &amp; Spring Security references. Targeting Spring Framework 6.x /
+Spring Boot 3.x on Java 17+. Built per Knowledge-Base-2 rules §6.2 and <code>topic-styles/framework.md</code>.</p>
+
+</body>
+</html>

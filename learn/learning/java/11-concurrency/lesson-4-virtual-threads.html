@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Virtual Threads — Concurrency, Part 4 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .step{display:flex;gap:.8rem;margin:.9rem 0} .step .num{flex:0 0 2rem;height:2rem;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.95rem}
+  .step .body{flex:1} .step .body strong{display:block}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Virtual Threads</h1>
+<p class="crumb">Java › concurrency cluster · lesson 11, <strong>part 4 of 4</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — millions of threads, and simple code that scales</p>
+
+<p class="nav"><strong>Concurrency cluster:</strong>
+  <a href="lesson.html">1. Threads</a> ·
+  <a href="lesson-2-sharing-data-safely.html">2. Sharing data safely</a> ·
+  <a href="lesson-3-thread-pools-and-futures.html">3. Thread pools &amp; futures</a> ·
+  <strong>4. Virtual threads</strong>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> A normal (platform) thread is an OS thread: heavy, limited to a few thousand. A
+<strong>virtual thread</strong> (Java 21, <a href="https://openjdk.org/jeps/444">JEP 444</a>) is a thread the JVM manages
+itself — so cheap you can have a million. Many virtual threads take turns on a small set of real threads, and a virtual
+thread stepping aside to wait for I/O costs nothing. The payoff: you can go back to writing plain, blocking,
+easy-to-debug code and still scale like an asynchronous framework.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+This closes the cluster by removing the constraint the other three worked around.
+<a href="lesson.html">Part 1</a> said threads are expensive. <a href="lesson-3-thread-pools-and-futures.html">Part 3</a>
+built pools <em>because</em> they are expensive, and <code>CompletableFuture</code> chains <em>because</em> blocking a
+pooled thread is wasteful. Virtual threads attack the root cause.
+</p>
+<p>
+What does <strong>not</strong> change: everything in <a href="lesson-2-sharing-data-safely.html">part 2</a>. Virtual
+threads still share the heap, still race, still deadlock. They make threads cheap, not safe.
+</p>
+
+<h2><span class="n">§2</span>Why it exists — the two bad options before Java 21</h2>
+
+<h3>The number that forces the choice</h3>
+<p>
+<strong>Little's Law</strong>: concurrency = throughput × latency. If each request takes 50&nbsp;ms and you want 10,000
+requests per second, you must have <em>500 requests in flight at once</em>. Want 2,000/s at 100&nbsp;ms? 200 in flight.
+The arithmetic is unforgiving, and it is the whole motivation for JEP 444
+<span class="sources">(<a href="https://openjdk.org/jeps/444">JEP 444 — Motivation</a>)</span>.
+</p>
+<p>So you needed thousands of concurrent requests in flight. You had exactly two ways to get there, and both hurt.</p>
+
+<h3>Option A — thread per request (simple, does not scale)</h3>
+<pre><span class="c">// one thread owns one request from start to finish</span>
+String user   = userService.get(id);        <span class="c">// blocks 30ms</span>
+List&lt;Order&gt; o = orderService.list(id);      <span class="c">// blocks 40ms</span>
+<span class="k">return</span> render(user, o);</pre>
+<p>
+This is wonderful code: top to bottom, ordinary <code>try/catch</code>, a stack trace that tells you the truth, a
+debugger that steps through it. But each in-flight request holds an OS thread, and the OS thread is the scarce resource.
+At a few thousand you run out of memory or drown in context switches. A pool of 200 does not help either — it just means
+only 200 requests make progress and the rest queue
+<span class="sources">(<a href="https://openjdk.org/jeps/444">JEP 444</a>)</span>.
+</p>
+
+<h3>Option B — asynchronous (scales, and costs you everything else)</h3>
+<pre>userFuture.thenCombine(ordersFuture, (u, o) -&gt; render(u, o))
+          .exceptionally(ex -&gt; errorPage());</pre>
+<p>
+Never block a thread; hand back a callback instead. It scales — but you pay a heavy price, which JEP 444 states bluntly:
+you lose sequential composition. <code>for</code> loops and <code>try/catch</code> no longer work across the steps,
+<strong>stack traces become useless</strong> (the stack belongs to whichever pool thread happened to run that stage, not
+to your request), debuggers cannot step through the logic, and profilers cannot attribute cost to a caller.
+</p>
+
+<div class="callout"><strong>The real diagnosis.</strong> The problem was never the <em>thread-per-request style</em> — that
+style is excellent. The problem was that Java's thread was welded 1:1 to an OS thread. Java's <em>unit of concurrency</em>
+(the thread) had become more expensive than the application's unit of concurrency (the request). Virtual threads fix the
+implementation and keep the style.</div>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>M:N scheduling: many virtual threads on few carriers</h3>
+<p>
+A platform thread is a thin wrapper over an OS thread, scheduled by the OS (1:1). A virtual thread is scheduled by the
+<strong>JVM</strong> onto a small pool of platform threads (M:N). The platform thread a virtual thread is currently
+running on is called its <strong>carrier</strong>.
+</p>
+<ul>
+  <li><strong>Mount</strong> — the scheduler places a virtual thread on a carrier and it runs.</li>
+  <li><strong>Unmount</strong> — the virtual thread hits a blocking operation, so its stack is copied to the heap and the carrier is released for someone else.</li>
+</ul>
+<p>
+That unmount is the whole trick. A blocked virtual thread holds <em>no</em> OS thread. The scheduler itself is a
+work-stealing <code>ForkJoinPool</code> in FIFO mode whose parallelism defaults to the number of cores
+<span class="sources">(<a href="https://openjdk.org/jeps/444">JEP 444 — Scheduling virtual threads</a>)</span>.
+</p>
+
+<figure>
+<svg viewBox="0 0 770 330" width="100%" role="img" aria-label="Many virtual threads mounting and unmounting on a few carrier threads">
+  <style>
+    .vt{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.3}
+    .vtb{fill:#f1ece0;stroke:#9c9484;stroke-width:1.2;stroke-dasharray:4 3}
+    .car{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.5}
+    .os{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.5}
+    .t{font:11px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .h{font:12px Georgia,serif;fill:#2b2b28;font-weight:bold}
+    .a{stroke:#1f6b4d;stroke-width:1.4;marker-end:url(#mv);fill:none}
+    .a2{stroke:#9c9484;stroke-width:1.2;marker-end:url(#mv2);fill:none;stroke-dasharray:4 3}
+  </style>
+  <defs>
+    <marker id="mv" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1f6b4d"/></marker>
+    <marker id="mv2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#9c9484"/></marker>
+  </defs>
+
+  <text class="h" x="15" y="20">1,000,000 virtual threads (objects on the heap)</text>
+  <rect class="vt" x="15" y="30" width="78" height="30" rx="4"/><text class="t" x="30" y="50">vt-1</text>
+  <rect class="vt" x="103" y="30" width="78" height="30" rx="4"/><text class="t" x="118" y="50">vt-2</text>
+  <rect class="vtb" x="191" y="30" width="78" height="30" rx="4"/><text class="t" x="206" y="50">vt-3</text>
+  <rect class="vtb" x="279" y="30" width="78" height="30" rx="4"/><text class="t" x="294" y="50">vt-4</text>
+  <rect class="vt" x="367" y="30" width="78" height="30" rx="4"/><text class="t" x="382" y="50">vt-5</text>
+  <rect class="vtb" x="455" y="30" width="78" height="30" rx="4"/><text class="t" x="470" y="50">vt-6</text>
+  <rect class="vtb" x="543" y="30" width="78" height="30" rx="4"/><text class="t" x="558" y="50">…</text>
+  <rect class="vtb" x="631" y="30" width="110" height="30" rx="4"/><text class="t" x="646" y="50">vt-1000000</text>
+  <text class="c" x="15" y="78">solid = running · dashed = parked, waiting for I/O (stack parked on the heap, costing zero OS threads)</text>
+
+  <text class="h" x="15" y="135">JDK scheduler — a work-stealing ForkJoinPool (FIFO), parallelism = #cores</text>
+  <rect class="car" x="60" y="150" width="140" height="44" rx="6"/><text class="t" x="80" y="170">carrier-1</text><text class="c" x="72" y="186">running vt-1</text>
+  <rect class="car" x="230" y="150" width="140" height="44" rx="6"/><text class="t" x="250" y="170">carrier-2</text><text class="c" x="242" y="186">running vt-2</text>
+  <rect class="car" x="400" y="150" width="140" height="44" rx="6"/><text class="t" x="420" y="170">carrier-3</text><text class="c" x="412" y="186">running vt-5</text>
+  <rect class="car" x="570" y="150" width="140" height="44" rx="6"/><text class="t" x="590" y="170">carrier-4</text><text class="c" x="590" y="186">idle</text>
+
+  <line class="a" x1="54" y1="62" x2="110" y2="146"/>
+  <line class="a" x1="142" y1="62" x2="285" y2="146"/>
+  <line class="a" x1="406" y1="62" x2="462" y2="146"/>
+  <line class="a2" x1="230" y1="62" x2="200" y2="100"/>
+  <text class="c" x="243" y="104">unmounted</text>
+
+  <text class="h" x="15" y="245">operating system</text>
+  <rect class="os" x="60" y="258" width="140" height="40" rx="6"/><text class="t" x="95" y="283">OS thread</text>
+  <rect class="os" x="230" y="258" width="140" height="40" rx="6"/><text class="t" x="265" y="283">OS thread</text>
+  <rect class="os" x="400" y="258" width="140" height="40" rx="6"/><text class="t" x="435" y="283">OS thread</text>
+  <rect class="os" x="570" y="258" width="140" height="40" rx="6"/><text class="t" x="605" y="283">OS thread</text>
+  <line class="a" x1="130" y1="196" x2="130" y2="255" stroke="#6b675e" marker-end="url(#mv2)"/>
+  <line class="a" x1="300" y1="196" x2="300" y2="255" stroke="#6b675e" marker-end="url(#mv2)"/>
+  <line class="a" x1="470" y1="196" x2="470" y2="255" stroke="#6b675e" marker-end="url(#mv2)"/>
+  <line class="a" x1="640" y1="196" x2="640" y2="255" stroke="#6b675e" marker-end="url(#mv2)"/>
+  <text class="c" x="15" y="320">The OS only ever sees four threads. It has no idea the million exist.</text>
+</svg>
+<figcaption>M:N scheduling. A virtual thread's stack lives on the garbage-collected heap as <em>stack chunk</em> objects
+that grow and shrink, which is why a million of them fit (JEP 444, "Memory use").</figcaption>
+</figure>
+
+<h3>Creating them — three ways, all one line</h3>
+<pre><span class="c">// 1. fire and forget</span>
+Thread.startVirtualThread(() -&gt; handle(request));
+
+<span class="c">// 2. builder, when you want a name or an unstarted thread</span>
+Thread t = Thread.ofVirtual().name(<span class="s">"req-"</span>, 1).start(runnable);
+
+<span class="c">// 3. the one you will actually use: an ExecutorService that makes one per task</span>
+<span class="k">try</span> (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+    IntStream.range(0, 10_000).forEach(i -&gt; executor.submit(() -&gt; {
+        Thread.sleep(Duration.ofSeconds(1));
+        <span class="k">return</span> i;
+    }));
+}   <span class="c">// close() waits for every task — try-with-resources, since Java 19</span></pre>
+<div class="ann">That third form is deliberately the same <code>ExecutorService</code> interface from
+<a href="lesson-3-thread-pools-and-futures.html">part 3</a>. Migrating a service is often a <em>one-line</em> change from
+<code>newFixedThreadPool(200)</code> — which is exactly why the executor abstraction was worth having. Note what this
+"pool" is not: it has no threads to reuse, no queue and no size. It creates a brand-new virtual thread per task, and that
+is the point <span class="sources">(<a href="https://openjdk.org/jeps/444">JEP 444</a>)</span>.</div>
+
+<h3>How they differ from platform threads</h3>
+<table>
+<thead><tr><th></th><th>Platform thread</th><th>Virtual thread</th></tr></thead>
+<tbody>
+<tr><td>Backed by</td><td>an OS thread, 1:1</td><td>the JVM scheduler, M:N</td></tr>
+<tr><td>Stack</td><td>fixed OS stack (~1&nbsp;MB)</td><td>grows/shrinks on the heap</td></tr>
+<tr><td>Realistic count</td><td>thousands</td><td>millions</td></tr>
+<tr><td>Creation cost</td><td>a system call</td><td>roughly an object allocation</td></tr>
+<tr><td>Pooling</td><td>essential</td><td><strong>never</strong> — create one per task</td></tr>
+<tr><td>Daemon?</td><td>your choice</td><td>always daemon</td></tr>
+<tr><td>Priority</td><td>settable (a hint)</td><td>fixed; <code>setPriority</code> does nothing</td></tr>
+<tr><td>Type</td><td><code>java.lang.Thread</code></td><td><code>java.lang.Thread</code> — the same class</td></tr>
+</tbody>
+</table>
+<p>That last row matters more than it looks: <code>Thread.currentThread()</code>, <code>ThreadLocal</code>,
+<code>interrupt()</code>, <code>synchronized</code>, every <code>java.util.concurrent</code> lock and every
+<code>BlockingQueue</code> all work unchanged. Existing libraries run on virtual threads without being rewritten.</p>
+
+<h3>Pinning — the one leak in the abstraction</h3>
+<p>
+A virtual thread normally unmounts when it blocks. In a few situations it <em>cannot</em>, and stays <strong>pinned</strong>
+to its carrier — blocking a real OS thread. In Java 21 there were two causes: blocking inside a
+<code>synchronized</code> block/method, and blocking inside a <code>native</code> method or foreign function call.
+Pinning is not a correctness bug; it is a scalability bug, and a bad one if it happens on a hot path
+<span class="sources">(<a href="https://openjdk.org/jeps/444">JEP 444 — Executing virtual threads</a>)</span>.
+</p>
+<pre><span class="c">// Java 21: this pins the carrier for the whole network read</span>
+<span class="k">synchronized</span> byte[] getData() {
+    <span class="k">return</span> socket.getInputStream().read(buf);
+}
+<span class="c">// Java 21 workaround: a ReentrantLock does not pin</span>
+lock.lock();
+<span class="k">try</span> { <span class="k">return</span> socket.getInputStream().read(buf); } <span class="k">finally</span> { lock.unlock(); }</pre>
+<div class="callout"><strong>Good news, and a version warning.</strong> <a href="https://openjdk.org/jeps/491">JEP 491</a>,
+delivered in <strong>JDK 24</strong>, changed the JVM so <code>synchronized</code> no longer pins — a virtual thread can
+now unmount while holding or waiting for a monitor. The JEP explicitly withdraws the old "migrate to
+<code>ReentrantLock</code>" advice and returns to the classic guidance: use <code>synchronized</code> where practical,
+<code>ReentrantLock</code> when you need its extra powers. So the right answer depends on your JDK: <strong>on 21–23,
+avoid blocking inside <code>synchronized</code>; on 24+, stop worrying about it.</strong> Native-call pinning remains in
+both. Diagnose it with the <code>jdk.VirtualThreadPinned</code> JFR event.</div>
+
+<h3>Limiting concurrency without a pool</h3>
+<p>
+Pools used to do two jobs: reuse expensive threads <em>and</em> cap how many things happen at once. Virtual threads kill
+the first job but not the second — your database still has 20 connections. Do not pool virtual threads to throttle;
+JEP 444 says use a construct designed for it:
+</p>
+<pre><span class="k">private final</span> Semaphore dbPermits = <span class="k">new</span> Semaphore(20);
+
+dbPermits.acquire();
+<span class="k">try</span> { <span class="k">return</span> query(sql); }    <span class="c">// at most 20 at a time;</span>
+<span class="k">finally</span> { dbPermits.release(); } <span class="c">// the other 9,980 virtual threads just park, cheaply</span></pre>
+
+<h3>Two companions: structured concurrency and scoped values</h3>
+<p>
+Cheap threads make a second problem visible. If a request spawns three subtasks and the client disconnects, who cancels
+them? <strong>Structured concurrency</strong> (<a href="https://openjdk.org/jeps/453">JEP 453</a>, a preview feature in
+Java 21 and still evolving) says a task's subtasks must finish before the block exits — so they form a tree you can
+cancel, observe and trace as a unit:
+</p>
+<pre><span class="k">try</span> (var scope = <span class="k">new</span> StructuredTaskScope.ShutdownOnFailure()) {
+    Supplier&lt;User&gt;        user   = scope.fork(() -&gt; findUser(id));
+    Supplier&lt;List&lt;Order&gt;&gt; orders = scope.fork(() -&gt; fetchOrders(id));
+    scope.join().throwIfFailed();      <span class="c">// if either fails, the other is cancelled</span>
+    <span class="k">return</span> render(user.get(), orders.get());
+}   <span class="c">// nothing escapes this block — no leaked threads, ever</span></pre>
+<p>
+<strong>Scoped values</strong> (<a href="https://openjdk.org/jeps/446">JEP 446</a>, also preview in 21) are the companion
+to that: an immutable, inherited replacement for <code>ThreadLocal</code>, which becomes a memory problem when you have a
+million threads. Both are preview APIs — know them for interviews and prototypes, and check the current status of your
+JDK before shipping them.
+</p>
+
+<h2><span class="n">§4</span>When to use them</h2>
+<table>
+<thead><tr><th>Workload</th><th>Virtual threads?</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Thousands of concurrent HTTP/DB calls</td><td><strong>Yes</strong></td><td>the case they were built for: lots of waiting</td></tr>
+<tr><td>A web server handling many requests</td><td><strong>Yes</strong></td><td>thread-per-request becomes viable again</td></tr>
+<tr><td>Fan-out to many microservices</td><td><strong>Yes</strong></td><td>simple blocking calls, no callback chains</td></tr>
+<tr><td>Heavy CPU work (sorting, encoding, ML)</td><td><strong>No</strong></td><td>you are bound by cores, not by threads; use a fixed pool or parallel streams</td></tr>
+<tr><td>Only a handful of long-lived threads</td><td>No benefit</td><td>nothing to scale</td></tr>
+<tr><td>Code that blocks inside <code>synchronized</code> on JDK 21–23</td><td>Careful</td><td>pinning can neutralise the benefit</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong>Say this sentence in an interview:</strong> "Virtual threads give <em>scale</em>
+(throughput), not <em>speed</em> (latency). An individual task does not run one instruction faster — you can just have
+vastly more tasks in flight." That is JEP 444's own framing, and it separates people who have read it from people who
+have heard of it.</div>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+A restaurant has 20 waiters. Each waiter looks after one table from start to finish — simple, and the service is great.
+But a waiter who has taken an order must <em>stand at that table doing nothing</em> until the food arrives. With 20
+waiters you can serve 20 tables, and the 21st group waits at the door even though the kitchen is half idle.
+</p>
+<p>
+Hiring 10,000 waiters is impossible: there is no room for them, and they spend all day bumping into each other. That is
+platform threads.
+</p>
+<p>
+The other old fix was to ban waiters from staying at a table: take an order, run away, and let whoever is free deliver
+the food later. It works, but now no one person knows your table's story, and when something goes wrong nobody can say
+what happened. That is asynchronous code and its useless stack traces.
+</p>
+<p>
+Virtual threads are the obvious third answer: let the waiter <strong>sit down and take a break</strong> while the food
+cooks. The waiter still "belongs" to your table and remembers everything about your order — they just stop occupying the
+floor while waiting. Now 20 pairs of feet can look after 10,000 tables, and each table still has one waiter who knows the
+whole story.
+</p>
+<p>
+One catch: if a waiter falls asleep <em>standing in a doorway</em> (that is <strong>pinning</strong>), they block
+everyone else. And no matter how many waiters you have, the kitchen still only has four stoves — more waiters never cook
+food faster. That is why virtual threads do nothing for CPU-bound work.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson.html">part 1</a>:</strong> "~1&nbsp;MB per thread, a few thousand max" was the constraint; this is the removal of it.</li>
+  <li><strong>← <a href="lesson-2-sharing-data-safely.html">part 2</a>:</strong> unchanged. Races, happens-before and deadlocks apply identically — cheap threads are not safe threads.</li>
+  <li><strong>← <a href="lesson-3-thread-pools-and-futures.html">part 3</a>:</strong> same <code>ExecutorService</code> interface, opposite philosophy — <em>never</em> pool, and throttle with a <code>Semaphore</code> instead.</li>
+  <li><strong>← <a href="../06-memory-model-and-gc/lesson.html">memory-model-and-gc</a>:</strong> virtual thread stacks are heap objects, so thread count becomes a GC question rather than an OS question.</li>
+  <li><strong>→ <a href="../12-modern-java-9-to-21/lesson.html">modern-java-9-to-21</a>:</strong> virtual threads are the flagship of Java 21, alongside records, sealed types and pattern matching.</li>
+  <li><strong>→ <a href="../13-application-architecture/lesson.html">application-architecture</a>:</strong> they weaken the case for reactive stacks (WebFlux, RxJava) whose main justification was thread scarcity.</li>
+  <li><strong>Same idea elsewhere:</strong> Go's goroutines and Erlang's processes are the same M:N user-mode threads; Kotlin coroutines and C#'s <code>async/await</code> solve it in the <em>language</em> instead. JEP 444 explicitly rejects <code>async/await</code> for Java — it would split the world into thread-APIs and coroutine-APIs.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — the one-line migration</h2>
+<div class="callout"><strong>Note on verification.</strong> Every other lesson in this cluster shows output from code
+actually run on the local JDK 1.8. Virtual threads need <strong>JDK 21+</strong>, which is not installed here, so the
+snippets below are taken from or modelled on the official JEP rather than executed locally. Treat the numbers as the
+JEP's claims, not as measurements made on this machine
+<span class="sources">(<a href="https://openjdk.org/jeps/444">JEP 444</a>)</span>.</div>
+
+<h3>A. 10,000 tasks, three ways</h3>
+<pre><span class="k">try</span> (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+    IntStream.range(0, 10_000).forEach(i -&gt; executor.submit(() -&gt; {
+        Thread.sleep(Duration.ofSeconds(1));
+        <span class="k">return</span> i;
+    }));
+}</pre>
+<div class="ann">JEP 444 walks through exactly this program with three different executors, and the comparison is the clearest
+summary of the whole feature:
+<ul>
+  <li><code>newVirtualThreadPerTaskExecutor()</code> — 10,000 virtual threads run concurrently on perhaps a single OS thread; it finishes in about a second. Change <code>10_000</code> to <code>1_000_000</code> and it still works.</li>
+  <li><code>newCachedThreadPool()</code> — attempts 10,000 OS threads; the program <em>may crash</em>, depending on the machine.</li>
+  <li><code>newFixedThreadPool(200)</code> — survives, but caps throughput at ~200 tasks/second, so the run takes ~50 seconds.</li>
+</ul>
+Same tasks, same code shape. Only the executor changed.</div>
+
+<h3>B. What the request handler looks like now</h3>
+<pre><span class="k">void</span> handle(Request request, Response response) {
+    <span class="k">try</span> (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        var future1 = executor.submit(() -&gt; fetchURL(url1));
+        var future2 = executor.submit(() -&gt; fetchURL(url2));
+        response.send(future1.get() + future2.get());   <span class="c">// blocking - and that's fine</span>
+    } <span class="k">catch</span> (ExecutionException | InterruptedException e) {
+        response.fail(e);
+    }
+}</pre>
+<div class="ann">Compare this with the <code>CompletableFuture</code> version in part 3. Both fetch two URLs concurrently. But
+here the two calls to <code>get()</code> block <em>virtual</em> threads, which costs nothing — the carriers are released
+and reused. And look at what you keep: an ordinary <code>try/catch</code> spanning both calls, a real stack trace if
+<code>fetchURL</code> throws, and a debugger that can step straight through. That is the trade asynchronous code could
+never make.</div>
+
+<h3>C. Proving which kind of thread you are on</h3>
+<pre>Thread.startVirtualThread(() -&gt; {
+    Thread t = Thread.currentThread();
+    System.out.println(t + <span class="s">" virtual="</span> + t.isVirtual() + <span class="s">" daemon="</span> + t.isDaemon());
+});</pre>
+<pre><span class="c">// expected shape of the output on JDK 21:</span>
+VirtualThread[#21]/runnable@ForkJoinPool-1-worker-1 virtual=true daemon=true</pre>
+<div class="ann">Read the name: the virtual thread <code>#21</code> is currently riding
+<code>ForkJoinPool-1-worker-1</code> — its carrier. Run it again and it may be on a different worker, because the
+scheduler keeps no affinity. <code>daemon=true</code> is forced: virtual threads can never be non-daemon, so
+<code>main</code> returning will not wait for them. That is exactly why the try-with-resources form of the executor
+matters — <code>close()</code> is what waits.</div>
+
+<h3>D. Finding pinning before production does</h3>
+<pre><span class="c"># JDK 21-23: log a stack trace whenever a virtual thread blocks while pinned</span>
+java -Djdk.tracePinnedThreads=short -jar app.jar
+
+<span class="c"># any version: the JFR event, enabled by default with a 20ms threshold</span>
+jdk.VirtualThreadPinned</pre>
+<div class="ann">Pinning is silent — your app is simply slower than it should be. These two switches turn it into something
+you can see. (JEP 491 removes the <code>jdk.tracePinnedThreads</code> property in JDK 24, where
+<code>synchronized</code> no longer pins; the JFR event stays for native-call pinning.)</div>
+
+<div class="try"><strong>Think it through (no JDK 21 needed).</strong>
+(1) A service handles 5,000 concurrent requests, each 95% waiting on a database. Would virtual threads help? Now change
+it to 95% JSON parsing — same answer?
+(2) You wrap every DB call in <code>synchronized</code> and move to virtual threads on JDK 21. Why might throughput
+barely improve, and what two fixes exist?
+(3) Why is <code>Executors.newFixedThreadPool(10_000)</code> a terrible idea but
+<code>newVirtualThreadPerTaskExecutor()</code> with 10,000 tasks fine?
+(4) Your code caches a database connection in a <code>ThreadLocal</code>. What happens when you switch to one virtual
+thread per request?</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Pooling virtual threads.</strong> <code>newFixedThreadPool</code> of virtual threads defeats
+the entire design. Create one per task; they are not a resource worth sharing.</div>
+<div class="pitfall"><strong>Using them for CPU-bound work.</strong> Throughput is capped by cores. A million threads
+computing primes is slower, not faster.</div>
+<div class="pitfall"><strong>Blocking inside <code>synchronized</code> on JDK 21–23.</strong> Pins the carrier and silently
+destroys scalability. Use <code>ReentrantLock</code> there, or upgrade to JDK 24 (JEP 491).</div>
+<div class="pitfall"><strong>Expensive <code>ThreadLocal</code> values.</strong> Caching a connection per thread was smart
+with 200 threads and catastrophic with a million. JEP 444 warns about this explicitly; scoped values are the intended
+replacement.</div>
+<div class="pitfall"><strong>Forgetting that unbounded concurrency is still unbounded.</strong> A million virtual threads
+can open a million database connections. Throttle with a <code>Semaphore</code>.</div>
+<div class="pitfall"><strong>Expecting <code>jstack</code> to work.</strong> Traditional thread dumps list only platform
+threads. Use <code>jcmd &lt;pid&gt; Thread.dump_to_file -format=json</code>.</div>
+<div class="pitfall"><strong><code>setDaemon</code> / <code>setPriority</code> on a virtual thread.</strong> Silently has
+no effect — they are always daemon and always normal priority.</div>
+<div class="pitfall"><strong>Thinking they solve concurrency bugs.</strong> They do not. Part 2 applies in full: races,
+visibility, deadlocks — all identical.</div>
+<div class="pitfall"><strong>Native and file I/O.</strong> Calls into native code still pin, and some filesystem
+operations do not unmount. The JDK compensates by temporarily growing the scheduler, but it is not free.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li><strong>Little's Law</strong> forces thousands of concurrent requests; platform threads could not supply them.</li>
+  <li>The old choice was thread-per-request (readable, unscalable) or async (scalable, unreadable — no usable stack traces, no <code>try/catch</code> across steps).</li>
+  <li>A <strong>virtual thread</strong> is a <code>java.lang.Thread</code> scheduled by the JVM, not the OS — <strong>M:N</strong> onto <strong>carrier</strong> threads.</li>
+  <li>It <strong>unmounts</strong> on blocking I/O, releasing its carrier; its stack parks on the heap. Blocking becomes nearly free.</li>
+  <li>The scheduler is a FIFO work-stealing <code>ForkJoinPool</code> with parallelism = cores.</li>
+  <li><strong>Never pool them.</strong> One virtual thread per task; limit concurrency with a <code>Semaphore</code>.</li>
+  <li>They are always daemon, fixed priority, and otherwise behave like any thread — existing libraries just work.</li>
+  <li><strong>Pinning</strong> (blocking in <code>synchronized</code> on JDK 21–23, or in native code) blocks the carrier and kills scalability. JDK 24's JEP 491 fixes the <code>synchronized</code> case.</li>
+  <li><strong>Structured concurrency</strong> (JEP 453) and <strong>scoped values</strong> (JEP 446) are the companion APIs — preview in Java 21.</li>
+  <li>Virtual threads give <strong>scale, not speed</strong>: great for I/O-bound concurrency, useless for CPU-bound work, and they fix none of part 2's safety problems.</li>
+</ul>
+
+<hr/>
+<h2>Reference — the whole cluster on one card</h2>
+<table>
+<thead><tr><th>Question</th><th>Short answer</th></tr></thead>
+<tbody>
+<tr><td>How do I start a thread?</td><td><code>new Thread(runnable).start()</code> — but prefer an executor (part 1, 3)</td></tr>
+<tr><td>How do I stop one?</td><td><code>interrupt()</code>, and the task must cooperate (part 1)</td></tr>
+<tr><td>Is <code>i++</code> safe?</td><td>No. Lock it or use an atomic (part 2)</td></tr>
+<tr><td>What does <code>volatile</code> buy?</td><td>Visibility + ordering, never atomicity (part 2)</td></tr>
+<tr><td>How do threads see each other's writes?</td><td>A <strong>happens-before</strong> edge: unlock/lock, volatile write/read, start, join, final fields (part 2)</td></tr>
+<tr><td>How do I run 100 tasks in parallel?</td><td><code>ExecutorService</code> + submit all, then <code>get()</code> (part 3)</td></tr>
+<tr><td>How do I chain async steps?</td><td><code>CompletableFuture</code>, with your own executor (part 3)</td></tr>
+<tr><td>How do I handle 10,000 concurrent requests?</td><td>Virtual threads, one per request (part 4)</td></tr>
+<tr><td>How do I cap concurrent DB calls?</td><td><code>Semaphore</code> — not a pool (part 4)</td></tr>
+<tr><td>What never changes?</td><td>Shared mutable state is still the enemy (part 2)</td></tr>
+</tbody>
+</table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Virtual thread</dt><dd>A <code>java.lang.Thread</code> scheduled by the JVM, not the OS. Cheap and plentiful.</dd>
+  <dt>Platform thread</dt><dd>The traditional 1:1 wrapper around an OS thread.</dd>
+  <dt>Carrier</dt><dd>The platform thread a virtual thread is currently mounted on.</dd>
+  <dt>Mount / unmount</dt><dd>Placing a virtual thread on a carrier / stepping off it when blocking.</dd>
+  <dt>M:N scheduling</dt><dd>Many user-mode threads multiplexed onto fewer OS threads.</dd>
+  <dt>Pinning</dt><dd>A virtual thread that cannot unmount, so it blocks its carrier too.</dd>
+  <dt>Little's Law</dt><dd>concurrency = throughput × latency — why high throughput needs many in-flight tasks.</dd>
+  <dt>Thread-per-request</dt><dd>One thread owns one request end to end. Readable; only scalable with virtual threads.</dd>
+  <dt>Structured concurrency</dt><dd>Subtasks must complete within the block that started them (JEP 453, preview in 21).</dd>
+  <dt>Scoped value</dt><dd>An immutable, inherited alternative to <code>ThreadLocal</code> (JEP 446, preview in 21).</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p>
+<a href="https://openjdk.org/jeps/444">JEP 444: Virtual Threads</a> is unusually well written — the Motivation section
+alone is the best explanation of why asynchronous programming hurts. Follow it with
+<a href="https://openjdk.org/jeps/491">JEP 491 (Synchronize Virtual Threads without Pinning, JDK 24)</a> and
+<a href="https://openjdk.org/jeps/453">JEP 453 (Structured Concurrency)</a>.
+</p>
+<p class="sources" style="margin-top:2rem">Sources: OpenJDK, <em>JEP 444: Virtual Threads</em> (delivered in JDK 21); OpenJDK, <em>JEP 491: Synchronize Virtual Threads without Pinning</em> (delivered in JDK 24); OpenJDK, <em>JEP 453: Structured Concurrency</em> and <em>JEP 446: Scoped Values</em> (preview); Oracle, <em>Java SE 21 API</em> (<code>Thread</code>, <code>Executors</code>). Code on this page is illustrative — JDK 21 is not installed locally, so unlike parts 1–3 its output was not executed here. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

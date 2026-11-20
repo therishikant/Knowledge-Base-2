@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Transactions — Spring</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:2.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    padding:.55rem .85rem;background:#f4f0e6;border:1px solid var(--rule);border-radius:6px;margin-bottom:1.8rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f8f5ec;border:1.5px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.95rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.5rem}
+  .step-flow{background:#fff;border:1px solid var(--rule);border-left:4px solid var(--spring);padding:.8rem 1rem;border-radius:0 6px 6px 0;margin:1rem 0;font-size:.93rem}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../11-data-access-and-spring-data-jpa/lesson.html">11 · Data Access &amp; Spring Data JPA</a></span>
+  <span><a href="../overview.html">Spring Map (Lesson 12 of 18)</a></span>
+  <span><a href="../13-spring-security/lesson.html">13 · Spring Security</a> →</span>
+</nav>
+
+<h1>Transactions</h1>
+<p class="crumb"><a href="../overview.html">Spring</a> › lesson 12 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the boundary everything depends on</p>
+
+<div class="tldr">
+<strong>In simple English —</strong> <code>@Transactional</code> is just <strong>10 lines of plain Java inside an AOP Proxy (Box 4)</strong> plus a <strong><code>ThreadLocal</code> map (<code>TransactionSynchronizationManager</code> in Box 6)</strong>. Before your service method runs, the proxy borrows one JDBC <code>Connection</code> from HikariCP, sets <code>conn.setAutoCommit(false)</code>, and stores that connection in the current thread's <code>ThreadLocal</code>. Every repository called on that thread looks up that same <code>ThreadLocal</code> connection — which is why 3 repositories share 1 transaction without passing <code>Connection</code> as a parameter!
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the Map</h2>
+<p>
+During <strong>Phase 1 (Startup)</strong>, Box 4 wrapped your <code>@Service</code> bean in a CGLIB proxy containing a <code>TransactionInterceptor</code>. Now in <strong>Phase 2 (The Request Loop)</strong>, your controller (Box 6) calls your service proxy (Box 4), which binds a database connection and JPA <code>PersistenceContext</code> (Lesson 11) to the current worker thread's <code>ThreadLocal</code> storage.
+</p>
+
+<div class="map-banner">
+  <div class="map-title">🗺️ You Are Here on the 3-Level Zoom Map</div>
+  <figure style="margin:.4rem 0">
+  <svg viewBox="0 0 760 220" width="100%" role="img" aria-label="You Are Here: Phase 2 Request Loop, Box 4 TransactionInterceptor Proxy and ThreadLocal TransactionSynchronizationManager">
+    <style>
+      .dim{fill:#f4f0e6;stroke:#b8b1a3;stroke-width:1.2}
+      .act4{fill:#eefaf4;stroke:#6db33f;stroke-width:2.2}
+      .act6{fill:#fff8ee;stroke:#7a1f1f;stroke-width:2.2}
+      .tx{font:11px "SF Mono",Menlo,monospace;fill:#2b2b28}
+      .th{font:bold 12px Georgia,serif;fill:#2b2b28}
+      .tm{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+      .ar{stroke:#2b2b28;stroke-width:1.5;marker-end:url(#mt);fill:none}
+    </style>
+    <defs><marker id="mt" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2b2b28"/></marker></defs>
+
+    <!-- Box 6 Controller dimmed -->
+    <rect class="dim" x="10" y="12" width="150" height="145" rx="6"/>
+    <text class="th" x="20" y="32" style="fill:#6b675e">Box 6: Controller</text>
+    <text class="tx" x="20" y="54">BookController</text>
+    <text class="tm" x="20" y="78">Calls injected</text>
+    <text class="tm" x="20" y="94">LoanService proxy</text>
+
+    <!-- Box 4 Proxy -->
+    <rect class="act4" x="180" y="10" width="275" height="148" rx="7"/>
+    <text class="th" x="192" y="30" style="fill:#1f6b4d">★ Box 4: @Transactional Proxy</text>
+    <text class="tx" x="192" y="50">TransactionInterceptor</text>
+    <text class="tx" x="192" y="68">1. txManager.getTransaction()</text>
+    <text class="tx" x="192" y="86">2. target.borrow()      (Rule 2!)</text>
+    <text class="tx" x="192" y="104">3. RuntimeException? rollback()</text>
+    <text class="tx" x="192" y="122">4. Else: commit() &amp; cleanup</text>
+    <text class="tm" x="192" y="142">Self-invocation (`this.m()`) skips Box 4!</text>
+
+    <!-- ThreadLocal state -->
+    <rect class="act6" x="475" y="10" width="275" height="148" rx="7"/>
+    <text class="th" x="487" y="30" style="fill:#7a1f1f">★ Rule 3: ThreadLocal Storage</text>
+    <text class="tx" x="487" y="50">TransactionSynchronizationManager</text>
+    <text class="tx" x="487" y="70">ThreadLocal&lt;Map&lt;Object, Object&gt;&gt;</text>
+    <text class="tx" x="487" y="90">Key: DataSource → JDBC Connection</text>
+    <text class="tx" x="487" y="108">Key: EMF        → EntityManager</text>
+    <text class="tm" x="487" y="130">All repos on this thread share the</text>
+    <text class="tm" x="487" y="144">exact same Connection automatically!</text>
+
+    <line class="ar" x1="160" y1="82" x2="178" y2="82"/>
+    <line class="ar" x1="455" y1="82" x2="473" y2="82"/>
+
+    <!-- Bottom timeline -->
+    <rect x="10" y="168" width="740" height="42" rx="5" fill="#eef3f7" stroke="#1f4d7a" stroke-width="1.2"/>
+    <text class="tx" x="22" y="185">Right before: Controller (L10) validated DTO and called @Transactional service method</text>
+    <text class="tx" x="22" y="201">Right after:  Proxy flushes JPA dirty-check, commits DB tx, unbinds ThreadLocal, returns Connection to HikariCP</text>
+  </svg>
+  </figure>
+</div>
+
+<h2><span class="n">§2</span>Why it exists — what you'd write by hand without it</h2>
+<p>
+Suppose borrowing a book touches three tables: (1) mark the book as loaned in <code>book</code>, (2) insert a row in <code>loan</code>, and (3) charge a deposit in <code>wallet</code>. If step 3 fails after steps 1 and 2 succeeded, the book is marked loaned to nobody!
+</p>
+<p>
+Without Spring's <code>@Transactional</code>, look at the plain JDBC code you would have to write — <strong>and notice how you would have to pass <code>Connection conn</code> into every single repository method parameter</strong> so all three steps share the same transaction:
+</p>
+<pre><span class="c">// ❌ Without @Transactional — manual JDBC transaction management &amp; polluted method signatures!</span>
+<span class="k">public</span> Loan borrow(<span class="k">long</span> bookId, <span class="k">long</span> memberId) <span class="k">throws</span> SQLException {
+    Connection conn = dataSource.getConnection();
+    <span class="k">try</span> {
+        conn.setAutoCommit(<span class="k">false</span>);                 <span class="c">// 1. Start transaction</span>
+        bookRepo.markLoaned(conn, bookId);         <span class="c">// 2. Must pass `conn` into every method!</span>
+        Loan loan = loanRepo.insert(conn, bookId, memberId);
+        walletRepo.debitDeposit(conn, memberId);
+        conn.commit();                             <span class="c">// 3. Commit all three</span>
+        <span class="k">return</span> loan;
+    } <span class="k">catch</span> (RuntimeException | Error e) {
+        conn.rollback();                           <span class="c">// 4. Undo all three on failure</span>
+        <span class="k">throw</span> e;
+    } <span class="k">finally</span> {
+        conn.setAutoCommit(<span class="k">true</span>);
+        conn.close();                              <span class="c">// 5. Return to HikariCP pool</span>
+    }
+}</pre>
+<p>
+Spring's <code>@Transactional</code> removes both pains at once:
+(1) the <strong>AOP Proxy (Box 4)</strong> writes the <code>setAutoCommit(false) / commit / rollback / close</code> block for you, and
+(2) a <strong><code>ThreadLocal</code> variable (Rule 3)</strong> holds <code>conn</code> behind the scenes so your repository methods don't need <code>Connection</code> in their parameter list!
+</p>
+
+<h2><span class="n">§3</span>How it works (Level 1 → Level 2 Zoom)</h2>
+
+<h3>The Entire Mechanism in 20 Lines of Plain Java</h3>
+<p>
+Never treat <code>@Transactional</code> as magic. Here is the exact plain-Java code that runs inside Spring's <code>TransactionSynchronizationManager</code> (Rule 3) and <code>TransactionInterceptor</code> proxy (Box 4):
+</p>
+<pre><span class="c">// 1. Where State Lives (Rule 3): Spring's TransactionSynchronizationManager is just a ThreadLocal Map!</span>
+<span class="k">public abstract class</span> TransactionSynchronizationManager {
+    <span class="k">private static final</span> ThreadLocal&lt;Map&lt;Object, Object&gt;&gt; resources =
+        ThreadLocal.withInitial(HashMap::<span class="k">new</span>);
+
+    <span class="c">// Key = DataSource (or EntityManagerFactory), Value = active Connection (or EntityManager)</span>
+    <span class="k">public static void</span> bindResource(Object key, Object value) { resources.get().put(key, value); }
+    <span class="k">public static</span> Object getResource(Object key)              { <span class="k">return</span> resources.get().get(key); }
+    <span class="k">public static</span> Object unbindResource(Object key)           { <span class="k">return</span> resources.get().remove(key); }
+}
+
+<span class="c">// 2. Who You Call (Rule 2): The generated CGLIB Proxy in Box 4 wrapping your LoanService</span>
+<span class="k">public class</span> LoanService$$SpringCGLIB <span class="k">extends</span> LoanService {
+    <span class="k">private</span> LoanService target;
+    <span class="k">private</span> DataSource dataSource;
+
+    <span class="an">@Override</span>
+    <span class="k">public</span> LoanView borrow(<span class="k">long</span> bookId, <span class="k">long</span> memberId) {
+        Connection conn = dataSource.getConnection();            <span class="c">// ① borrow 1 connection from HikariCP</span>
+        conn.setAutoCommit(<span class="k">false</span>);                               <span class="c">// ② BEGIN transaction</span>
+        TransactionSynchronizationManager.bindResource(dataSource, conn); <span class="c">// ③ put in ThreadLocal!</span>
+        <span class="k">try</span> {
+            <span class="c">// ④ Call your real method. Inside it, bookRepo, loanRepo, and walletRepo all call</span>
+            <span class="c">//    TransactionSynchronizationManager.getResource(dataSource) -&gt; they all get `conn`!</span>
+            LoanView result = target.borrow(bookId, memberId);
+            conn.commit();                                       <span class="c">// ⑤ flush JPA dirty check + COMMIT</span>
+            <span class="k">return</span> result;
+        } <span class="k">catch</span> (RuntimeException | Error ex) {                  <span class="c">// ⑥ default: UNCHECKED exceptions only!</span>
+            conn.rollback();                                     <span class="c">// ⑦ ROLLBACK</span>
+            <span class="k">throw</span> ex;
+        } <span class="k">finally</span> {
+            TransactionSynchronizationManager.unbindResource(dataSource); <span class="c">// ⑧ clean ThreadLocal!</span>
+            conn.setAutoCommit(<span class="k">true</span>);
+            conn.close();                                        <span class="c">// ⑨ return connection to HikariCP</span>
+        }
+    }
+}</pre>
+<div class="callout"><strong>Pause and appreciate lines ③ and ④:</strong> That <code>ThreadLocal</code> map is the entire answer to <em>"How do three separate repositories called inside one service method share the exact same database connection without passing <code>Connection</code> as an argument?"</em> And because it is a <code>ThreadLocal</code>, if you spawn a new thread inside <code>borrow</code> (e.g., <code>@Async</code> or <code>CompletableFuture.runAsync</code>), that new thread has an <strong>empty</strong> <code>ThreadLocal</code> — it is <em>not</em> in your transaction!</div>
+
+<figure>
+<svg viewBox="0 0 760 350" width="100%" role="img" aria-label="How @Transactional works: proxy, transaction manager and thread-bound resources">
+  <style>
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}.g{fill:#eefaf4;stroke:#6db33f;stroke-width:1.5}
+    .y{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11.5px Georgia,serif;fill:#3f3b34}
+    .h{font:bold 12.5px Georgia,serif;fill:#2b2b28}.lb{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.3;marker-end:url(#mf);fill:none}
+  </style>
+  <defs><marker id="mf" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="y" x="14" y="20" width="120" height="44" rx="5"/><text class="t" x="34" y="47">Controller</text>
+
+  <rect class="g" x="170" y="12" width="250" height="200" rx="7"/>
+  <text class="h" x="186" y="32">TransactionInterceptor (Box 4)</text>
+  <text class="t" x="186" y="56">1. begin → getConnection()</text>
+  <text class="t" x="186" y="76">   setAutoCommit(false)</text>
+  <text class="t" x="186" y="96">2. BIND to ThreadLocal  ★</text>
+  <text class="t" x="186" y="124">3. invoke your method</text>
+  <text class="t" x="186" y="152">4. no exception → commit()</text>
+  <text class="t" x="186" y="172">   RuntimeException → rollback()</text>
+  <text class="t" x="186" y="192">5. unbind + close (finally)</text>
+
+  <rect class="y" x="456" y="12" width="290" height="92" rx="7"/>
+  <text class="h" x="472" y="32">Your @Service method</text>
+  <text class="c" x="472" y="52">bookRepo.save(...)     ← no Connection param</text>
+  <text class="c" x="472" y="70">auditRepo.save(...)    ← no Connection param</text>
+  <text class="lb" x="472" y="90">both silently find the SAME connection</text>
+
+  <rect class="b" x="456" y="118" width="290" height="94" rx="7"/>
+  <text class="h" x="472" y="138">TransactionSynchronizationManager</text>
+  <text class="t" x="472" y="160">ThreadLocal&lt;Map&lt;DataSource, Connection&gt;&gt;</text>
+  <text class="lb" x="472" y="180">"what transaction is THIS thread in?"</text>
+  <text class="lb" x="472" y="198">also holds the EntityManager (lesson 11)</text>
+
+  <path class="a" d="M134,42 L168,42"/>
+  <path class="a" d="M420,60 L454,60"/>
+  <path class="a" d="M600,104 L600,116"/>
+
+  <rect class="y" x="14" y="238" width="732" height="100" rx="7"/>
+  <text class="h" x="30" y="258" style="fill:#7a1f1f">Two consequences that explain almost every transaction bug (Rules 2 &amp; 3)</text>
+  <text class="c" x="30" y="280">① Rule 2 (It's a Box 4 PROXY) → self-invocation (this.method()) is not advised. Lesson 6's trap, in its most expensive form.</text>
+  <text class="c" x="30" y="300">② Rule 3 (It's THREAD-BOUND) → a new thread (@Async, executor, parallel stream) has NO transaction. It will silently</text>
+  <text class="c" x="30" y="318">   start its own — or fail with "no EntityManager with actual transaction available".</text>
+  <text class="lb" x="30" y="334">Nearly every real incident in this area is one of these two.</text>
+</svg>
+<figcaption>Proxy on the outside (Box 4), <code>ThreadLocal</code> on the inside (Rule 3). The <code>ThreadLocal</code> is what lets your repositories stay ignorant of transactions — and is exactly why transactions don't cross threads.</figcaption>
+</figure>
+
+<h3>What the Annotation Actually Controls</h3>
+<pre><span class="an">@Transactional</span>(
+    propagation = Propagation.REQUIRED,        <span class="c">// what to do if a tx is already in ThreadLocal</span>
+    isolation   = Isolation.DEFAULT,           <span class="c">// how much other transactions can see</span>
+    readOnly    = <span class="k">false</span>,                      <span class="c">// skip dirty-check snapshots + replica hint</span>
+    timeout     = 30,                          <span class="c">// seconds before forced rollback</span>
+    rollbackFor = Exception.class,             <span class="c">// also roll back on CHECKED exceptions</span>
+    noRollbackFor = NotFoundException.class
+)</pre>
+
+<h3>★ Rollback Rules — The #1 Silent Data-Corruption Bug</h3>
+<table>
+<thead><tr><th>Thrown</th><th>Default Behaviour</th></tr></thead>
+<tbody>
+<tr><td><code>RuntimeException</code> (unchecked)</td><td><strong>Rollback</strong></td></tr>
+<tr><td><code>Error</code></td><td><strong>Rollback</strong></td></tr>
+<tr><td><strong>Checked <code>Exception</code> (e.g., <code>IOException</code>)</strong></td><td><strong>COMMIT</strong> ← surprising, and dangerous!</td></tr>
+<tr><td>Caught inside the method</td><td>Commit (the Box 4 proxy never sees it!)</td></tr>
+</tbody></table>
+<div class="callout"><strong>Why this bizarre default?</strong> It mirrors the 2003 EJB convention: a checked exception was considered a <em>declared, expected business outcome</em> ("insufficient funds") that the caller handles; an unchecked one was a <em>system bug</em>. Reasonable in theory; a footgun in practice, because <code>IOException</code> is checked and will <strong>commit your half-finished transaction</strong>. Always write <code>@Transactional(rollbackFor = Exception.class)</code> when checked exceptions can be thrown, or use unchecked domain exceptions.</div>
+
+<div class="pitfall"><strong>Catch-and-log inside a transactional method is the quiet killer.</strong>
+<pre style="margin:.6rem 0 0"><span class="an">@Transactional</span>
+<span class="k">void</span> process(Order o) {
+    orders.save(o);
+    <span class="k">try</span> { payments.charge(o); }
+    <span class="k">catch</span> (RuntimeException e) { log.error(<span class="s">"charge failed"</span>, e); }   <span class="c">// ← swallowed!</span>
+}   <span class="c">// COMMITS! Order saved, never paid for.</span></pre>
+Furthermore, if <code>payments.charge(o)</code> was another <code>@Transactional(REQUIRED)</code> bean that threw a <code>RuntimeException</code>, its proxy <strong>already marked the shared <code>ThreadLocal</code> transaction <code>rollbackOnly = true</code></strong> before your <code>catch</code> block ran! When <code>process</code> finishes and tries to commit, Spring throws <code>UnexpectedRollbackException</code>.</div>
+
+<h3>★ Propagation — Step-by-Step Arrow Flows for <code>REQUIRED</code> vs <code>REQUIRES_NEW</code></h3>
+<div class="step-flow">
+  <strong>Flow A: <code>Propagation.REQUIRED</code> (Default — 1 Physical Connection):</strong><br/>
+  <strong>Step 1:</strong> <code>OrderService.place()</code> proxy borrows <code>Conn #1</code> from HikariCP → binds <code>Conn #1</code> to <code>ThreadLocal</code>.<br/>
+  ↓<br/>
+  <strong>Step 2:</strong> <code>OrderService</code> calls <code>auditService.record()</code> (which has <code>@Transactional(REQUIRED)</code>).<br/>
+  ↓<br/>
+  <strong>Step 3:</strong> <code>AuditService</code> proxy checks <code>ThreadLocal</code>, sees <code>Conn #1</code> is already there, and <strong>reuses <code>Conn #1</code></strong>. Both beans commit or roll back together as one unit!
+</div>
+
+<div class="step-flow">
+  <strong>Flow B: <code>Propagation.REQUIRES_NEW</code> (2 Physical Connections Simultaneously!):</strong><br/>
+  <strong>Step 1:</strong> <code>OrderService.place()</code> proxy borrows <code>Conn #1</code> from HikariCP → binds <code>Conn #1</code> to <code>ThreadLocal</code>.<br/>
+  ↓<br/>
+  <strong>Step 2:</strong> <code>OrderService</code> calls <code>auditService.record()</code> (which has <code>@Transactional(REQUIRES_NEW)</code> on a <strong>separate bean</strong>).<br/>
+  ↓<br/>
+  <strong>Step 3 (Suspend &amp; Borrow 2nd Connection):</strong> <code>AuditService</code> proxy takes <code>Conn #1</code> out of <code>ThreadLocal</code> and puts it aside (<em>suspended</em> — still checked out from HikariCP!). Then it borrows a <strong>2nd physical connection (<code>Conn #2</code>)</strong> from HikariCP and binds <code>Conn #2</code> to <code>ThreadLocal</code>.<br/>
+  ↓<br/>
+  <strong>Step 4 (Independent Commit):</strong> <code>AuditService.record()</code> inserts the audit row on <code>Conn #2</code>, <strong>commits <code>Conn #2</code> immediately</strong>, unbinds <code>Conn #2</code>, and returns <code>Conn #2</code> to HikariCP.<br/>
+  ↓<br/>
+  <strong>Step 5 (Resume):</strong> <code>AuditService</code> proxy puts <code>Conn #1</code> back into <code>ThreadLocal</code>. Even when <code>OrderService</code> later throws <code>PaymentDeclined</code> and rolls back <code>Conn #1</code>, the audit row on <code>Conn #2</code> is already permanently saved!
+</div>
+
+<table>
+<thead><tr><th>Propagation</th><th>No tx in <code>ThreadLocal</code></th><th>Tx already in <code>ThreadLocal</code></th><th>Use for</th></tr></thead>
+<tbody>
+<tr><td><strong><code>REQUIRED</code></strong> <em>(default)</em></td><td>Start one</td><td><strong>Join existing <code>Conn #1</code></strong></td><td>Almost everything</td></tr>
+<tr><td><strong><code>REQUIRES_NEW</code></strong></td><td>Start one</td><td><strong>Suspend outer <code>Conn #1</code>, borrow 2nd connection <code>Conn #2</code>!</strong></td><td>Audit logs, failure records that must survive caller's rollback</td></tr>
+<tr><td><code>SUPPORTS</code></td><td>Run without</td><td>Join</td><td>Reads that work either way</td></tr>
+<tr><td><code>NOT_SUPPORTED</code></td><td>Run without</td><td>Suspend, run without</td><td>Long non-DB work inside a tx method</td></tr>
+<tr><td><code>MANDATORY</code></td><td><strong>Throw</strong></td><td>Join</td><td>Methods that must never be called standalone</td></tr>
+<tr><td><code>NEVER</code></td><td>Run</td><td><strong>Throw</strong></td><td>Guard rails</td></tr>
+<tr><td><code>NESTED</code></td><td>Start one</td><td><strong>JDBC Savepoint on same <code>Conn #1</code></strong> — partial rollback</td><td>JDBC only; not supported by JPA</td></tr>
+</tbody></table>
+
+<h3>Isolation Levels — What Other Transactions Can See</h3>
+<table>
+<thead><tr><th>Level</th><th>Prevents</th><th>Still allows</th></tr></thead>
+<tbody>
+<tr><td><code>READ_UNCOMMITTED</code></td><td>nothing</td><td>dirty reads, non-repeatable reads, phantoms</td></tr>
+<tr><td><code>READ_COMMITTED</code> <em>(Postgres/Oracle/SQL Server default)</em></td><td>dirty reads</td><td>non-repeatable reads, phantoms</td></tr>
+<tr><td><code>REPEATABLE_READ</code> <em>(MySQL InnoDB default)</em></td><td>dirty + non-repeatable reads</td><td>phantoms (in theory; prevented in PG/InnoDB MVCC)</td></tr>
+<tr><td><code>SERIALIZABLE</code></td><td>everything</td><td>— (costs throughput and causes retryable serialization failures)</td></tr>
+</tbody></table>
+<div class="idiom"><strong>Practical guidance:</strong> leave isolation at <code>DEFAULT</code> (the database's own default) and solve concurrency races with <strong>optimistic locking</strong> (<code>@Version</code>, lesson 11) or a targeted <code>SELECT … FOR UPDATE</code> (<code>@Lock(PESSIMISTIC_WRITE)</code>).</div>
+
+<h3><code>readOnly = true</code> — Do It on Every Query Method</h3>
+<ul>
+  <li>Hibernate skips the dirty-check snapshot → <strong>less memory, faster flushes</strong>, and accidental mutations don't persist.</li>
+  <li>Sets the JDBC connection read-only hint, which some databases optimize.</li>
+  <li>With a routing <code>DataSource</code>, it is the signal to route queries to a <strong>read replica</strong>.</li>
+</ul>
+
+<h2><span class="n">§4</span>When to use</h2>
+<table>
+<thead><tr><th>Scenario</th><th>Right Choice</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Service method performing multiple writes or read-then-write</td><td><code>@Transactional(rollbackFor = Exception.class)</code> on the <code>@Service</code> method</td><td>One business use case = one atomic unit of work.</td></tr>
+<tr><td>Read-only query method</td><td><code>@Transactional(readOnly = true)</code></td><td>Skips Hibernate dirty-check snapshots and prevents accidental DB writes.</td></tr>
+<tr><td>Method that mixes DB work with a slow HTTP call, file I/O, or non-proxied context</td><td><strong><code>TransactionTemplate</code></strong> around only the DB lines</td><td>Never hold a HikariCP connection open during network round-trips; also sidesteps self-invocation!</td></tr>
+<tr><td>Send email / publish event only after DB commit is durable</td><td><code>@TransactionalEventListener(phase = AFTER_COMMIT)</code> or <strong>Transactional Outbox</strong></td><td>Avoids sending notifications for transactions that roll back at commit.</td></tr>
+</tbody></table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+A transaction is <strong>"all of it, or none of it."</strong> When you move money between two piggy banks, there must never be a moment where the money has left one and not arrived in the other — and if the second bank's lid is stuck, the money must go <em>back</em>, not vanish.
+</p>
+<p>
+Spring's trick: you don't write any of the careful bookkeeping. You put a sticker on the job that says "all or nothing," and a <strong>secretary standing outside your office door</strong> (the Box 4 Proxy) handles it — she opens a ledger clipped to your clipboard (<code>ThreadLocal</code>) when you walk in, and when you walk out she either stamps it "done" (commit) or tears the page out (rollback).
+</p>
+<p>
+Two things confuse everyone:
+First, if <strong>you</strong> walk from your own desk to another part of your own office (<code>this.otherMethod()</code>), you never walked through the front door past the secretary, so no new ledger gets opened (self-invocation, Rule 2).
+Second, the ledger sits on <em>your</em> clipboard — if you hand part of the job to a <strong>colleague in another room</strong> (<code>@Async</code>, another thread), they have an empty clipboard with no ledger at all (Rule 3)!
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← 06-aop:</strong> <code>@Transactional</code> is an <code>@Around</code> advice (<code>TransactionInterceptor</code>) in Box 4. Every proxy limitation applies verbatim.</li>
+  <li><strong>← 11-data-access:</strong> the transaction defines the <code>PersistenceContext</code>'s lifetime in <code>ThreadLocal</code> — hence <code>LazyInitializationException</code> after the transaction closes.</li>
+  <li><strong>← java/11-concurrency:</strong> <code>ThreadLocal</code> binding is why transactions don't cross threads; the <code>REQUIRES_NEW</code> pool-exhaustion deadlock is classic resource starvation.</li>
+  <li><strong>→ 16-events:</strong> <code>@TransactionalEventListener(AFTER_COMMIT)</code> hooks directly into <code>TransactionSynchronizationManager</code>.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Code Dissection &amp; Derive, Don't Memorize</h2>
+
+<h3>1. Production Service Method &amp; Its Collaborators</h3>
+<pre><span class="an">@Service</span>
+<span class="an">@Transactional</span>(readOnly = <span class="k">true</span>)                      <span class="c">// ① class default = read-only</span>
+<span class="k">public class</span> LoanService {
+
+    <span class="k">private final</span> BookRepository books;
+    <span class="k">private final</span> LoanRepository loans;
+    <span class="k">private final</span> ApplicationEventPublisher events;
+    <span class="k">private final</span> AuditService audit;                   <span class="c">// separate bean → separate Box 4 proxy!</span>
+
+    <span class="c">// ── read: inherits readOnly = true ──────────────────────────────</span>
+    <span class="k">public</span> LoanView find(<span class="k">long</span> id) {
+        <span class="k">return</span> loans.findById(id).map(LoanView::from)     <span class="c">// ② map to DTO INSIDE the tx</span>
+                    .orElseThrow(() -&gt; <span class="k">new</span> LoanNotFound(id));
+    }
+
+    <span class="c">// ── write: overrides the class-level default ────────────────────</span>
+    <span class="an">@Transactional</span>(rollbackFor = Exception.class, timeout = 10)   <span class="c">// ③</span>
+    <span class="k">public</span> LoanView borrow(<span class="k">long</span> bookId, <span class="k">long</span> memberId) <span class="k">throws</span> NotifyException {
+
+        audit.record(<span class="s">"borrow attempt "</span> + bookId);           <span class="c">// ④ REQUIRES_NEW on separate bean: survives rollback</span>
+
+        Book book = books.findByIdForUpdate(bookId)              <span class="c">// ⑤ @Lock(PESSIMISTIC_WRITE)</span>
+                         .orElseThrow(() -&gt; <span class="k">new</span> BookNotFound(bookId));
+
+        <span class="k">if</span> (!book.isAvailable()) <span class="k">throw new</span> BookUnavailable(bookId);  <span class="c">// unchecked → rollback</span>
+
+        book.markLoaned();                                       <span class="c">// ⑥ dirty checking: no save() needed</span>
+        Loan loan = loans.save(Loan.create(book, memberId));
+
+        events.publishEvent(<span class="k">new</span> LoanCreated(loan.getId()));    <span class="c">// ⑦ delivered AFTER_COMMIT</span>
+
+        <span class="k">return</span> LoanView.from(loan);                           <span class="c">// still inside the tx — safe</span>
+    }
+}
+
+<span class="an">@Component</span>
+<span class="k">class</span> LoanNotifier {
+    <span class="an">@TransactionalEventListener</span>(phase = TransactionPhase.AFTER_COMMIT)   <span class="c">// ⑧</span>
+    <span class="k">void</span> on(LoanCreated e) { mailer.send(e.loanId()); }     <span class="c">// safe: data IS durable</span>
+}</pre>
+<div class="ann"><strong>Dissection.</strong>
+<strong>①</strong> Class-level <code>readOnly = true</code> + method-level override makes "read" the safe default and "write" explicit.
+<strong>②</strong> Mapping to <code>LoanView</code> <em>inside</em> the transactional method prevents <code>LazyInitializationException</code> (lesson 11).
+<strong>③</strong> <code>rollbackFor = Exception.class</code> ensures checked <code>NotifyException</code> rolls back instead of committing.
+<strong>④</strong> <code>audit</code> is a <em>separate bean</em>. Calling <code>this.record(...)</code> would bypass the Box 4 proxy (Rule 2) and run in the outer transaction.
+<strong>⑦⑧</strong> A plain <code>@EventListener</code> runs synchronously <em>before</em> commit; <code>@TransactionalEventListener(AFTER_COMMIT)</code> waits until the database commit actually succeeds.</div>
+
+<h3>2. How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead><tr><th>Classic Interview Question</th><th>Which Box / Rule?</th><th>10-Second Derivation</th></tr></thead>
+<tbody>
+<tr>
+  <td><em>"My non-transactional method <code>checkout()</code> calls <code>this.borrow()</code> which has <code>@Transactional</code>. An exception is thrown halfway, and nothing rolls back! Why?"</em></td>
+  <td><strong>Rule 2</strong><br/>(Who You Call — Box 4)</td>
+  <td><code>@Transactional</code> lives on the <strong>Box 4</strong> proxy wrapper. Calling <code>this.borrow()</code> inside the class invokes the raw target object directly, skipping the Box 4 proxy completely!</td>
+</tr>
+<tr>
+  <td><em>"How do 3 repositories called in 1 service method share the same JDBC <code>Connection</code> when I never pass <code>Connection</code> as a parameter?"</em></td>
+  <td><strong>Rule 3</strong><br/>(Where State Lives — <code>ThreadLocal</code>)</td>
+  <td>When the Box 4 proxy starts the transaction, <code>PlatformTransactionManager</code> binds the borrowed JDBC <code>Connection</code> (and JPA <code>EntityManager</code>) into <code>TransactionSynchronizationManager</code>, which is a <code>ThreadLocal&lt;Map&gt;</code>. Every repository on that thread reads from that <code>ThreadLocal</code>.</td>
+</tr>
+<tr>
+  <td><em>"Why did my <code>@Transactional</code> method commit to the database when it threw <code>IOException</code>?"</em></td>
+  <td><strong>Box 4</strong><br/>(Rollback rule)</td>
+  <td>By default, Spring's <code>TransactionInterceptor</code> only rolls back on unchecked exceptions (<code>RuntimeException</code> and <code>Error</code>). Checked exceptions commit unless you specify <code>@Transactional(rollbackFor = Exception.class)</code>.</td>
+</tr>
+<tr>
+  <td><em>"With HikariCP <code>maximum-pool-size=10</code>, why did 10 concurrent requests calling a <code>REQUIRES_NEW</code> audit method deadlock the whole application?"</em></td>
+  <td><strong>Box 4 + Rule 3</strong><br/>(2 connections per thread)</td>
+  <td><code>REQUIRES_NEW</code> suspends the outer <code>ThreadLocal</code> connection (without releasing it!) and borrows a <strong>2nd</strong> connection from HikariCP. If 10 threads all hold their 1st connection and block waiting for a 2nd connection from a pool of 10, none can finish and all 10 deadlock!</td>
+</tr>
+<tr>
+  <td><em>"What happens if I call an <code>@Async</code> method from inside an <code>@Transactional</code> method?"</em></td>
+  <td><strong>Rule 3</strong><br/>(<code>ThreadLocal</code> per thread)</td>
+  <td>The transaction's <code>Connection</code> and JPA <code>PersistenceContext</code> live in a <code>ThreadLocal</code> on the request thread. The <code>@Async</code> worker thread has its own empty <code>ThreadLocal</code> — so it does not participate in the caller's transaction and cannot even see uncommitted data from the caller!</td>
+</tr>
+</tbody></table>
+
+<div class="try"><strong>Break-and-fix drills — these are the interview answers.</strong>
+<ol style="margin:.4rem 0 0">
+<li>Replace <code>audit.record(...)</code> with a <code>this.record(...)</code> method annotated <code>@Transactional(REQUIRES_NEW)</code>. Force a rollback. The audit row disappears. Explain why using Rule 2.</li>
+<li>Throw a checked exception <em>without</em> <code>rollbackFor</code>. Check the database and see that it committed!</li>
+<li>Set <code>maximum-pool-size=2</code>, make <code>audit.record</code> <code>REQUIRES_NEW</code>, and fire 5 concurrent requests. Watch the connection pool deadlock.</li>
+<li>Enable <code>logging.level.org.springframework.transaction.interceptor=TRACE</code> and read the begin/commit lines for one request.</li>
+</ol></div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Self-invocation (<code>this.transactionalMethod()</code> — Rule 2).</strong> Skips the Box 4 proxy → no transaction, no <code>REQUIRES_NEW</code>, no warning.</div>
+<div class="pitfall"><strong><code>private</code>/<code>final</code> transactional methods.</strong> Cannot be overridden by a CGLIB proxy subclass in Box 4; silently ignored.</div>
+<div class="pitfall"><strong>Checked exceptions commit by default.</strong> Always use <code>rollbackFor = Exception.class</code> or unchecked exceptions.</div>
+<div class="pitfall"><strong>Catching and logging inside the boundary.</strong> The proxy sees a normal return and commits partial work — or throws <code>UnexpectedRollbackException</code> if an inner bean already marked the shared <code>ThreadLocal</code> transaction <code>rollbackOnly</code>.</div>
+<div class="pitfall"><strong><code>@Transactional</code> + <code>@Async</code> / parallel stream (Rule 3).</strong> New threads have an empty <code>ThreadLocal</code> and do not share the transaction.</div>
+<div class="pitfall"><strong>HTTP calls inside a transaction.</strong> Holds a pooled DB connection in <code>ThreadLocal</code> for the entire network round-trip; use <code>TransactionTemplate</code> around only the DB work.</div>
+<div class="pitfall"><strong><code>REQUIRES_NEW</code> pool starvation.</strong> Holds two connections per thread simultaneously; under concurrency this can deadlock HikariCP.</div>
+<div class="pitfall"><strong><code>@Transactional</code> in <code>@PostConstruct</code>.</strong> Runs during bean initialization in Phase 1 before the Box 4 proxy is returned (lesson 4). Use <code>ApplicationRunner</code> or <code>TransactionTemplate</code>.</div>
+
+<h2><span class="n">§9</span>Recap &amp; Glossary / Reference</h2>
+<ul class="recap">
+  <li><strong><code>@Transactional</code> = Box 4 AOP proxy (<code>TransactionInterceptor</code>) + Rule 3 <code>ThreadLocal</code> (<code>TransactionSynchronizationManager</code>).</strong></li>
+  <li><strong>Two root causes of nearly every bug:</strong> it is a proxy (Rule 2: self-invocation via <code>this</code> skips it) and it is thread-bound (Rule 3: <code>@Async</code> threads don't have the <code>ThreadLocal</code>).</li>
+  <li><strong>Rollback defaults:</strong> unchecked (<code>RuntimeException</code>, <code>Error</code>) → rollback; <strong>checked exceptions → commit</strong> unless <code>rollbackFor = Exception.class</code>.</li>
+  <li><strong>Propagation:</strong> <code>REQUIRED</code> reuses the <code>ThreadLocal</code> connection; <code>REQUIRES_NEW</code> suspends it and borrows a <strong>2nd connection</strong> from HikariCP; <code>NESTED</code> uses a JDBC savepoint.</li>
+  <li><strong><code>readOnly = true</code> on every query</strong> — skips dirty-check snapshots, saves memory/CPU, and can route to a read replica.</li>
+  <li><strong>Keep transactions short and DB-only:</strong> use <code>TransactionTemplate</code> when mixing DB work with slow HTTP calls, and <code>@TransactionalEventListener(AFTER_COMMIT)</code> / Outbox for side effects after commit.</li>
+</ul>
+
+<hr/>
+<h2>Reference — quick cheat-sheet</h2>
+<table>
+<thead><tr><th>You want…</th><th>Write</th></tr></thead>
+<tbody>
+<tr><td>All-or-nothing business operation</td><td><code>@Transactional(rollbackFor = Exception.class)</code> on the <code>public</code> service method</td></tr>
+<tr><td>A read-only query</td><td><code>@Transactional(readOnly = true)</code></td></tr>
+<tr><td>Survive the caller's rollback</td><td><code>propagation = REQUIRES_NEW</code> (on a <strong>separate bean</strong>!)</td></tr>
+<tr><td>Fail if no transaction exists</td><td><code>propagation = MANDATORY</code></td></tr>
+<tr><td>Abort without throwing</td><td><code>TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()</code></td></tr>
+<tr><td>Narrow transaction or non-proxied context</td><td><code>TransactionTemplate</code></td></tr>
+<tr><td>Side effect only after commit</td><td><code>@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)</code></td></tr>
+<tr><td>Prevent lost updates</td><td><code>@Version</code>, or <code>@Lock(PESSIMISTIC_WRITE)</code></td></tr>
+<tr><td>See what's happening in logs</td><td><code>logging.level.org.springframework.transaction.interceptor=TRACE</code></td></tr>
+<tr><td>Check if current thread is in a transaction</td><td><code>TransactionSynchronizationManager.isActualTransactionActive()</code></td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>ACID</dt><dd>Atomicity, Consistency, Isolation, Durability — what a database transaction guarantees.</dd>
+  <dt>PlatformTransactionManager</dt><dd>Spring's abstraction over JDBC (<code>DataSourceTransactionManager</code>) and JPA (<code>JpaTransactionManager</code>) transactions.</dd>
+  <dt>TransactionSynchronizationManager</dt><dd>The <code>ThreadLocal</code> registry holding the current thread's active JDBC <code>Connection</code>, JPA <code>EntityManager</code>, and synchronization callbacks.</dd>
+  <dt>Propagation</dt><dd>What a transactional method does when a transaction is already active in <code>ThreadLocal</code> (<code>REQUIRED</code> vs <code>REQUIRES_NEW</code>).</dd>
+  <dt>Isolation level</dt><dd>How much of other concurrent transactions' uncommitted/changing data is visible.</dd>
+  <dt>Dirty read / non-repeatable read / phantom</dt><dd>The three classic isolation anomalies.</dd>
+  <dt>Rollback-only</dt><dd>A flag marking a shared transaction as doomed, forcing <code>UnexpectedRollbackException</code> if the outer method tries to commit.</dd>
+  <dt>UnexpectedRollbackException</dt><dd>Thrown when an outer transaction tries to commit a shared transaction that an inner participant marked rollback-only.</dd>
+  <dt>Savepoint</dt><dd>A rollback point inside a single JDBC transaction (<code>NESTED</code> propagation).</dd>
+  <dt>Transactional outbox</dt><dd>Writing a to-be-published message to an <code>outbox</code> table in the same DB transaction as the business data change.</dd>
+  <dt>Saga</dt><dd>A sequence of local transactions with compensating actions instead of a distributed two-phase commit.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative.html">Spring Framework
+Reference — Declarative Transaction Management</a>. Read "<em>Using <code>@Transactional</code></em>" and especially the
+<strong>method visibility</strong> and <strong>self-invocation</strong> caveats, plus "<em>Transaction Propagation</em>". These
+pages contain the answers to most transaction interview questions verbatim.</p>
+<p class="sources" style="margin-top:2rem">Sources: Spring Framework Reference Documentation (Data Access → Transaction
+Management: Spring Framework's Declarative Transaction Implementation, Using <code>@Transactional</code>, Rolling Back a
+Declarative Transaction, Transaction Propagation, Programmatic Transaction Management, Transaction-bound Events); Spring Boot
+Reference (transaction auto-configuration); Jakarta Persistence &amp; JDBC isolation-level semantics; microservices
+outbox/saga patterns. Targeting Spring Framework 6.x / Boot 3.x. Authored per Knowledge-Base-2 rules §6.2–§6.3 and
+<code>topic-styles/framework.md</code>.</p>
+
+</body>
+</html>

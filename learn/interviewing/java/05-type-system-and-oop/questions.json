@@ -1,0 +1,149 @@
+{
+  "topic": "java",
+  "subtopic": "05-type-system-and-oop",
+  "questions": [
+    {
+      "number": 1,
+      "question": "What is a 'type' in Java, and what does being statically typed buy you compared with a dynamically typed language like Python or JavaScript?",
+      "level": "easy",
+      "areas": ["theory", "trade-offs"],
+      "intervalDays": null,
+      "lastAsked": null,
+      "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 2,
+      "question": "Name the four OOP pillars and explain each in one plain sentence. Which one do you apply 'always'?",
+      "level": "easy",
+      "areas": ["theory"],
+      "intervalDays": null,
+      "lastAsked": null,
+      "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 3,
+      "question": "What is the difference between a primitive and a reference type? What single class sits at the root of every reference type, and why does that matter?",
+      "level": "easy",
+      "areas": ["theory", "diagram"],
+      "intervalDays": null,
+      "lastAsked": null,
+      "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 4,
+      "question": "static vs final: what does each keyword actually control? They are unrelated — explain why, then say what 'static final' means and give an example.",
+      "level": "medium",
+      "areas": ["theory", "practical"],
+      "intervalDays": null,
+      "lastAsked": null,
+      "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 5,
+      "question": "Overloading vs overriding: define each, and say precisely WHEN each is resolved (compile time vs run time) and WHAT information the decision is based on.",
+      "level": "medium",
+      "areas": ["theory", "diagram"],
+      "intervalDays": null,
+      "lastAsked": null,
+      "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 6,
+      "question": "Interface vs abstract class: give the key differences and describe a concrete scenario where you'd choose one over the other.",
+      "level": "medium",
+      "areas": ["theory", "trade-offs"],
+      "intervalDays": null,
+      "lastAsked": null,
+      "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 7,
+      "question": "List Java's four access levels from most open to most closed, say who can see each, and state the encapsulation idiom in one line.",
+      "level": "medium",
+      "areas": ["theory", "practical"],
+      "intervalDays": null,
+      "lastAsked": null,
+      "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 8,
+      "question": "Explain constructor chaining: the roles of this(...) and super(...), the order they run in, and what happens all the way up the hierarchy.",
+      "level": "medium",
+      "areas": ["theory"],
+      "intervalDays": null,
+      "lastAsked": null,
+      "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 9,
+      "question": "Is Java pass-by-value or pass-by-reference? Given an int[] box = {10}, a mutate(box) that does box[0]=99, and a reassign(box) that does box = new int[]{-1}, predict the caller's array after each call and explain why.",
+      "level": "hard",
+      "areas": ["practical", "theory"],
+      "intervalDays": null,
+      "lastAsked": null,
+      "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 10,
+      "question": "What is generics type erasure? Prove you understand it by naming three things you CANNOT do at run time because of it.",
+      "level": "hard",
+      "areas": ["theory", "practical"],
+      "intervalDays": null,
+      "lastAsked": null,
+      "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 11,
+      "question": "Explain the PECS rule. What do ? extends T and ? super T each allow and forbid, and why would you pick one over the other in a method signature?",
+      "level": "hard",
+      "areas": ["theory", "trade-offs"],
+      "intervalDays": null,
+      "lastAsked": null,
+      "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 12,
+      "question": "Overriding vs hiding: an Animal reference points to a Dog. Both declare a field 'name' and a static method describe(). Through the Animal reference, which field value and which static method run, and why?",
+      "level": "hard",
+      "areas": ["practical", "theory"],
+      "intervalDays": null,
+      "lastAsked": null,
+      "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 13,
+      "question": "'Favor composition over inheritance' — argue why. Give a concrete example where inheritance welds a child to a parent's internals and causes a problem, and show how composition fixes it.",
+      "level": "hard",
+      "areas": ["trade-offs", "practical"],
+      "intervalDays": null,
+      "lastAsked": null,
+      "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    }
+  ]
+}

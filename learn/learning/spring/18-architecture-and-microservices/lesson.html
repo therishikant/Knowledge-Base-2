@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lesson 18: Architecture &amp; Microservices — Spring</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.6rem;margin-bottom:1.8rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{text-decoration:none;font-weight:600} .nav a:hover{text-decoration:underline}
+  h1{font-size:2.2rem;line-height:1.12;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .6rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.12rem;margin:1.5rem 0 .35rem}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.48}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f5f1e6;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner h3{margin:0 0 .4rem;color:var(--accent2);font-size:1.05rem}
+  .flow{background:#fff;border:1px solid var(--rule);border-left:4px solid var(--spring);padding:.8rem 1.1rem;border-radius:6px;margin:1rem 0;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.83rem;line-height:1.6}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.85rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.35rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  @media print{body{padding:1rem;max-width:100%} pre,table,figure{break-inside:avoid}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span><a href="../17-reactive-and-webflux/lesson.html">← Lesson 17: Reactive &amp; WebFlux</a></span>
+  <span><a href="../overview.html">Spring 18-Lesson Map</a> · Lesson 18 of 18 (Capstone)</span>
+  <span><a href="../overview.html">Back to Topic Overview →</a></span>
+</nav>
+
+<h1>Architecture &amp; Microservices</h1>
+<p class="crumb"><a href="../overview.html">Spring</a> › lesson 18 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — Organizing Inside Box 3 &amp; Connecting Multiple Spring Boot Machines</p>
+
+<div class="tldr">
+<strong>Summary —</strong> This capstone answers two questions: <strong>(Part 1: Inside One App)</strong> How do we organize classes inside Box 3 so our codebase stays clean for 10 years? (Package by feature, keep pure Domain classes free of Spring annotations via Hexagonal Ports &amp; Adapters, and enforce boundaries with <code>package-private</code> + Spring Modulith / ArchUnit). <strong>(Part 2: Across Many Apps)</strong> What happens when we split one 6-Box Spring Boot machine into multiple microservices? Every distributed pattern maps directly to one of our 6 Boxes!
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the Map</h2>
+<p>
+Lessons 1–17 taught you every gear inside a single 6-Box Spring Boot machine. Now we zoom out to see how you structure code inside Box 3 and how multiple 6-Box machines talk to each other over a network without collapsing in a cascading failure.
+</p>
+
+<div class="map-banner">
+  <h3>📍 You Are Here: Zooming Out — Organizing Beans Inside Box 3 (Modular Monolith / Hexagonal) &amp; Connecting Multiple 6-Box Machines (Microservices)</h3>
+  <p style="margin:.3rem 0">
+    <strong>What happened before:</strong> Lessons 1–17 covered all 6 Boxes from Startup (Phase 1) to Request handling (Phase 2) to Graceful Shutdown (Phase 3), plus Testing, Observability, Async/Kafka, and WebFlux.<br>
+    <strong>What this lesson zooms into:</strong>
+    <strong>Part 1:</strong> Organizing packages and dependency arrows inside Box 3 (Layered vs Package-by-Feature vs Hexagonal Ports &amp; Adapters, where DTO vs Entity boundaries sit).
+    <strong>Part 2:</strong> Connecting multiple 6-Box Spring Boot apps—Config Server/K8s feeding <strong>Box 1</strong>, API Gateway &amp; Service Discovery in front of <strong>Box 5</strong>, Resilience4j CircuitBreaker/Bulkhead proxies in <strong>Box 4</strong>, and Outbox + Sagas replacing Box 6 <code>@Transactional</code> across services!
+  </p>
+</div>
+
+<figure>
+<svg viewBox="0 0 800 370" width="100%" role="img" aria-label="Part 1 Inside Box 3 Architecture and Part 2 Connecting Multiple 6-Box Machines">
+  <style>
+    .p1{fill:#eefaf4;stroke:#1f6b4d;stroke-width:1.6}
+    .p2{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.6}
+    .dom{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.6}
+    .box{fill:#fff;stroke:#6b675e;stroke-width:1.3}
+    .h{font:bold 12px Georgia,serif;fill:#2b2b28}
+    .t{font:10.8px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .s{font:10.5px Georgia,serif;fill:#3f3b34}
+    .arr{stroke:#2b2b28;stroke-width:1.4;marker-end:url(#ar18);fill:none}
+  </style>
+  <defs><marker id="ar18" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2b2b28"/></marker></defs>
+
+  <!-- PART 1: Inside One 6-Box App (Hexagonal & Package-by-Feature) -->
+  <rect class="p1" x="12" y="12" width="776" height="152" rx="6"/>
+  <text class="h" x="24" y="32" style="fill:#1f6b4d">Part 1 — Inside One App (Box 3): Package-by-Feature + Hexagonal Dependency Direction</text>
+
+  <rect class="box" x="24" y="46" width="210" height="104" rx="5"/>
+  <text class="h" x="34" y="64">Driving Adapter (Web)</text>
+  <text class="t" x="34" y="82">LoanController (Box 6)</text>
+  <text class="s" x="34" y="100">• Accepts/returns DTOs</text>
+  <text class="s" x="34" y="116">• Calls Application UseCase</text>
+  <text class="s" x="34" y="132">• Boundary: DTO ↔ Domain</text>
+
+  <path class="arr" d="M234,98 L272,98"/>
+
+  <rect class="dom" x="276" y="46" width="248" height="104" rx="5"/>
+  <text class="h" x="288" y="64" style="fill:#7a1f1f">Core Domain + Ports (Pure Java!)</text>
+  <text class="t" x="288" y="82">Loan (Aggregate) + LoanRepository</text>
+  <text class="s" x="288" y="100">• ZERO Spring/JPA annotations!</text>
+  <text class="s" x="288" y="116">• Owns Port interface (LoanRepository)</text>
+  <text class="s" x="288" y="132">• Tested in 1ms with 0 Boxes (Lesson 14)</text>
+
+  <path class="arr" d="M562,98 L524,98"/>
+
+  <rect class="box" x="564" y="46" width="210" height="104" rx="5"/>
+  <text class="h" x="574" y="64">Driven Adapter (Infra)</text>
+  <text class="t" x="574" y="82">JpaLoanRepository (Box 3/4)</text>
+  <text class="s" x="574" y="100">• Implements Domain's Port!</text>
+  <text class="s" x="574" y="116">• Boundary: Domain ↔ JPA Entity</text>
+  <text class="s" x="574" y="132">• Arrow points INWARD to Domain</text>
+
+  <!-- PART 2: Across Many 6-Box Apps (Microservices Mapped to the 6 Boxes) -->
+  <rect class="p2" x="12" y="178" width="776" height="178" rx="6"/>
+  <text class="h" x="24" y="198" style="fill:#1f4d7a">Part 2 — Across Many Spring Boot Machines: Every Distributed Pattern Maps to a Box!</text>
+
+  <rect class="box" x="24" y="212" width="236" height="130" rx="5"/>
+  <text class="h" x="34" y="232">In Front of Box 5 (Edge)</text>
+  <text class="t" x="34" y="250">API Gateway + Discovery</text>
+  <text class="s" x="34" y="268">• Spring Cloud Gateway (WebFlux)</text>
+  <text class="s" x="34" y="284">• K8s DNS / Service Discovery</text>
+  <text class="t" x="34" y="306">Feeding Box 1 (Config):</text>
+  <text class="s" x="34" y="322">• K8s ConfigMaps / Cloud Config</text>
+
+  <rect class="dom" x="278" y="212" width="244" height="130" rx="5"/>
+  <text class="h" x="288" y="232" style="fill:#7a1f1f">Inside Box 4 (Outbound Proxies)</text>
+  <text class="t" x="288" y="250">Resilience4j AOP Advisors</text>
+  <text class="s" x="288" y="268">• @CircuitBreaker (trip if &gt;50% fail)</text>
+  <text class="s" x="288" y="284">• @Bulkhead (cap concurrent calls)</text>
+  <text class="s" x="288" y="300">• @Retry (backoff + jitter)</text>
+  <text class="s" x="288" y="318">Prevents Box 5 thread exhaustion!</text>
+
+  <rect class="box" x="540" y="212" width="236" height="130" rx="5"/>
+  <text class="h" x="550" y="232">Replacing Cross-App Box 6 TX</text>
+  <text class="t" x="550" y="250">Outbox + Saga Pattern</text>
+  <text class="s" x="550" y="268">• Box 6 @Transactional only works</text>
+  <text class="s" x="550" y="284">  on 1 DB &amp; 1 ThreadLocal!</text>
+  <text class="s" x="550" y="300">• Across services: Local TX + Outbox</text>
+  <text class="s" x="550" y="318">  + Compensating Saga Events</text>
+</svg>
+<figcaption>Part 1 organizes classes inside Box 3 so all dependency arrows point inward toward a pure Java Domain; Part 2 connects multiple 6-Box machines safely.</figcaption>
+</figure>
+
+<h2><span class="n">§2</span>Why it exists — The Pain of the "Big Ball of Mud" &amp; Premature Microservices</h2>
+<p>
+Most teams fall into one of two traps:
+</p>
+<ol>
+  <li><strong>The Unstructured Monolith ("Package by Layer"):</strong> Putting all controllers in <code>com.app.controller</code>, all services in <code>com.app.service</code>, and all repositories in <code>com.app.repository</code>. Because classes in different folders must interact, <strong>every class has to be <code>public</code></strong>! Soon <code>LoanService</code> reaches directly into <code>CatalogRepository</code> and <code>BillingRepository</code>, JPA entities are returned directly as HTTP JSON, and changing one table breaks 40 files.</li>
+  <li><strong>The Distributed Monolith (Premature Microservices):</strong> To escape the messy monolith, the team splits it into 12 microservices—but they still share a database or call each other in a synchronous chain <code>Service A → Service B → Service C</code>. Now when Service C slows down for 5 seconds, Service B's 200 Box 5 Tomcat threads all block waiting on C, which causes Service A's 200 Tomcat threads to block waiting on B, crashing the entire company!</li>
+</ol>
+
+<div class="callout">
+<strong>The Contrast Anchor:</strong> Good architecture solves Trap 1 by organizing code <strong>by feature module</strong> (using Java's <code>package-private</code> visibility + Hexagonal boundaries inside Box 3), and solves Trap 2 by starting as a <strong>Modular Monolith</strong> (Spring Modulith) and—only when multiple teams genuinely need independent deployments—protecting every cross-service boundary with <strong>Timeouts, Resilience4j Circuit Breakers/Bulkheads (Box 4), and Sagas/Outbox (Lesson 16)</strong>.
+</div>
+
+<h2><span class="n">§3</span>How it works — Part 1 (Inside One App) &amp; Part 2 (Across Many Apps)</h2>
+
+<h3>Part 1: Organizing Beans Inside Box 3 (Layered vs Feature vs Hexagonal)</h3>
+
+<ul>
+  <li><strong>Package-by-Feature + <code>package-private</code> Encapsulation:</strong> Instead of top-level <code>controller/</code>, <code>service/</code>, <code>repository/</code> folders, create top-level feature folders: <code>com.bookvault.loan</code>, <code>com.bookvault.catalog</code>, <code>com.bookvault.member</code>. Inside <code>com.bookvault.loan</code>, make <code>LoanService</code> and <code>LoanRepository</code> <strong>package-private</strong> (no <code>public</code> keyword!) and expose only a single <code>public class LoanFacade</code> (and the DTO events it publishes). Now the Java compiler physically prevents <code>catalog</code> from touching <code>loan</code>'s internal tables!</li>
+  <li><strong>Hexagonal Architecture (Ports &amp; Adapters) &amp; Where DTO/Entity Boundaries Sit:</strong>
+    <ul>
+      <li><strong>Outer Edge 1 — Web Adapter (Controller in Box 6):</strong> Converts HTTP Request <strong>DTO</strong> → calls Application Use Case → returns HTTP Response <strong>DTO</strong>.</li>
+      <li><strong>Center — Domain Model &amp; Ports (Pure Java):</strong> Holds rich domain objects (<code>Loan</code> with business methods like <code>loan.renew(today)</code>, not just empty getters/setters!) and <strong>Port interfaces</strong> (e.g., <code>interface LoanRepository</code>) owned by the domain—with <strong>zero Spring or Hibernate imports</strong>.</li>
+      <li><strong>Outer Edge 2 — Persistence Adapter (Box 3/4):</strong> <code>JpaLoanRepository implements LoanRepository</code> maps the pure <code>Loan</code> domain object to a <code>@Entity LoanJpaEntity</code> and saves it via Spring Data JPA.</li>
+    </ul>
+  </li>
+  <li><strong>Aggregate = Transaction Boundary (Lesson 12 Rule):</strong> One <code>@Transactional</code> method should modify <strong>one Aggregate</strong> (e.g., <code>Loan</code>) and reference other aggregates by ID (<code>BookId</code>, not a `@ManyToOne Book` object reference!). Cross-aggregate updates happen via domain events (Lesson 16).</li>
+</ul>
+
+<div class="flow">
+<strong>Step-by-Step Boundary Flow Inside One Feature Module</strong><br>
+Step 1 (Web Edge)    → <code>LoanController</code> receives <code>BorrowRequestDto</code> (validates <code>@Valid</code> in Box 6) → calls <code>BorrowBookUseCase</code>.<br>
+Step 2 (Use Case)    → <code>BorrowBookUseCase</code> (<code>@Transactional</code> proxy in Box 4) checks <code>CatalogFacade.isAvailable(bookId)</code>.<br>
+Step 3 (Pure Domain) → Calls <code>Loan.create(bookId, memberId, today)</code> — pure Java business rules, zero framework code.<br>
+Step 4 (Driven Port) → Calls domain port <code>loanRepository.save(loan)</code> (implemented by <code>JpaLoanRepository</code> adapter) &amp; publishes <code>LoanCreated</code> event.
+</div>
+
+<h3>Part 2: Connecting Multiple 6-Box Spring Boot Machines (Microservices)</h3>
+<p>
+When your organization grows to multiple independent teams and you split a module into its own Spring Boot deployment, trace how the four distributed-systems problems map onto our 6 Boxes:
+</p>
+
+<h4>1. Distributed Configuration → Feeding Box 1 (<code>Environment</code>)</h4>
+<p>
+When you have 30 microservices, you can centralize shared config using <strong>Spring Cloud Config Server</strong> or (more commonly in modern cloud-native stacks) <strong>Kubernetes ConfigMaps &amp; Secrets</strong> mounted as environment variables into each container's <strong>Box 1 (`List&lt;PropertySource&gt;`)</strong>.
+</p>
+
+<h4>2. Service Discovery &amp; API Gateway → Sitting in Front of Box 5</h4>
+<p>
+External mobile/web clients shouldn't know the internal IPs of 30 microservices. An <strong>API Gateway</strong> (such as <strong>Spring Cloud Gateway</strong>, built on Lesson 17's non-blocking Netty event loop) sits at the edge in front of Box 5 to handle TLS, OAuth2 token validation, rate limiting, and routing, while <strong>Kubernetes DNS / Service Discovery</strong> (or Eureka) resolves service names like <code>http://catalog-service/api/books</code>.
+</p>
+
+<h4>3. Resilience4j (Circuit Breaker, Retry, Bulkhead) → Box 4 AOP Proxies</h4>
+<p>
+What happens when Service A calls Service B over HTTP, and Service B is hanging? Without protection, all 200 of Service A's Box 5 Tomcat threads block waiting on Service B (**Cascading Failure**). Resilience4j wraps outbound calls in **Box 4 AOP Proxies** with a strict execution order:
+</p>
+
+<div class="flow">
+<strong>Resilience4j Box 4 Proxy Chain:</strong><br>
+<code>Caller → Retry → CircuitBreaker → RateLimiter → TimeLimiter → Bulkhead → Outbound RestClient Call</code><br>
+• <strong>Bulkhead:</strong> Plain Java <code>Semaphore</code> (e.g., max 20 concurrent calls to Service B) so Service B can never consume all 200 of Service A's Box 5 threads!<br>
+• <strong>TimeLimiter / HTTP Timeout:</strong> Fails fast if Service B takes &gt;2 seconds.<br>
+• <strong>CircuitBreaker:</strong> State machine with a sliding-window array of outcomes: <strong>CLOSED</strong> (normal) → if failure rate &gt;50%, trips to <strong>OPEN</strong> (fails immediately in 0 ms and invokes <code>fallbackMethod</code> without touching the network!) → after wait duration, enters <strong>HALF_OPEN</strong> (lets a few test calls through; if they succeed, closes again).<br>
+• <strong>Retry:</strong> Wraps the outer call to retry transient network blips with exponential backoff + jitter.
+</div>
+
+<h4>4. Distributed Transactions → Why 2PC Fails &amp; How Outbox + Saga Solves It</h4>
+<p>
+Why doesn't <code>@Transactional</code> work across Service A (Order DB) and Service B (Payment DB)? Because **Box 6's `@Transactional` binds a single JDBC `Connection` to a single JVM's `ThreadLocal` (Rule 3)**! Two-Phase Commit (2PC/XA) across network services locks database rows across the network and destroys availability if any node blips.
+</p>
+<div class="flow">
+<strong>The Saga + Transactional Outbox Pattern (Combining Lesson 12 + Lesson 16):</strong><br>
+Step 1 (Order Service)   → Local Box 6 TX: inserts `Order(status = PENDING)` + `Outbox(OrderPlaced)` → commits.<br>
+Step 2 (Payment Service) → Consumes `OrderPlaced` from Kafka → Local Box 6 TX: charges card &amp; writes `Outbox(PaymentSucceeded)` or `Outbox(PaymentFailed)`.<br>
+Step 3 (Happy Path)      → Order Service consumes `PaymentSucceeded` → updates `Order(status = CONFIRMED)`.<br>
+Step 4 (Compensation!)   → If Payment failed, Order Service consumes `PaymentFailed` → runs **Compensating Transaction**: updates `Order(status = CANCELLED)`!
+</div>
+
+<h2><span class="n">§4</span>When to use — Practical Decision Table</h2>
+<table>
+<thead>
+  <tr><th>Architectural Pattern</th><th>When to Use It</th><th>Cost / Trade-Off</th></tr>
+</thead>
+<tbody>
+  <tr>
+    <td><strong>Package by Feature + <code>package-private</code></strong></td>
+    <td><strong>Every Spring Boot app from Day 1.</strong></td>
+    <td>Zero runtime cost; the Java compiler enforces module boundaries for free.</td>
+  </tr>
+  <tr>
+    <td><strong>Thin Service + JPA Entity</strong> (No separate Domain class)</td>
+    <td>Simple CRUD modules with minimal business logic.</td>
+    <td>Fast to write, though persistence annotations sit on your model classes.</td>
+  </tr>
+  <tr>
+    <td><strong>Hexagonal (Ports &amp; Adapters)</strong></td>
+    <td>Complex business rules (pricing, loans, billing) that must be tested in 1 ms with 0 Boxes and outlive database/framework changes.</td>
+    <td>Requires writing Mapper code between pure Domain classes and JPA `@Entity` classes.</td>
+  </tr>
+  <tr>
+    <td><strong>Modular Monolith (Spring Modulith + ArchUnit)</strong></td>
+    <td><strong>The default starting point for 95% of systems.</strong> Single deployable JAR with strict, tested module boundaries and an in-app event outbox.</td>
+    <td>One deployment unit; cannot scale one module onto 64-core GPU nodes independently.</td>
+  </tr>
+  <tr>
+    <td><strong>Microservices</strong></td>
+    <td>Multiple independent teams needing separate release cadences, or modules with radically different scaling/hardware needs.</td>
+    <td>High operational tax: requires Distributed Tracing (Lesson 15), Outbox + Sagas (Lesson 16), Resilience4j, and Contract Testing (Lesson 14).</td>
+  </tr>
+</tbody>
+</table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+<strong>Part 1 (Package by Feature vs Layer):</strong> Imagine organizing your Lego kits. If you put all wheels from every kit into Box A, all bricks into Box B, and all minifigures into Box C ("Package by Layer"), building a fire truck means rummaging through every box in your room! Instead, put the entire Fire Truck kit in one box and put a lid on it ("Package by Feature" + <code>package-private</code>).
+</p>
+<p>
+<strong>Part 2 (Circuit Breakers &amp; Bulkheads):</strong> Imagine a submarine divided into watertight rooms (**Bulkheads**). If one room gets a leak (a slow downstream microservice), you seal the door so only that room fills with water instead of sinking the whole submarine (saving your Box 5 Tomcat threads!). And if a toaster short-circuits, the house **Circuit Breaker** flips **OPEN** and cuts the electricity immediately so the wires don't catch fire—then after a minute you flip it half-way (**HALF_OPEN**) to test if the toaster is fixed!
+</p>
+<p>
+<strong>Part 2 (Sagas vs 2PC):</strong> When you book a flight AND a hotel on two different websites, you can't lock both companies' databases at once. Instead, you book the flight first, then book the hotel. If the hotel is sold out, you run a **Compensating Action**: you call the airline back and cancel the flight! That sequence of local steps + undo steps is a **Saga**.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← Lesson 01 &amp; 03 (IoC &amp; DI):</strong> Hexagonal Architecture is simply Dependency Inversion (SOLID's 'D') applied at the package level: the Domain declares the `LoanRepository` interface (Port), and Box 3 injects the `JpaLoanRepository` implementation (Adapter).</li>
+  <li><strong>← Lesson 06 (AOP &amp; Proxies — Rule 2):</strong> Resilience4j's `@CircuitBreaker`, `@Bulkhead`, and `@Retry` are Box 4 AOP proxies—so calling `this.remoteCall()` bypasses the circuit breaker!</li>
+  <li><strong>← Lesson 10, 11 &amp; 12 (REST DTOs, JPA &amp; Transactions):</strong> Explains why JPA Entities must never leak out as REST DTOs, why Aggregates reference other Aggregates by ID (preventing N+1 storms), and why `@Transactional` cannot span microservices.</li>
+  <li><strong>← Lesson 14, 15 &amp; 16 (Testing, Observability &amp; Messaging):</strong> ArchUnit tests enforce Part 1 boundaries; Micrometer Tracing debugs Part 2 call chains; Transactional Outbox + Kafka powers Part 2 Sagas.</li>
+  <li><strong>← <a href="../../java/13-application-architecture/lesson.html">Java Lesson 13 (Application Architecture)</a>:</strong> Connects clean architecture and SOLID principles directly to Spring Boot.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Code Dissection &amp; Derive, Don't Memorize</h2>
+
+<pre><span class="c">// ═══ PART 1: Pure Domain + Port + Package-Private Adapter + ArchUnit ════════</span>
+<span class="k">package</span> com.bookvault.loan.domain;
+<span class="c">// ① ZERO Spring or JPA imports! Pure Java aggregate root:</span>
+<span class="k">public class</span> Loan {
+    <span class="k">private final</span> LoanId id;
+    <span class="k">private final</span> BookId bookId;               <span class="c">// ② References other aggregate by ID, not @ManyToOne object!</span>
+    <span class="k">private</span> LocalDate dueOn;
+    <span class="k">private</span> LoanStatus status;
+
+    <span class="k">public void</span> renew(LocalDate today) {       <span class="c">// ③ Rich domain behaviour (not an anaemic getter/setter bag)</span>
+        <span class="k">if</span> (status != LoanStatus.ACTIVE || dueOn.isBefore(today)) <span class="k">throw new</span> CannotRenewLoanException(id);
+        <span class="k">this</span>.dueOn = dueOn.plusDays(14);
+    }
+}
+
+<span class="k">public interface</span> LoanRepository {              <span class="c">// ④ Domain PORT owned by domain package</span>
+    Optional&lt;Loan&gt; findById(LoanId id);
+    Loan save(Loan loan);
+}
+
+<span class="c">// ═══ PART 2: Box 4 Resilience4j Client Calling Another Microservice ═════════</span>
+<span class="k">package</span> com.bookvault.loan.infrastructure;
+
+<span class="an">@Component</span>
+<span class="k">class</span> CatalogHttpClient {                      <span class="c">// ⑤ package-private! Only visible inside 'loan' module</span>
+    <span class="k">private final</span> RestClient restClient;
+
+    <span class="an">@CircuitBreaker</span>(name = <span class="s">"catalog"</span>, fallbackMethod = <span class="s">"fallbackAvailable"</span>) <span class="c">// ⑥ Box 4 Proxy</span>
+    <span class="an">@Bulkhead</span>(name = <span class="s">"catalog"</span>)                                             <span class="c">// ⑦ Caps concurrent calls</span>
+    <span class="an">@Retry</span>(name = <span class="s">"catalog"</span>)
+    <span class="k">public boolean</span> isBookAvailable(<span class="k">long</span> bookId) {
+        <span class="k">return</span> Boolean.TRUE.equals(
+            restClient.get().uri(<span class="s">"/api/books/{id}/available"</span>, bookId).retrieve().body(Boolean.class)
+        );
+    }
+
+    <span class="k">private boolean</span> fallbackAvailable(<span class="k">long</span> bookId, Throwable ex) {          <span class="c">// ⑧ Graceful degradation</span>
+        <span class="k">return false</span>; <span class="c">// Fail closed safely when Catalog service is down</span>
+    }
+}
+
+<span class="c">// ═══ PART 3: Enforcing the Architecture at Build Time with ArchUnit ═════════</span>
+<span class="an">@AnalyzeClasses</span>(packages = <span class="s">"com.bookvault"</span>)
+<span class="k">class</span> ArchitectureTest {
+    <span class="an">@ArchTest</span>                                  <span class="c">// ⑨ Fails the Maven build if anyone imports Spring/JPA in domain!</span>
+    <span class="k">static final</span> ArchRule domain_must_stay_pure_java =
+        noClasses().that().resideInAPackage(<span class="s">"..domain.."</span>)
+            .should().dependOnClassesThat()
+            .resideInAnyPackage(<span class="s">"org.springframework.."</span>, <span class="s">"jakarta.persistence.."</span>);
+}</pre>
+
+<div class="ann">
+<strong>Code Dissection:</strong><br>
+<strong>①–④ Hexagonal Inversion:</strong> `Loan` and `LoanRepository` live in `..domain..` with zero framework imports. `JpaLoanRepository` in `..infrastructure..` implements `LoanRepository`, so the compile-time dependency arrow points <em>inward</em> from Infrastructure to Domain.<br>
+<strong>⑤ Compiler-Enforced Encapsulation:</strong> `CatalogHttpClient` is package-private; only the module's public facade (`LoanFacade`) can be injected by other feature packages.<br>
+<strong>⑥–⑧ Box 4 Resilience4j Proxies:</strong> `@Bulkhead`, `@CircuitBreaker`, and `@Retry` wrap `isBookAvailable()` via Box 4 AOP proxies (Rule 2: must be called through the Spring proxy, and `RestClient` must have connection/read timeouts configured!).
+</div>
+
+<h3>How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead>
+  <tr><th>Classic Interview Question</th><th>Derive the Answer in 10 Seconds from the 6-Box Map &amp; 3 Rules</th></tr>
+</thead>
+<tbody>
+  <tr>
+    <td><em>"Should we start a new greenfield system as Microservices or a Monolith?"</em></td>
+    <td><strong>Start with a Modular Monolith (Spring Modulith):</strong> Microservices solve an <em>organizational</em> problem (multiple teams deploying independently) at a high <em>distributed-systems</em> cost (network latency, Outbox/Sagas instead of Box 6 `@Transactional`, distributed tracing). Enforce package-by-feature boundaries in-process first, and extract a service only when scaling or team autonomy demands it.</td>
+  </tr>
+  <tr>
+    <td><em>"Why did one slow downstream API take down our entire Spring Boot service even though CPU and RAM were fine?"</em></td>
+    <td><strong>Look at Box 5 (Tomcat Thread Pool):</strong> Without HTTP timeouts, a Bulkhead, and a Circuit Breaker in Box 4, all 200 Tomcat worker threads blocked waiting on the slow downstream socket. Once all 200 threads were parked, Box 5 couldn't even answer `/actuator/health` or fast endpoints!</td>
+  </tr>
+  <tr>
+    <td><em>"Why didn't my `@CircuitBreaker` or `@Retry` annotation trigger when I called `this.fetchRemoteData()` inside my service?"</em></td>
+    <td><strong>Apply Rule 2 (Who You Call — Box 4 Proxy):</strong> Resilience4j annotations use Box 4 Spring AOP proxies. Self-invocation via `this.` calls the raw target object directly and skips the CircuitBreaker/Bulkhead proxy completely!</td>
+  </tr>
+  <tr>
+    <td><em>"How do you handle a transaction that spans Order Service, Payment Service, and Inventory Service?"</em></td>
+    <td><strong>Apply Rule 3 (`ThreadLocal` TX) → Saga + Outbox:</strong> Box 6's `@Transactional` only binds one DB connection to one JVM thread. Across microservices, avoid 2PC; use a **Saga** (a sequence of local ACID transactions published via the **Transactional Outbox**, paired with **compensating undo events** if a downstream step fails).</td>
+  </tr>
+</tbody>
+</table>
+
+<div class="try">
+<strong>Try This / Predict the Output:</strong><br>
+Suppose you stack both `@Retry(maxAttempts = 3)` and `@CircuitBreaker` on an outbound method `fetchAuthor()`. By default in Resilience4j, `Retry` is the <strong>outer</strong> aspect and `CircuitBreaker` is the <strong>inner</strong> aspect (`Caller → Retry → CircuitBreaker → Target`).<br>
+<strong>Question:</strong> What happens when the circuit breaker is **OPEN**? Does `fetchAuthor()` wait through 3 slow network timeouts, or does each retry fail in 0 ms?<br>
+<em>Answer:</em> Because `CircuitBreaker` is inside `Retry`, when the circuit is **OPEN**, `CircuitBreaker` rejects the call in **0 ms** (`CallNotPermittedException`) without touching the network—and if you configure `ignoreExceptions: CallNotPermittedException` on `Retry` (or invoke the `CircuitBreaker` `fallbackMethod`), it returns the fallback immediately!
+</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Pitfall 1: Building a "Distributed Monolith" (services sharing one database or synchronous chains A → B → C → D).</strong><br>
+<em>Mechanical cause:</em> If two services share PostgreSQL tables, a schema migration in Service A breaks Service B; if 4 services with 99% uptime call each other synchronously, combined availability drops to $0.99^4 \approx 96\%$ and latencies add up.</div>
+
+<div class="pitfall"><strong>Pitfall 2: Returning JPA `@Entity` objects directly from `@RestController` instead of DTOs.</strong><br>
+<em>Mechanical cause:</em> Exposes internal database columns (and sensitive fields) as your public JSON contract, triggers `LazyInitializationException` or infinite recursion in Jackson after Box 6's transaction closes, and couples clients to your DB schema.</div>
+
+<div class="pitfall"><strong>Pitfall 3: Calling external HTTP APIs without timeouts, Bulkheads, or Circuit Breakers.</strong><br>
+<em>Mechanical cause:</em> A hanging downstream service exhausts all Box 5 Tomcat threads (or DB connections if called inside `@Transactional`!), causing a cascading outage across your entire fleet.</div>
+
+<div class="pitfall"><strong>Pitfall 4: Making every class `public` in a Package-by-Layer structure.</strong><br>
+<em>Mechanical cause:</em> When controllers, services, and repositories live in separate packages, Java forces them all to be `public`, allowing any feature to bypass another feature's service layer and query its repository directly. Use Package-by-Feature + `package-private` + ArchUnit.</div>
+
+<h2><span class="n">§9</span>Recap &amp; Glossary / Reference</h2>
+<ul class="recap">
+  <li><strong>Part 1 (Inside Box 3):</strong> Organize packages <strong>by feature</strong> (`loan/`, `catalog/`), make internal classes `package-private`, and expose one public facade per module.</li>
+  <li><strong>Hexagonal Architecture (Ports &amp; Adapters):</strong> Keep the core Domain &amp; Port interfaces free of Spring/JPA imports so all dependency arrows point inward and business rules test in 1 ms with 0 Boxes.</li>
+  <li><strong>One Transaction = One Aggregate:</strong> Reference other aggregates by ID (`BookId`), not JPA object references, and use domain events for cross-aggregate updates.</li>
+  <li><strong>Start with a Modular Monolith (Spring Modulith + ArchUnit):</strong> Split into microservices only when team autonomy or independent scaling requires it.</li>
+  <li><strong>Part 2 (Across Many 6-Box Apps):</strong> K8s ConfigMaps/Cloud Config feed <strong>Box 1</strong>; Spring Cloud Gateway sits in front of <strong>Box 5</strong>; Resilience4j CircuitBreaker/Bulkhead proxies live in <strong>Box 4</strong>; and the <strong>Transactional Outbox + Saga pattern</strong> replaces cross-service Box 6 transactions.</li>
+</ul>
+
+<h3>Quick Reference Cheat-Sheet: The Complete 18-Lesson Map</h3>
+<table>
+<thead><tr><th>Architectural Concern</th><th>Spring / Java Mechanism</th><th>Where It Sits on the 6-Box Map</th></tr></thead>
+<tbody>
+<tr><td>Enforce module boundaries at compile time</td><td>Package-by-feature + <code>package-private</code> + ArchUnit</td><td>Box 2 &amp; Box 3 class structure</td></tr>
+<tr><td>Verify modular monolith boundaries &amp; events</td><td><strong>Spring Modulith</strong> (<code>ApplicationModules.of(...)</code>)</td><td>Box 3 modules + Event Outbox</td></tr>
+<tr><td>Centralized / cloud configuration</td><td>Kubernetes ConfigMaps/Secrets or Spring Cloud Config</td><td>Feeds <strong>Box 1 (<code>Environment</code>)</strong></td></tr>
+<tr><td>Edge routing, auth, rate limiting</td><td><strong>Spring Cloud Gateway</strong> (or Ingress)</td><td>In front of <strong>Box 5</strong></td></tr>
+<tr><td>Prevent cascading failure on slow HTTP calls</td><td>Resilience4j <code>@CircuitBreaker</code>, <code>@Bulkhead</code>, <code>@Retry</code></td><td><strong>Box 4 (AOP Proxy)</strong></td></tr>
+<tr><td>Keep DB consistent across microservices</td><td><strong>Transactional Outbox + Saga</strong> (Choreography/Orchestration)</td><td>Replaces cross-app <strong>Box 6 TX</strong></td></tr>
+<tr><td>Follow a request across 5 microservices</td><td>Micrometer Tracing (W3C <code>traceparent</code> header + MDC)</td><td><strong>Box 5 Filter + Box 6 MDC</strong></td></tr>
+</tbody>
+</table>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>Package by Feature</dt><dd>Organizing packages by business capability (`loan`, `catalog`) rather than technical layer (`controller`, `service`), enabling `package-private` visibility.</dd>
+  <dt>Hexagonal Architecture (Ports &amp; Adapters)</dt><dd>Architecture where the pure Java Domain sits at the center and owns Port interfaces, while Web Controllers (Driving Adapters) and JPA Repositories (Driven Adapters) sit on the outside pointing inward.</dd>
+  <dt>Aggregate</dt><dd>A cluster of domain objects treated as a single consistency unit modified within one ACID transaction and referenced from outside only by ID.</dd>
+  <dt>Modular Monolith &amp; Spring Modulith</dt><dd>A single deployable application with strictly enforced internal module boundaries, verified by Spring Modulith and ArchUnit.</dd>
+  <dt>Cascading Failure</dt><dd>Outage where one slow dependency blocks caller threads in Box 5 until upstream services run out of threads and fail in a chain reaction.</dd>
+  <dt>Circuit Breaker &amp; Bulkhead</dt><dd>Resilience patterns (in Box 4 proxies): a Bulkhead caps concurrent calls to a dependency; a Circuit Breaker trips OPEN to fail fast when error rates spike.</dd>
+  <dt>Saga Pattern</dt><dd>Managing data consistency across microservices via a sequence of local transactions + Outbox events, using compensating (undo) transactions on failure.</dd>
+</dl>
+
+<p class="sources" style="margin-top:2rem">
+<strong>Official Documentation Citations:</strong>
+<a href="https://docs.spring.io/spring-modulith/reference/">Spring Modulith Reference Documentation</a>;
+<a href="https://docs.spring.io/spring-cloud-gateway/reference/">Spring Cloud Gateway Reference</a>;
+<a href="https://docs.spring.io/spring-cloud-circuitbreaker/reference/">Spring Cloud Circuit Breaker &amp; Resilience4j Reference</a>;
+<a href="https://www.archunit.org/userguide/html/000_Index.html">ArchUnit User Guide</a>;
+Martin Fowler, <a href="https://martinfowler.com/bliki/MonolithFirst.html">MonolithFirst</a> &amp; Chris Richardson, <a href="https://microservices.io/patterns/data/saga.html">Saga Pattern</a>.
+</p>
+
+</body>
+</html>

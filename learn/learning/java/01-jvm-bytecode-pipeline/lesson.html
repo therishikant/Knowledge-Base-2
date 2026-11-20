@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Bytecode Pipeline — From Hello.java to Execution</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .step{display:flex;gap:.8rem;margin:.9rem 0} .step .num{flex:0 0 2rem;height:2rem;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.95rem}
+  .step .body{flex:1} .step .body strong{display:block}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<h1>The Bytecode Pipeline</h1>
+<p class="crumb">Java › JVM cluster · lesson 1 of 4 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the complete journey from source to running program</p>
+
+<div class="tldr">
+<strong>In one line —</strong> Running <code>Hello.java</code> takes six steps:
+<strong>you type the code → <code>javac</code> turns it into bytecode → the <code>java</code> command starts the JVM →
+the class loader brings your class in → the engine runs <code>main</code> (slow at first, then fast) →
+the JVM stops</strong>. This lesson walks through all six steps. The next three lessons open up the loader, the
+memory, and the engine one by one.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+This is the big map for all four JVM lessons. Get the whole path in your head first. After that, every hard question
+becomes easy — "why is start-up slow?", "where does <code>StackOverflowError</code> come from?", "why can Kotlin run on
+the JVM?" All of them are really just: <em>which step are we talking about?</em>
+</p>
+
+<h2><span class="n">§2</span>Why it exists — the one big idea</h2>
+<p>
+Java had one main goal: <em>write once, run anywhere.</em> The same program should run on any computer — Windows, Mac,
+Linux — with no changes <span class="sources">(Oracle, <a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-1.html">JVM Spec SE 21, §1.1</a>)</span>.
+Here is the trick. Java does <em>not</em> turn your code into machine code made for one kind of computer. It turns it into
+<strong>bytecode</strong> — a simple middle language. Then a small program called the <strong>JVM</strong> lives on each
+computer and reads that bytecode. Because the JVM sits in the middle, your code does not care which computer it lands on.
+The JVM only understands bytecode — it does not even know the word "Java"
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-1.html">§1.2</a>)</span>.
+Every step below is there to make this one idea work.
+</p>
+
+<h2><span class="n">§3</span>How it works — the complete flow</h2>
+
+<figure>
+<svg viewBox="0 0 780 340" width="100%" role="img" aria-label="Full pipeline from source to execution">
+  <style>
+    .b{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}.b2{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#m);fill:none}
+  </style>
+  <defs><marker id="m" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+  <text class="c" x="20" y="20" style="font-weight:bold;font-style:normal">COMPILE TIME</text>
+  <rect class="b" x="20" y="30" width="150" height="52" rx="6"/><text class="t" x="52" y="52">Hello.java</text><text class="c" x="42" y="70">you write it</text>
+  <rect class="b" x="210" y="30" width="150" height="52" rx="6"/><text class="t" x="255" y="52">javac</text><text class="c" x="228" y="70">compiler + checks</text>
+  <rect class="b" x="400" y="30" width="150" height="52" rx="6"/><text class="t" x="425" y="52">Hello.class</text><text class="c" x="432" y="70">bytecode</text>
+  <line class="a" x1="170" y1="56" x2="208" y2="56"/><line class="a" x1="360" y1="56" x2="398" y2="56"/>
+
+  <text class="c" x="20" y="120" style="font-weight:bold;font-style:normal">RUN TIME (the JVM)</text>
+  <rect class="b2" x="20" y="130" width="150" height="52" rx="6"/><text class="t" x="38" y="152">java Hello</text><text class="c" x="35" y="170">launcher boots JVM</text>
+  <rect class="b2" x="210" y="130" width="150" height="52" rx="6"/><text class="t" x="228" y="150">Class Loader</text><text class="c" x="222" y="170">load·link·init</text>
+  <rect class="b2" x="400" y="130" width="150" height="52" rx="6"/><text class="t" x="418" y="150">Runtime areas</text><text class="c" x="410" y="170">heap·stacks·frames</text>
+  <rect class="b2" x="590" y="130" width="170" height="52" rx="6"/><text class="t" x="608" y="150">Execution engine</text><text class="c" x="600" y="170">interpret → JIT</text>
+  <line class="a" x1="170" y1="156" x2="208" y2="156"/><line class="a" x1="360" y1="156" x2="398" y2="156"/><line class="a" x1="550" y1="156" x2="588" y2="156"/>
+  <line class="a" x1="475" y1="82" x2="95" y2="128"/>
+
+  <rect class="b2" x="590" y="230" width="170" height="52" rx="6"/><text class="t" x="628" y="250">main() runs</text><text class="c" x="600" y="270">sum=5 printed</text>
+  <rect class="b2" x="400" y="230" width="150" height="52" rx="6"/><text class="t" x="438" y="250">GC (aside)</text><text class="c" x="410" y="270">reclaims garbage</text>
+  <rect class="b" x="210" y="230" width="150" height="52" rx="6"/><text class="t" x="250" y="250">JVM exits</text><text class="c" x="222" y="270">status code</text>
+  <line class="a" x1="675" y1="182" x2="675" y2="228"/><line class="a" x1="590" y1="256" x2="552" y2="256"/><line class="a" x1="400" y1="256" x2="362" y2="256"/>
+</svg>
+<figcaption>The six steps. The first three happen when you build the code. The rest happen inside the JVM when you run it (Oracle JVM Spec SE 21, Ch. 1–5).</figcaption>
+</figure>
+
+<div class="step"><div class="num">1</div><div class="body"><strong>You write the code.</strong>
+<code>Hello.java</code> is just text you can read. It does not belong to any one computer yet.</div></div>
+
+<div class="step"><div class="num">2</div><div class="body"><strong><code>javac</code> turns it into bytecode.</strong>
+The compiler reads your code, checks the types, and looks up names — all <em>now</em>, before the program runs. So most
+mistakes are caught here, not later. Then it writes a <code>.class</code> file. Note: it does <em>not</em> make machine
+code. It makes bytecode. Because the types are already checked here, the JVM can skip most of that work later
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html">§2.2</a>)</span>.</div></div>
+
+<div class="step"><div class="num">3</div><div class="body"><strong>The <code>.class</code> file.</strong>
+This is the file the JVM reads. Inside it: a start tag (<code>0xCAFEBABE</code>), a version, a <strong>constant pool</strong>
+(a list of all the names the class uses), and the bytecode for each method
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html">§2.1</a>)</span>.</div></div>
+
+<div class="step"><div class="num">4</div><div class="body"><strong><code>java Hello</code> starts the JVM.</strong>
+This command starts the JVM, loads your class, gets it ready, and calls your
+<code>public static void main(String[])</code> method <span class="sources">(<a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-5.html">§5.2</a>)</span>.
+That one call kicks off everything else.</div></div>
+
+<div class="step"><div class="num">5</div><div class="body"><strong>Loading the class.</strong>
+The <em>class loader</em> finds the bytes of <code>Hello.class</code>, checks they are safe, sets up its fields, and links
+up the names it uses. Classes are loaded <strong>only when first needed</strong>, not all at once.
+<em>(Lesson 2 covers this in detail.)</em></div></div>
+
+<div class="step"><div class="num">6</div><div class="body"><strong>Running the code.</strong>
+For each method call, the JVM makes a <strong>frame</strong> — a small workspace that holds the method's values.
+The <em>engine</em> runs the bytecode. It <strong>reads it line by line</strong> at first, then turns the busy parts into fast
+machine code. New objects go on the <strong>heap</strong> (shared memory), and the <strong>garbage collector</strong> quietly
+clears out ones you no longer use. When <code>main</code> finishes and no other work is left, the JVM stops
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-5.html">§5.7</a>)</span>.
+<em>(Lessons 3 &amp; 4 cover the memory and the engine.)</em></div></div>
+
+<h2><span class="n">§4</span>When this matters</h2>
+<ul>
+  <li><strong>Seeing the whole map</strong> — most JVM interview questions are just "which step?"</li>
+  <li><strong>Build error vs run error</strong> — a compile error (step 2) is not the same as a <code>NoClassDefFoundError</code> (step 5).</li>
+  <li><strong>Other languages on the JVM</strong> — Kotlin, Scala, and Groovy also make <code>.class</code> files, so they join at step 3 and run the same way.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+You write a story (your code). A translator (<code>javac</code>) rewrites it in a picture-language that every robot can
+read (bytecode). To act out the story, a robot (the JVM) picks up the pictures, checks they are safe, grabs some scratch
+paper (memory and frames), and starts acting. It is slow at first. Once it has seen a scene many times, it remembers it
+and does it fast (the fast-code step). A helper keeps clearing away props nobody is using (garbage collector). When the
+story ends, the robot goes home (the JVM stops).
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>→ jvm-class-loader (lesson 2):</strong> opens up step 5.</li>
+  <li><strong>→ jvm-runtime-data-areas (lesson 3):</strong> opens up the memory and <em>frames</em> in step 6.</li>
+  <li><strong>→ jvm-execution-engine (lesson 4):</strong> opens up how the code actually runs in step 6.</li>
+  <li><strong>Same idea elsewhere:</strong> C# and JavaScript (in Chrome's V8) work the same way — code becomes a middle language, then runs on a small machine. Only the names change.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — watch the hand-offs happen</h2>
+<p>Real commands on a JDK (<code>javac 1.8.0_411</code>), tracing <code>Hello</code> through the pipeline:</p>
+<pre><span class="c"># step 1–2: write, then compile</span>
+$ javac Hello.java        <span class="c"># produces Hello.class (bytecode)</span>
+
+<span class="c"># step 3: inspect the bytecode the JVM will run</span>
+$ javap -c Hello
+
+<span class="c"># step 4–6: boot the JVM and run main</span>
+$ java Hello
+sum=5</pre>
+
+<p class="ann">The bytecode that <code>javap</code> shows is the same bytecode the loader checks (step 5) and the engine runs (step 6):</p>
+<pre>  <span class="c">static int add(int, int);</span>
+    Code:
+       0: iload_0      <span class="c">// put a on the pile</span>
+       1: iload_1      <span class="c">// put b on the pile</span>
+       2: iadd         <span class="c">// take a and b off, put a+b back</span>
+       3: ireturn      <span class="c">// hand back the top value</span></pre>
+<div class="ann">The JVM works like a pile of plates: you put values on top, and each step takes values off the top and puts a
+result back. Each step also says its type (<code>i</code> = int). The compiler already checked the types in step 2, so
+here the engine just adds and returns — no guessing. Compiler checks, JVM runs: that split is what makes it fast.</div>
+
+<div class="try">
+<strong>Try this:</strong> run <code>java -verbose:class Hello</code>. Now watch the class loader (step 5) print every class
+as it loads it, in order. You will see <code>java.lang.Object</code>, then <code>String</code>, then <code>Hello</code>.
+That list is the JVM showing you its own steps.
+</div>
+
+<h2><span class="n">§8</span>Watch out for</h2>
+<div class="pitfall"><strong>Mixing up build errors and run errors.</strong> A missing semicolon breaks at step 2 (<code>javac</code>). A missing class breaks at step 5 (<code>NoClassDefFoundError</code>). Different steps.</div>
+<div class="pitfall"><strong>Thinking <code>javac</code> makes an <code>.exe</code>.</strong> It makes bytecode, not machine code. Machine code shows up later, at step 6, when the busy parts get sped up.</div>
+<div class="pitfall"><strong>Thinking every class loads at start.</strong> Classes load only when first used. So a class used deep inside the program loads late — which is why some errors show up late too.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>Six steps: <strong>write → compile → .class → start → load → run → stop</strong>.</li>
+  <li>Steps 1–3 happen when you <strong>build</strong>. Steps 4–6 happen when you <strong>run</strong>, inside the JVM.</li>
+  <li><code>javac</code> makes <strong>bytecode</strong>, not machine code. It checks types early so the JVM does less later.</li>
+  <li>The <code>.class</code> file (start tag <code>0xCAFEBABE</code> + constant pool + method bytecode) is what the JVM reads.</li>
+  <li>Classes load <strong>only when first needed</strong>. The JVM stops when <code>main</code> is done and no work is left.</li>
+  <li>The next three lessons open up the loader, the memory and frames, and the engine.</li>
+</ul>
+
+<hr/>
+<h2>Reference — key commands</h2>
+<table>
+<thead><tr><th>Command</th><th>Hand-off</th><th>Shows</th></tr></thead>
+<tbody>
+<tr><td><code>javac Hello.java</code></td><td>2</td><td>Compile → <code>Hello.class</code></td></tr>
+<tr><td><code>javap -c Hello</code></td><td>3</td><td>Disassemble bytecode</td></tr>
+<tr><td><code>javap -v Hello</code></td><td>3</td><td>+ constant pool, version, flags</td></tr>
+<tr><td><code>java Hello</code></td><td>4–6</td><td>Boot JVM, run <code>main</code></td></tr>
+<tr><td><code>java -verbose:class Hello</code></td><td>5</td><td>Log every class as it loads</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Bytecode</dt><dd>The JVM's portable instruction set, stored in <code>.class</code> files.</dd>
+  <dt>Constant pool</dt><dd>Per-class symbol table of names and references inside the <code>.class</code> file.</dd>
+  <dt>Launcher</dt><dd>The <code>java</code> command that creates a JVM and calls <code>main</code>.</dd>
+  <dt>Lazy loading</dt><dd>Classes are loaded on first active use, not all up front.</dd>
+  <dt>JIT</dt><dd>Just-In-Time compiler; turns hot bytecode into native code at run time.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-5.html">JVM Spec SE 21 — §5.2 JVM Startup</a> and <a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-5.html">§5.7 Termination</a> bookend this whole pipeline.</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>The Java® Virtual Machine Specification, Java SE 21</em> (§1.1–1.2, §2.1–2.2, §5.2, §5.7); bytecode captured live via <code>javac 1.8.0_411</code> + <code>javap -c</code>. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

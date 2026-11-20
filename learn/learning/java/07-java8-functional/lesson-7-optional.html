@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Optional — Java 8 &amp; Functional, Part 7 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  h4{font-size:1rem;margin:1.1rem 0 .2rem;color:#4a4639}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem;line-height:1.9}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1><code>Optional</code> — Saying "Maybe Nothing" in the Type</h1>
+<p class="crumb">Java › Java 8 &amp; functional cluster · lesson 7, <strong>part 7 of 9</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the end of silent <code>null</code></p>
+
+<p class="nav"><strong>Java 8 &amp; functional cluster:</strong>
+  <a href="lesson.html">1. Lambdas</a> ·
+  <a href="lesson-2-functional-interfaces.html">2. Functional interfaces &amp; method refs</a> ·
+  <a href="lesson-3-stream-pipeline.html">3. How a stream actually runs</a> ·
+  <a href="lesson-4-intermediate-operations.html">4. Intermediate operations</a> ·
+  <a href="lesson-5-terminal-operations.html">5. Terminal operations &amp; reduce</a> ·
+  <a href="lesson-6-collectors-and-groupingby.html">6. Collectors &amp; groupingBy</a> ·
+  <strong>7. Optional</strong> ·
+  <a href="lesson-8-default-methods-and-java-time.html">8. default methods &amp; java.time</a> ·
+  <a href="lesson-9-stream-recall-playbook.html">9. Recall &amp; interview playbook</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> <code>Optional&lt;T&gt;</code> is a box that holds either one value or nothing. Its point is not to
+"avoid <code>NullPointerException</code>" — it is to move the question <em>"can this be missing?"</em> out of the documentation and
+into the <strong>method signature</strong>, where the compiler forces the caller to deal with it.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+You have already been handed <code>Optional</code>s without choosing to: <code>findFirst()</code>, <code>findAny()</code>,
+<code>min()</code>, <code>max()</code>, seedless <code>reduce()</code> and <code>Collectors.maxBy()</code> all return one. So this
+lesson is partly about an API you must use whether you like it or not.
+</p>
+<p>
+It is also the smallest possible example of the idea behind streams. An <code>Optional</code> is, conceptually, a stream of
+<em>zero or one</em> elements — which is exactly why it has <code>map</code>, <code>filter</code> and <code>flatMap</code> with the
+same meanings as in <a href="lesson-4-intermediate-operations.html">part 4</a>.
+</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+
+<h3>The problem with <code>null</code></h3>
+<p>Look at this signature:</p>
+<pre>User findUser(String id);</pre>
+<p>
+Does it return <code>null</code> when nobody matches? You cannot tell. The type says "a <code>User</code>", which is a lie if it can
+return nothing. So you either read the javadoc and trust it, or you defensively null-check everywhere, or you forget and ship an
+NPE. The information exists only in prose.
+</p>
+<pre>Optional&lt;User&gt; findUser(String id);</pre>
+<p>
+Now the type itself says "there may be no user". You cannot accidentally call <code>.getName()</code> on it — the compiler will not
+let you until you have handled the empty case. The bug moves from <em>run time</em> to <em>compile time</em>, which is always the
+trade you want.
+</p>
+
+<h3>The two things people wrongly believe it does</h3>
+<ul>
+  <li><strong>"It removes NPEs."</strong> No — <code>optional.get()</code> on an empty <code>Optional</code> throws
+      <code>NoSuchElementException</code>. Used badly it is just <code>null</code> with extra ceremony. The benefit comes from the
+      <em>signature</em>, not the class.</li>
+  <li><strong>"I should use it everywhere."</strong> No. Its designers were explicit: it is intended as a
+      <strong>return type</strong> for methods that might have no result. Not for fields, not for parameters, not for
+      collections.</li>
+</ul>
+<div class="callout">
+<strong>Why not fields or parameters?</strong> An <code>Optional</code> field adds an object per instance and is not
+<code>Serializable</code>. An <code>Optional</code> parameter forces every caller to wrap values, when two overloads or a
+<code>null</code> check would be clearer. And a collection already expresses emptiness — <strong>return an empty list, never
+<code>Optional&lt;List&gt;</code></strong>.
+</div>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<figure>
+<svg viewBox="0 0 800 300" width="100%" role="img" aria-label="Creating, transforming and unwrapping an Optional">
+  <style>
+    .mk{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.5}
+    .tr{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.5}
+    .un{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.5}
+    .t{font:bold 12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .m{font:11.5px "SF Mono",Menlo,monospace;fill:#3f3b34}
+    .c{font:11.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.5;marker-end:url(#om);fill:none}
+  </style>
+  <defs><marker id="om" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="mk" x="20" y="40" width="220" height="150" rx="8"/>
+  <text class="t" x="38" y="64">1. CREATE</text>
+  <text class="m" x="38" y="90">Optional.of(v)</text>
+  <text class="c" x="38" y="108">v must NOT be null</text>
+  <text class="m" x="38" y="132">Optional.ofNullable(v)</text>
+  <text class="c" x="38" y="150">null becomes empty</text>
+  <text class="m" x="38" y="174">Optional.empty()</text>
+
+  <rect class="tr" x="285" y="40" width="220" height="150" rx="8"/>
+  <text class="t" x="303" y="64">2. TRANSFORM (stays a box)</text>
+  <text class="m" x="303" y="90">map(f)</text>
+  <text class="m" x="303" y="112">flatMap(f)</text>
+  <text class="c" x="303" y="130">when f already returns Optional</text>
+  <text class="m" x="303" y="154">filter(p)</text>
+  <text class="c" x="303" y="172">empty stays empty throughout</text>
+
+  <rect class="un" x="550" y="40" width="230" height="150" rx="8"/>
+  <text class="t" x="568" y="64">3. UNWRAP (leave the box)</text>
+  <text class="m" x="568" y="90">orElse(other)</text>
+  <text class="m" x="568" y="110">orElseGet(supplier)</text>
+  <text class="m" x="568" y="130">orElseThrow(supplier)</text>
+  <text class="m" x="568" y="150">ifPresent(consumer)</text>
+  <text class="m" x="568" y="172">get()    &lt;- avoid</text>
+
+  <line class="a" x1="242" y1="115" x2="283" y2="115"/>
+  <line class="a" x1="507" y1="115" x2="548" y2="115"/>
+
+  <text class="c" x="20" y="232">The golden path: create once -&gt; chain map/filter/flatMap -&gt; unwrap exactly once at the very end.</text>
+  <text class="c" x="20" y="254">If an Optional is empty, every map/filter in the chain is skipped — no null checks anywhere in the middle.</text>
+  <text class="c" x="20" y="282">Calling isPresent() then get() is the anti-pattern: it is the old null check wearing a costume.</text>
+</svg>
+<figcaption>Create → transform → unwrap once. Nearly every <code>Optional</code> mistake is unwrapping too early.</figcaption>
+</figure>
+
+<h3>Step 1 — creating</h3>
+<pre>Optional.of(<span class="s">"x"</span>)           <span class="c">// Optional[x]     — throws NPE if the argument is null</span>
+Optional.ofNullable(v)      <span class="c">// Optional[v] or Optional.empty</span>
+Optional.empty()            <span class="c">// Optional.empty</span></pre>
+<h4>Verified output</h4>
+<pre>of        : Optional[x]
+ofNullable: Optional.empty
+empty     : Optional.empty
+of(null)  : throws NullPointerException</pre>
+<div class="ann">
+<code>of</code> throwing on <code>null</code> is deliberate, not an oversight: <code>of</code> means "I promise this exists", so a
+<code>null</code> there is a bug you want to hear about immediately. Use <code>ofNullable</code> when wrapping something that
+legitimately might be <code>null</code> — typically a value coming from an old API or a map lookup.
+</div>
+
+<h3>Step 2 — transforming, without ever unwrapping</h3>
+<pre>ageOf(<span class="s">"ann"</span>).map(a -&gt; a + 1).orElse(-1)        <span class="c">// 31</span>
+ageOf(<span class="s">"ann"</span>).filter(a -&gt; a &gt; 40).orElse(-1)   <span class="c">// -1  — present, but filtered out</span></pre>
+<div class="ann">
+<code>map</code> on an empty <code>Optional</code> simply returns empty without calling the function — the same short-circuit idea
+as a stream. <code>filter</code> turns a present value that fails the test into empty. Together they let you express
+"if there is a user, and they are an adult, take their name" with no <code>if</code> statements.
+</div>
+
+<h3>Step 3 — <code>map</code> vs <code>flatMap</code> (the only genuinely tricky part)</h3>
+<pre><span class="k">class</span> User    { Optional&lt;Address&gt; getAddress(); }
+<span class="k">class</span> Address { Optional&lt;String&gt;  getCity();    }
+
+Optional.of(user).map(User::getAddress)
+  <span class="c">// Optional[Optional[Address@...]]   ← a box inside a box. Useless.</span>
+
+Optional.of(user).flatMap(User::getAddress).flatMap(Address::getCity).orElse(<span class="s">"unknown"</span>)
+  <span class="c">// "pune"  — or "unknown" if either step was empty</span></pre>
+<div class="callout">
+<strong>Same rule as streams:</strong> <em>if the function you are passing already returns an <code>Optional</code>, use
+<code>flatMap</code>; otherwise use <code>map</code>.</em> One sentence, both APIs.
+</div>
+<p>Compare with the code it replaces:</p>
+<pre><span class="k">if</span> (u != <span class="k">null</span>) {
+    Address a = u.address;
+    <span class="k">if</span> (a != <span class="k">null</span> &amp;&amp; a.city != <span class="k">null</span>) <span class="k">return</span> a.city;
+}
+<span class="k">return</span> <span class="s">"unknown"</span>;</pre>
+<div class="ann">Five lines and three nested checks become one chain. More importantly, with the nested <code>if</code>s you have to
+<em>remember</em> to write every check; with <code>flatMap</code> the type system will not compile until you have.</div>
+
+<h3>Step 4 — unwrapping, and the <code>orElse</code> / <code>orElseGet</code> trap</h3>
+<table>
+  <thead><tr><th>Method</th><th>Use when</th></tr></thead>
+  <tbody>
+  <tr><td><code>orElse(value)</code></td><td>the default is a constant already in hand</td></tr>
+  <tr><td><code>orElseGet(supplier)</code></td><td>the default is expensive to build</td></tr>
+  <tr><td><code>orElseThrow(supplier)</code></td><td>absence is an error — the usual choice in service code</td></tr>
+  <tr><td><code>ifPresent(consumer)</code></td><td>you only want a side effect when present</td></tr>
+  <tr><td><code>isPresent()</code> / <code>isEmpty()</code> (9+)</td><td>last resort; usually a sign you should have chained instead</td></tr>
+  <tr><td><code>get()</code></td><td>effectively never — only when you have just proved it is present</td></tr>
+  </tbody>
+</table>
+<h4>Verified output — the trap, demonstrated</h4>
+<pre>orElse eager  : 30  &lt;- default built even though value existed
+   (building the default...)
+orElseGet lazy: 30  &lt;- supplier never ran</pre>
+<div class="ann">
+<strong>Read the order of those lines in the real output.</strong> With <code>orElse(expensiveDefault())</code>, the argument is an
+ordinary Java expression, so it is evaluated <em>before</em> <code>orElse</code> is even called — the "building the default…" line
+printed even though the value was present and the default was thrown away. With
+<code>orElseGet(() -&gt; expensiveDefault())</code> the supplier is only invoked when actually needed, so nothing printed. If the
+default does a database call, that difference is a production incident.
+</div>
+<div class="idiom"><strong>Idiom.</strong> Use <code>orElse</code> only for cheap constants (<code>""</code>, <code>0</code>,
+<code>Collections.emptyList()</code>). For anything computed, use <code>orElseGet</code>. For "this should not happen", use
+<code>orElseThrow(() -&gt; new NotFoundException(id))</code>.</div>
+
+<h3>Step 5 — the methods added after Java 8</h3>
+<table>
+  <thead><tr><th>Method</th><th>Since</th><th>What it does</th></tr></thead>
+  <tbody>
+  <tr><td><code>ifPresentOrElse(c, runnable)</code></td><td>9</td><td>an if/else for present vs empty</td></tr>
+  <tr><td><code>or(supplier)</code></td><td>9</td><td>fall back to another <code>Optional</code></td></tr>
+  <tr><td><code>stream()</code></td><td>9</td><td>turns it into a 0-or-1 stream — great with <code>flatMap</code></td></tr>
+  <tr><td><code>isEmpty()</code></td><td>11</td><td>the readable opposite of <code>isPresent()</code></td></tr>
+  <tr><td><code>orElseThrow()</code> (no args)</td><td>10</td><td>a better-named <code>get()</code></td></tr>
+  </tbody>
+</table>
+<div class="callout"><code>Optional.stream()</code> is the neat one: <code>users.stream().map(this::findAddress).flatMap(Optional::stream)</code>
+drops the empties and keeps the values, with no filtering by <code>isPresent</code>.</div>
+
+<h3>Step 6 — the primitive cousins</h3>
+<p>
+<code>OptionalInt</code>, <code>OptionalLong</code> and <code>OptionalDouble</code> exist for primitive streams — that is what
+<code>IntStream.average()</code> returns. They have no <code>map</code> or <code>filter</code>; you read them with
+<code>getAsInt()</code>, <code>getAsDouble()</code> or <code>orElse</code>.
+</p>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong>Yes:</strong> as the return type of a method that may legitimately find nothing —
+      <code>findById</code>, <code>parse</code>, lookups, "the best X if there is one".</li>
+  <li><strong>Yes:</strong> to chain several possibly-missing steps with <code>map</code>/<code>flatMap</code>.</li>
+  <li><strong>No:</strong> as a field. Use <code>null</code> internally and expose an <code>Optional</code> from the getter.</li>
+  <li><strong>No:</strong> as a method parameter. Use an overload, or accept <code>null</code> and document it.</li>
+  <li><strong>No:</strong> around a collection. Return an empty <code>List</code> — emptiness is already expressible.</li>
+  <li><strong>No:</strong> in high-volume hot loops or large data structures — it is an extra object per value.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+You ask a shopkeeper for a chocolate bar. Two things can happen. In the old system, the shopkeeper hands you a bag, and the bag is
+either full or empty — but it <em>looks the same either way</em>. You walk out, reach in, find nothing, and trip over. That is
+<code>null</code>: the surprise happens far away from the shop.
+</p>
+<p>
+In the new system the shopkeeper hands you a clear box with a label that says <strong>"may be empty"</strong>. You cannot pretend
+you did not know. Before you can eat anything you must say what to do if it is empty: "then give me a biscuit instead"
+(<code>orElse</code>), "then go and make one" (<code>orElseGet</code>), or "then complain to the manager"
+(<code>orElseThrow</code>).
+</p>
+<p>
+Naive question: <em>"why not just check if the bag is empty, like before?"</em> You can — <code>isPresent()</code> does exactly
+that. But then you are back to remembering to check. The real win is that the clear box makes it <em>impossible to forget</em>,
+because the compiler will not let you eat straight out of it.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson-5-terminal-operations.html">part 5</a>:</strong> <code>findFirst</code>, <code>findAny</code>,
+      <code>min</code>, <code>max</code> and seedless <code>reduce</code> all hand you an <code>Optional</code>.</li>
+  <li><strong>← <a href="lesson-6-collectors-and-groupingby.html">part 6</a>:</strong> <code>maxBy</code>/<code>minBy</code> inside a
+      <code>groupingBy</code> is why <code>collectingAndThen(..., Optional::get)</code> exists.</li>
+  <li><strong>← <a href="lesson-4-intermediate-operations.html">part 4</a>:</strong> <code>map</code>, <code>filter</code> and
+      <code>flatMap</code> mean exactly the same here as on a stream — an <code>Optional</code> is a stream of at most one.</li>
+  <li><strong>→ <a href="../10-exceptions-and-error-design/lesson.html">error design</a>:</strong> "absent" and "failed" are
+      different. <code>Optional</code> models <em>absent</em>; it carries no reason, so it is not an error-handling mechanism.</li>
+  <li><strong>→ <a href="../12-modern-java-9-to-21/lesson.html">modern Java</a>:</strong> <code>ifPresentOrElse</code>,
+      <code>or</code>, <code>stream</code> and <code>isEmpty</code> arrived in 9–11.</li>
+  <li><strong>Same idea elsewhere:</strong> Kotlin bakes it into the type system (<code>String?</code> and <code>?.</code>);
+      Rust has <code>Option&lt;T&gt;</code>; Haskell has <code>Maybe</code>; TypeScript has
+      <code>strictNullChecks</code>. Java's version is a library bolted on, which is why it cannot stop you writing
+      <code>null</code>.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — dissected</h2>
+<p>From <a href="../code/OptionalDemo.java">code/OptionalDemo.java</a>:</p>
+<pre><span class="k">static</span> Optional&lt;Integer&gt; ageOf(String name) {
+    <span class="k">return</span> Optional.ofNullable(AGES.get(name));   <span class="c">// map lookup may be null</span>
+}</pre>
+<div class="ann">
+This is the single most useful <code>Optional</code> pattern in real code: wrap a lookup that can miss, at the boundary where the
+<code>null</code> appears, and never let it travel further. Everything downstream is then null-free by construction.
+</div>
+
+<pre>ageOf(<span class="s">"zoe"</span>).orElseThrow(() -&gt; <span class="k">new</span> NoSuchElementException(<span class="s">"no such user"</span>));</pre>
+<div class="ann">
+Note the argument is a <code>Supplier</code>, not an exception: the exception object (with its stack trace, which is expensive to
+build) is only created if it is actually needed. The same laziness argument as <code>orElseGet</code>.
+</div>
+
+<h3>Full verified output</h3>
+<pre>-- creating --
+of        : Optional[x]
+ofNullable: Optional.empty
+empty     : Optional.empty
+of(null)  : throws NullPointerException
+-- reading safely --
+orElse        : -1
+   (building the default...)
+orElseGet     : -99
+   (building the default...)
+orElse eager  : 30  &lt;- default built even though value existed
+orElseGet lazy: 30  &lt;- supplier never ran
+orElseThrow   : no such user
+-- transforming --
+map       : 31
+filter    : -1
+isPresent : true
+ifPresent : 30
+-- map vs flatMap --
+map       : Optional[Optional[OptionalDemo$Address@41629346]]
+flatMap   : pune
+flatMap   : unknown</pre>
+<div class="ann">
+The line <code>Optional[Optional[...]]</code> is worth staring at. That is what <code>map</code> gives you when the mapper already
+returns an <code>Optional</code> — visible proof of why <code>flatMap</code> exists. Point at this in an interview and the answer
+is complete.
+</div>
+
+<div class="try"><strong>Refactor this.</strong> Rewrite without any <code>if</code>, in one chain:
+<pre>String cityUpper(User u) {
+    <span class="k">if</span> (u == <span class="k">null</span>) <span class="k">return</span> <span class="s">"UNKNOWN"</span>;
+    Address a = u.getAddressOrNull();
+    <span class="k">if</span> (a == <span class="k">null</span>) <span class="k">return</span> <span class="s">"UNKNOWN"</span>;
+    String c = a.getCityOrNull();
+    <span class="k">if</span> (c == <span class="k">null</span> || c.isEmpty()) <span class="k">return</span> <span class="s">"UNKNOWN"</span>;
+    <span class="k">return</span> c.toUpperCase();
+}</pre>
+<em>Answer:</em>
+<pre>Optional.ofNullable(u)
+        .map(User::getAddressOrNull)
+        .map(Address::getCityOrNull)
+        .filter(c -&gt; !c.isEmpty())
+        .map(String::toUpperCase)
+        .orElse(<span class="s">"UNKNOWN"</span>);</pre>
+<em>(<code>map</code>, not <code>flatMap</code>, because those getters return plain values, not <code>Optional</code>s — and
+<code>map</code> turns a <code>null</code> result into empty for you.)</em>
+</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong><code>opt.get()</code> without checking.</strong> Throws <code>NoSuchElementException</code>. It is
+<code>null</code> with extra steps. Java 10 added the no-argument <code>orElseThrow()</code> precisely to give it a name that reads
+like the risk it is.</div>
+<div class="pitfall"><strong><code>if (opt.isPresent()) { opt.get() ... }</code>.</strong> Compiles, works, and defeats the purpose.
+Use <code>ifPresent</code>, <code>map</code> or <code>orElse</code>.</div>
+<div class="pitfall"><strong><code>orElse(expensiveCall())</code>.</strong> The argument is always evaluated, present or not. Use
+<code>orElseGet</code>. Proved in the output above.</div>
+<div class="pitfall"><strong>Returning <code>null</code> from a method declared to return <code>Optional</code>.</strong> The worst
+of both worlds. Return <code>Optional.empty()</code>.</div>
+<div class="pitfall"><strong><code>Optional&lt;List&lt;T&gt;&gt;</code>.</strong> Two ways to say "nothing". Return an empty list.</div>
+<div class="pitfall"><strong><code>Optional</code> fields and parameters.</strong> Not the design intent; adds allocation, is not
+<code>Serializable</code>, and makes call sites noisier.</div>
+<div class="pitfall"><strong>Using <code>Optional</code> as an error channel.</strong> It says "absent" but never "why". For
+failures that need a reason, throw, or return a result type that carries one.</div>
+<div class="pitfall"><strong><code>map</code> where <code>flatMap</code> was needed.</strong> You get
+<code>Optional&lt;Optional&lt;T&gt;&gt;</code>. Read the mapper's return type.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li><code>Optional&lt;T&gt;</code> is a container for zero or one value; its purpose is to make "maybe missing" visible in the
+      <strong>signature</strong>.</li>
+  <li><code>of</code> throws on <code>null</code>; <code>ofNullable</code> converts <code>null</code> to empty;
+      <code>empty()</code> is the empty box.</li>
+  <li>Chain with <code>map</code>, <code>filter</code>, <code>flatMap</code> — empty stays empty and the functions are skipped.</li>
+  <li><strong>Use <code>flatMap</code> when the mapper already returns an <code>Optional</code></strong>, otherwise
+      <code>map</code>.</li>
+  <li>Unwrap once at the end: <code>orElse</code> (cheap constant), <code>orElseGet</code> (lazy), <code>orElseThrow</code>
+      (absence is an error), <code>ifPresent</code> (side effect).</li>
+  <li><strong><code>orElse</code>'s argument is always evaluated</strong>; <code>orElseGet</code>'s supplier is not.</li>
+  <li>Return type only — not fields, not parameters, not around collections.</li>
+  <li>Java 9+ adds <code>ifPresentOrElse</code>, <code>or</code>, <code>stream</code>; Java 11 adds <code>isEmpty</code>.</li>
+</ul>
+
+<hr/>
+<h2>Reference — <code>Optional</code> card</h2>
+<pre>CREATE
+Optional.of(v)             NPE if v is null — "I promise this exists"
+Optional.ofNullable(v)     null -&gt; empty    — wrapping a legacy/lookup value
+Optional.empty()           the empty box
+
+TRANSFORM  (stay inside the box)
+map(f)         T -&gt; R            empty stays empty
+flatMap(f)     T -&gt; Optional&lt;R&gt;  use when f already returns Optional
+filter(p)      present + fails p -&gt; empty
+
+UNWRAP  (leave the box — do this ONCE, at the end)
+orElse(v)                  v is ALWAYS evaluated
+orElseGet(supplier)        lazy — use for anything expensive
+orElseThrow(supplier)      absence is an error
+ifPresent(consumer)        side effect only when present
+get()                      avoid; orElseThrow() (Java 10) says it better
+
+JAVA 9+   ifPresentOrElse(c, r) · or(supplier) · stream()
+JAVA 11+  isEmpty()
+PRIMITIVE OptionalInt / OptionalLong / OptionalDouble — getAsInt(), getAsDouble()
+
+RULE OF THUMB
+return type  YES        field  NO
+chaining     YES        parameter  NO
+collections  NO (return an empty collection instead)</pre>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt><code>Optional&lt;T&gt;</code></dt><dd>A container object which may or may not hold a non-null value.</dd>
+  <dt>Present / empty</dt><dd>The two states of an <code>Optional</code>.</dd>
+  <dt><code>orElse</code> vs <code>orElseGet</code></dt><dd>Eager default value vs lazily supplied default.</dd>
+  <dt><code>flatMap</code></dt><dd>Maps to another <code>Optional</code> and flattens, avoiding nesting.</dd>
+  <dt><code>NoSuchElementException</code></dt><dd>Thrown by <code>get()</code> on an empty <code>Optional</code>.</dd>
+  <dt>Null object pattern</dt><dd>The older alternative: a harmless stand-in instance instead of <code>null</code>.</dd>
+  <dt><code>OptionalInt</code></dt><dd>The primitive version returned by things like <code>IntStream.max()</code>.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/8/docs/api/java/util/Optional.html">Oracle — <code>java.util.Optional</code> javadoc</a>.
+Its opening note states the intended use ("a method return type where there is a clear need to represent 'no result'") and the
+<code>of</code>/<code>ofNullable</code>/<code>orElseGet</code> entries confirm the behaviour demonstrated above.</p>
+
+<p class="nav" style="margin-top:2rem">← <a href="lesson-6-collectors-and-groupingby.html">Part 6 — Collectors &amp; groupingBy</a> ·
+Next: <a href="lesson-8-default-methods-and-java-time.html">Part 8 — default methods &amp; java.time</a> →</p>
+<p class="sources">Sources: Oracle, <code>java.util.Optional</code> javadoc (SE 8) and <code>java.util.stream</code> package
+summary. All outputs produced by running <code>OptionalDemo.java</code> on JDK 1.8.0_411. Authored per Knowledge-Base-2
+rules §6.2–§6.3.</p>
+
+</body>
+</html>

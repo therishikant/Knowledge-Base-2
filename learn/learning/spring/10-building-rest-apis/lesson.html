@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Building REST APIs — Spring</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:2.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    padding:.55rem .85rem;background:#f4f0e6;border:1px solid var(--rule);border-radius:6px;margin-bottom:1.8rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f8f5ec;border:1.5px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.95rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.5rem}
+  .step-flow{background:#fff;border:1px solid var(--rule);border-left:4px solid var(--spring);padding:.8rem 1rem;border-radius:0 6px 6px 0;margin:1rem 0;font-size:.93rem}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../09-web-mvc-request-lifecycle/lesson.html">09 · Web MVC Request Lifecycle</a></span>
+  <span><a href="../overview.html">Spring Map (Lesson 10 of 18)</a></span>
+  <span><a href="../11-data-access-and-spring-data-jpa/lesson.html">11 · Data Access &amp; Spring Data JPA</a> →</span>
+</nav>
+
+<h1>Building REST APIs</h1>
+<p class="crumb"><a href="../overview.html">Spring</a> › lesson 10 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the layer your users actually see</p>
+
+<div class="tldr">
+<strong>In simple English —</strong> Every REST annotation you write maps to a specific helper inside <code>DispatcherServlet</code> (Box 6): <code>@PathVariable</code>, <code>@RequestParam</code>, and <code>@RequestBody</code> trigger <code>ArgumentResolver</code>s; <code>@Valid</code> runs Bean Validation right after Jackson parses JSON; and <code>@RestControllerAdvice</code> catches exceptions thrown inside Box 6 and turns them into standard RFC 9457 <code>ProblemDetail</code> JSON. A well-built controller speaks strictly in <strong>DTO records</strong> (never JPA entities!) so your public HTTP contract can evolve independently of your database tables.
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the Map</h2>
+<p>
+Lesson 9 traced the outer highway from Tomcat (Box 5) into <code>DispatcherServlet</code> (Box 6). Now we zoom <strong>inside Box 6</strong> to see what happens right before and right after your <code>@RestController</code> method runs: parameter extraction, Bean Validation, return value serialization, and the <code>HandlerExceptionResolver</code> catch block (<code>@RestControllerAdvice</code>).
+</p>
+
+<div class="map-banner">
+  <div class="map-title">🗺️ You Are Here on the 3-Level Zoom Map</div>
+  <figure style="margin:.4rem 0">
+  <svg viewBox="0 0 760 220" width="100%" role="img" aria-label="You Are Here: Zooming inside Box 6 DispatcherServlet helpers for REST APIs">
+    <style>
+      .dim{fill:#f4f0e6;stroke:#b8b1a3;stroke-width:1.2}
+      .act6{fill:#eef3f7;stroke:#1f4d7a;stroke-width:2.2}
+      .sub{fill:#fff;stroke:#1f4d7a;stroke-width:1.3}
+      .err{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.4}
+      .tx{font:11px "SF Mono",Menlo,monospace;fill:#2b2b28}
+      .th{font:bold 12px Georgia,serif;fill:#2b2b28}
+      .tm{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+      .ar{stroke:#2b2b28;stroke-width:1.4;marker-end:url(#mb);fill:none}
+    </style>
+    <defs><marker id="mb" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2b2b28"/></marker></defs>
+
+    <!-- Box 5 dimmed -->
+    <rect class="dim" x="10" y="12" width="135" height="145" rx="6"/>
+    <text class="th" x="20" y="32" style="fill:#6b675e">Box 5: Tomcat</text>
+    <text class="tx" x="20" y="52">&amp; FilterChain</text>
+    <text class="tm" x="20" y="75">(Lesson 09 &amp; 13)</text>
+    <text class="tm" x="20" y="95">Outside Box 6!</text>
+
+    <!-- Box 6 Zoomed -->
+    <rect class="act6" x="165" y="8" width="445" height="153" rx="8"/>
+    <text class="th" x="180" y="27" style="fill:#1f4d7a">★ Box 6: Inside DispatcherServlet (THIS LESSON)</text>
+
+    <rect class="sub" x="178" y="36" width="132" height="64" rx="5"/>
+    <text class="tx" x="186" y="53">ArgumentResolvers</text>
+    <text class="tm" x="186" y="70">@PathVariable</text>
+    <text class="tm" x="186" y="84">@RequestBody+@Valid</text>
+
+    <rect class="sub" x="322" y="36" width="132" height="64" rx="5"/>
+    <text class="tx" x="330" y="53">@RestController</text>
+    <text class="tm" x="330" y="70">DTO in → DTO out</text>
+    <text class="tm" x="330" y="84">+ ReturnHandler</text>
+
+    <rect class="err" x="178" y="108" width="418" height="44" rx="5"/>
+    <text class="tx" x="188" y="125">@RestControllerAdvice (HandlerExceptionResolver catch block)</text>
+    <text class="tm" x="188" y="142">Catches exceptions from ArgumentResolvers, Controller &amp; Service → ProblemDetail JSON</text>
+
+    <!-- Box 4 dimmed -->
+    <rect class="dim" x="630" y="12" width="120" height="145" rx="6"/>
+    <text class="th" x="640" y="32" style="fill:#6b675e">Box 4: Proxies</text>
+    <text class="tx" x="640" y="52">@Service</text>
+    <text class="tx" x="640" y="70">@Validated</text>
+    <text class="tx" x="640" y="88">@Transactional</text>
+    <text class="tm" x="640" y="112">(Lessons 11–12)</text>
+
+    <line class="ar" x1="145" y1="68" x2="176" y2="68"/>
+    <line class="ar" x1="310" y1="68" x2="320" y2="68"/>
+    <line class="ar" x1="454" y1="68" x2="628" y2="68"/>
+
+    <!-- Bottom timeline -->
+    <rect x="10" y="170" width="740" height="42" rx="5" fill="#eefaf4" stroke="#6db33f" stroke-width="1.2"/>
+    <text class="tx" x="22" y="187">Right before: HandlerMapping in Box 6 matched the URL and ran HandlerInterceptor.preHandle (Lesson 09)</text>
+    <text class="tx" x="22" y="203">Right after:  Controller calls @Service → opens @Transactional (L12) &amp; PersistenceContext (L11), maps Entity→DTO</text>
+  </svg>
+  </figure>
+</div>
+
+<h2><span class="n">§2</span>Why it exists — what you'd write by hand without it</h2>
+<p>
+Without Spring's argument resolvers, Bean Validation integration, and <code>@RestControllerAdvice</code>, every single controller method gets buried in validation <code>if</code> statements and <code>try/catch</code> status-code plumbing:
+</p>
+<pre><span class="c">// ❌ Without @Valid and @RestControllerAdvice — repetitive, error-prone plumbing in every endpoint</span>
+<span class="an">@PostMapping</span>(<span class="s">"/api/books"</span>)
+<span class="k">public</span> ResponseEntity&lt;?&gt; createBook(<span class="an">@RequestBody</span> CreateBookRequest req) {
+    <span class="c">// 1. Manual validation checks repeated across dozens of endpoints</span>
+    <span class="k">if</span> (req.title() == <span class="k">null</span> || req.title().isBlank() || req.title().length() &gt; 200) {
+        <span class="k">return</span> ResponseEntity.badRequest().body(Map.of(<span class="s">"error"</span>, <span class="s">"Invalid title"</span>));
+    }
+    <span class="k">if</span> (req.isbn() == <span class="k">null</span> || !req.isbn().matches(<span class="s">"\\d{13}"</span>)) {
+        <span class="k">return</span> ResponseEntity.badRequest().body(Map.of(<span class="s">"error"</span>, <span class="s">"ISBN must be 13 digits"</span>));
+    }
+    <span class="c">// 2. Manual try/catch translating domain exceptions into ad-hoc error maps</span>
+    <span class="k">try</span> {
+        Book book = service.create(req.toCommand());
+        <span class="k">return</span> ResponseEntity.status(201).body(BookResponse.from(book));
+    } <span class="k">catch</span> (DuplicateIsbnException e) {
+        <span class="k">return</span> ResponseEntity.status(409).body(Map.of(<span class="s">"error"</span>, e.getMessage()));
+    } <span class="k">catch</span> (Exception e) {
+        <span class="k">return</span> ResponseEntity.status(500).body(Map.of(<span class="s">"error"</span>, <span class="s">"Unexpected failure"</span>));
+    }
+}</pre>
+<p>
+And before REST itself, remote calls were RPC over HTTP: a single URL (<code>POST /api</code>) with a verb inside the JSON body (<code>{"action":"deleteBook"}</code>) and a <code>200 OK</code> containing <code>{"success": false}</code>. Caches couldn't cache, proxies couldn't route, and automatic retries were unsafe.
+</p>
+<p>
+REST uses HTTP's own built-in vocabulary: <strong>URL</strong> = which resource, <strong>HTTP method</strong> = which operation, <strong>Status code</strong> = what happened, and <strong>Headers</strong> = metadata/format:
+</p>
+<table>
+<thead><tr><th>Method</th><th>Safe? (no state change)</th><th>Idempotent? (safe to retry)</th><th>Typical success</th></tr></thead>
+<tbody>
+<tr><td><code>GET</code></td><td>Yes</td><td>Yes</td><td>200 (+ body) / 404</td></tr>
+<tr><td><code>POST</code></td><td>No</td><td><strong>No</strong> (retrying creates duplicates unless guarded!)</td><td>201 + <code>Location</code> header</td></tr>
+<tr><td><code>PUT</code></td><td>No</td><td><strong>Yes</strong> (replaces entire resource at known URI)</td><td>200 / 204</td></tr>
+<tr><td><code>PATCH</code></td><td>No</td><td>No (usually partial update)</td><td>200 / 204</td></tr>
+<tr><td><code>DELETE</code></td><td>No</td><td><strong>Yes</strong> (deleting twice leaves it deleted)</td><td>204 (or 404 — pick one and document it)</td></tr>
+</tbody></table>
+<div class="callout"><strong>Why idempotency matters in production:</strong> networks drop packets. When a client's <code>POST /orders</code> times out after 2 seconds, the client doesn't know if the server processed it or not. If it retries a non-idempotent <code>POST</code>, the customer gets charged twice! That is why production APIs use either <code>PUT /orders/{clientGeneratedUuid}</code> or <code>POST</code> with an <code>Idempotency-Key</code> header.</div>
+<div class="callout"><strong>Richardson Maturity Model:</strong>
+<strong>L0</strong> one URL, one verb (RPC) · <strong>L1</strong> resources (many URLs) ·
+<strong>L2</strong> HTTP verbs + status codes ← <em>where virtually every real production REST API lives</em> ·
+<strong>L3</strong> HATEOAS (responses carry hypermedia links). Saying "we build clean L2 REST APIs with RFC 9457 errors, as L3 rarely pays for itself outside public hypermedia APIs" is a senior, pragmatic answer.</div>
+
+<h2><span class="n">§3</span>How it works (Level 1 → Level 2 Zoom)</h2>
+
+<h3>Start with Plain Java First: What <code>doDispatch()</code> Actually Does</h3>
+<p>
+Every annotation in a REST controller corresponds to one line in <code>DispatcherServlet</code>'s main loop inside Box 6. In plain Java, it is literally a <code>try / catch</code> block around your controller method:
+</p>
+<pre><span class="c">// Plain Java mental model of Box 6 (DispatcherServlet) handling your @RestController</span>
+<span class="k">try</span> {
+    <span class="c">// Step A: ArgumentResolvers build each parameter</span>
+    Object[] args = <span class="k">new</span> Object[method.getParameterCount()];
+    <span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; args.length; i++) {
+        <span class="c">// - @PathVariable / @RequestParam -&gt; parse String from URL</span>
+        <span class="c">// - @RequestBody -&gt; Jackson ObjectMapper.readValue(req.getInputStream(), Dto.class)</span>
+        args[i] = resolverFor(param[i]).resolve(req);
+
+        <span class="c">// - Has @Valid? -&gt; Run Hibernate Validator immediately!</span>
+        <span class="k">if</span> (param[i].hasAnnotation(Valid.class)) {
+            Set&lt;Violation&gt; errors = validator.validate(args[i]);
+            <span class="k">if</span> (!errors.isEmpty()) <span class="k">throw new</span> MethodArgumentNotValidException(errors); <span class="c">// jumps to catch!</span>
+        }
+    }
+
+    <span class="c">// Step B: Invoke your @RestController method (which calls @Service in Box 4)</span>
+    Object result = method.invoke(controllerBean, args);
+
+    <span class="c">// Step C: ReturnValueHandler (@ResponseBody) writes JSON via Jackson</span>
+    jacksonConverter.write(result, resp.getOutputStream());
+
+} <span class="k">catch</span> (Exception ex) {
+    <span class="c">// Step D: HandlerExceptionResolver searches your @RestControllerAdvice beans</span>
+    <span class="c">//         for an @ExceptionHandler matching `ex.getClass()`, and writes ProblemDetail JSON!</span>
+    exceptionResolver.handleWithControllerAdvice(ex, req, resp);
+}</pre>
+
+<div class="step-flow">
+  <strong>Step-by-Step Flow of <code>POST /api/books</code> with <code>@Valid @RequestBody CreateBookRequest</code>:</strong><br/>
+  <strong>Step 1 (Jackson Deserialization):</strong> <code>RequestResponseBodyMethodProcessor</code> (an <code>ArgumentResolver</code>) uses Jackson to turn the incoming JSON stream into a <code>CreateBookRequest</code> record. <em>(If JSON syntax is broken → throws <code>HttpMessageNotReadableException</code> → 400).</em><br/>
+  ↓<br/>
+  <strong>Step 2 (<code>@Valid</code> Check):</strong> The <em>exact same</em> <code>RequestResponseBodyMethodProcessor</code> sees <code>@Valid</code> on the parameter and passes the record to Jakarta Bean Validation. <em>(If any field fails <code>@NotBlank</code>/<code>@Pattern</code> → throws <code>MethodArgumentNotValidException</code> → your controller method is NEVER called!).</em><br/>
+  ↓<br/>
+  <strong>Step 3 (Controller → Service):</strong> Your controller maps <code>req.toCommand()</code>, calls <code>bookService.create(cmd)</code>, and maps the returned domain object to <code>BookResponse.from(book)</code>.<br/>
+  ↓<br/>
+  <strong>Step 4 (Exception Routing via <code>@RestControllerAdvice</code>):</strong> If Step 1, Step 2, or Step 3 throws an exception, execution jumps to the <code>catch</code> block in <code>DispatcherServlet</code>, which calls your matching <code>@ExceptionHandler</code> method and serializes the returned <code>ProblemDetail</code> as <code>application/problem+json</code>.
+</div>
+
+<h3>A controller, properly shaped</h3>
+<pre><span class="an">@RestController</span>                                  <span class="c">// = @Controller + @ResponseBody on every method</span>
+<span class="an">@RequestMapping</span>(<span class="s">"/api/books"</span>)                    <span class="c">// one place for the base path</span>
+<span class="k">public class</span> BookController {
+
+    <span class="k">private final</span> BookService service;           <span class="c">// constructor injection from Box 3 (lesson 3)</span>
+    BookController(BookService service) { <span class="k">this</span>.service = service; }
+
+    <span class="an">@GetMapping</span>(<span class="s">"/{id}"</span>)
+    BookResponse get(<span class="an">@PathVariable</span> <span class="k">long</span> id) {       <span class="c">// 200 implicitly; 404 via @RestControllerAdvice</span>
+        <span class="k">return</span> BookResponse.from(service.findById(id));
+    }
+
+    <span class="an">@GetMapping</span>
+    PagedModel&lt;BookResponse&gt; list(<span class="an">@RequestParam</span>(required = <span class="k">false</span>) String author,
+                                  <span class="an">@PageableDefault</span>(size = 20) Pageable page) {
+        <span class="k">return new</span> PagedModel&lt;&gt;(service.search(author, page).map(BookResponse::from));
+    }
+
+    <span class="an">@PostMapping</span>
+    ResponseEntity&lt;BookResponse&gt; create(<span class="an">@Valid</span> <span class="an">@RequestBody</span> CreateBookRequest req) {
+        Book created = service.create(req.toCommand());
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                            .path(<span class="s">"/{id}"</span>).buildAndExpand(created.id()).toUri();
+        <span class="k">return</span> ResponseEntity.created(location)      <span class="c">// 201 Created + Location header</span>
+                             .body(BookResponse.from(created));
+    }
+
+    <span class="an">@PutMapping</span>(<span class="s">"/{id}"</span>)
+    BookResponse replace(<span class="an">@PathVariable</span> <span class="k">long</span> id, <span class="an">@Valid</span> <span class="an">@RequestBody</span> UpdateBookRequest req) {
+        <span class="k">return</span> BookResponse.from(service.replace(id, req.toCommand()));
+    }
+
+    <span class="an">@DeleteMapping</span>(<span class="s">"/{id}"</span>)
+    <span class="an">@ResponseStatus</span>(HttpStatus.NO_CONTENT)         <span class="c">// 204 No Content, empty body</span>
+    <span class="k">void</span> delete(<span class="an">@PathVariable</span> <span class="k">long</span> id) { service.delete(id); }
+}</pre>
+<div class="ann"><strong>Notice what is absent:</strong> no <code>try/catch</code>, no <code>if (book == null) return 404</code>, no business rules. The controller's only jobs are <strong>translate HTTP ↔ domain</strong> and <strong>delegate</strong>.</div>
+
+<h3>★ DTOs vs Entities — the design decision that matters most</h3>
+<figure>
+<svg viewBox="0 0 760 290" width="100%" role="img" aria-label="Why DTOs separate the API contract from the database schema">
+  <style>
+    .y{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}.b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .g{fill:#eefaf4;stroke:#6db33f;stroke-width:1.4}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11.5px Georgia,serif;fill:#3f3b34}
+    .h{font:bold 12.5px Georgia,serif;fill:#2b2b28}.lb{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+  </style>
+
+  <text class="h" x="14" y="18" style="fill:#7a1f1f">❌ Entity exposed directly — the coupling trap</text>
+  <rect class="y" x="14" y="28" width="340" height="110" rx="6"/>
+  <text class="t" x="30" y="50">client  ⇄  @Entity Book  ⇄  book table</text>
+  <text class="c" x="30" y="72">• rename a DB column → breaks every API client</text>
+  <text class="c" x="30" y="90">• lazy association → LazyInitializationException</text>
+  <text class="c" x="30" y="108">• @RequestBody mass-assignment sets id / role</text>
+  <text class="c" x="30" y="126">• passwordHash / internal flags leak into JSON</text>
+
+  <text class="h" x="406" y="18" style="fill:#1f6b4d">✅ DTO boundary — public contract ≠ DB schema</text>
+  <rect class="g" x="406" y="28" width="340" height="110" rx="6"/>
+  <text class="t" x="422" y="50">client ⇄ DTO ⇄ domain ⇄ @Entity ⇄ table</text>
+  <text class="c" x="422" y="72">• DB schema evolves freely behind the DTO</text>
+  <text class="c" x="422" y="90">• only declared DTO fields are writable</text>
+  <text class="c" x="422" y="108">• converted inside @Transactional (no lazy crash)</text>
+  <text class="c" x="422" y="126">• cost: a 3-line static factory mapping method</text>
+
+  <rect class="b" x="14" y="156" width="732" height="124" rx="6"/>
+  <text class="h" x="30" y="176">Three DTO records, not one — they have genuinely different shapes</text>
+  <text class="t" x="30" y="200">CreateBookRequest</text><text class="lb" x="210" y="200">title, author, isbn            — no id (server assigns)</text>
+  <text class="t" x="30" y="224">UpdateBookRequest</text><text class="lb" x="210" y="224">title, author                  — isbn is immutable after creation</text>
+  <text class="t" x="30" y="248">BookResponse</text><text class="lb" x="210" y="248">id, title, author, isbn, createdAt</text>
+  <text class="lb" x="30" y="270">One shared "BookDto" forces every field to be nullable and every validation rule to be conditional. Resist it.</text>
+</svg>
+<figcaption>The DTO boundary buys you <strong>independent evolution</strong> of your public HTTP API and your database schema.</figcaption>
+</figure>
+
+<h3>Validation — Two Different Mechanisms (Box 6 vs Box 4!)</h3>
+<pre><span class="k">public record</span> CreateBookRequest(
+        <span class="an">@NotBlank</span> <span class="an">@Size</span>(max = 200) String title,
+        <span class="an">@NotBlank</span> String author,
+        <span class="an">@Pattern</span>(regexp = <span class="s">"\\d{13}"</span>, message = <span class="s">"ISBN must be 13 digits"</span>) String isbn,
+        <span class="an">@Positive</span> BigDecimal price,
+        <span class="an">@Past</span> LocalDate publishedOn) {}</pre>
+<table>
+<thead><tr><th>What you validate</th><th>Annotations required</th><th>Which Box runs it?</th><th>Exception thrown on failure</th></tr></thead>
+<tbody>
+<tr><td><code>@RequestBody</code> DTO</td><td><code>@Valid</code> on parameter</td><td><strong>Box 6</strong> (<code>ArgumentResolver</code>)</td><td><code>MethodArgumentNotValidException</code> (→ <strong>400</strong> by default)</td></tr>
+<tr><td><code>@PathVariable</code> / <code>@RequestParam</code></td><td><code>@Validated</code> on class + <code>@Min(1)</code> on param</td><td><strong>Box 4</strong> (AOP Proxy around controller) or Spring 6.1 method validation</td><td><code>ConstraintViolationException</code> (or <code>HandlerMethodValidationException</code> in 6.1+)</td></tr>
+<tr><td>Nested child DTO inside a DTO</td><td><code>@Valid</code> on the parent field</td><td><strong>Box 6</strong> (cascades recursively)</td><td><code>MethodArgumentNotValidException</code> (→ <strong>400</strong>)</td></tr>
+<tr><td><code>@Service</code> method parameters</td><td><code>@Validated</code> on service class</td><td><strong>Box 4</strong> (<code>MethodValidationInterceptor</code> proxy)</td><td><code>ConstraintViolationException</code> (→ <strong>500</strong> unless handled!)</td></tr>
+</tbody></table>
+
+<h3>Error handling — One Place (<code>@RestControllerAdvice</code>) + RFC 9457 <code>ProblemDetail</code></h3>
+<pre><span class="an">@RestControllerAdvice</span>                      <span class="c">// = @ControllerAdvice + @ResponseBody (Box 6 catch block)</span>
+<span class="k">public class</span> ApiExceptionHandler <span class="k">extends</span> ResponseEntityExceptionHandler {
+
+    <span class="an">@ExceptionHandler</span>(BookNotFoundException.class)
+    ProblemDetail notFound(BookNotFoundException ex) {
+        ProblemDetail p = ProblemDetail.forStatusAndDetail(NOT_FOUND, ex.getMessage());
+        p.setTitle(<span class="s">"Book not found"</span>);
+        p.setType(URI.create(<span class="s">"https://api.bookvault.com/errors/book-not-found"</span>));
+        p.setProperty(<span class="s">"bookId"</span>, ex.id());         <span class="c">// custom machine-readable extension field</span>
+        <span class="k">return</span> p;
+    }
+
+    <span class="an">@Override</span>                                  <span class="c">// customize the built-in 400 for @Valid failures</span>
+    <span class="k">protected</span> ResponseEntity&lt;Object&gt; handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpHeaders h, HttpStatusCode s, WebRequest r) {
+
+        ProblemDetail p = ProblemDetail.forStatusAndDetail(BAD_REQUEST, <span class="s">"Validation failed"</span>);
+        p.setProperty(<span class="s">"errors"</span>, ex.getBindingResult().getFieldErrors().stream()
+                .map(f -&gt; Map.of(<span class="s">"field"</span>, f.getField(), <span class="s">"message"</span>, f.getDefaultMessage()))
+                .toList());
+        <span class="k">return</span> ResponseEntity.badRequest().body(p);
+    }
+
+    <span class="an">@ExceptionHandler</span>(Exception.class)          <span class="c">// the safety net — ALWAYS LAST</span>
+    ProblemDetail unexpected(Exception ex) {
+        log.error(<span class="s">"Unhandled"</span>, ex);                <span class="c">// log the stack trace internally…</span>
+        <span class="k">return</span> ProblemDetail.forStatusAndDetail(INTERNAL_SERVER_ERROR,
+                <span class="s">"An unexpected error occurred"</span>);   <span class="c">// …never leak stack traces to the client!</span>
+    }
+}</pre>
+<pre><span class="c">// The resulting HTTP response, in standard RFC 9457 application/problem+json format:</span>
+HTTP/1.1 400 Bad Request
+Content-Type: application/problem+json
+
+{
+  <span class="s">"type"</span>:   <span class="s">"about:blank"</span>,
+  <span class="s">"title"</span>:  <span class="s">"Bad Request"</span>,
+  <span class="s">"status"</span>: 400,
+  <span class="s">"detail"</span>: <span class="s">"Validation failed"</span>,
+  <span class="s">"instance"</span>: <span class="s">"/api/books"</span>,
+  <span class="s">"errors"</span>: [ { <span class="s">"field"</span>: <span class="s">"isbn"</span>, <span class="s">"message"</span>: <span class="s">"ISBN must be 13 digits"</span> } ]
+}</pre>
+
+<h3>Status codes you should choose without hesitation</h3>
+<table>
+<thead><tr><th>Code</th><th>Meaning</th><th>Spring trigger</th></tr></thead>
+<tbody>
+<tr><td>200 / 201 / 204</td><td>OK / Created / No content</td><td>default · <code>ResponseEntity.created(uri)</code> · <code>@ResponseStatus(NO_CONTENT)</code></td></tr>
+<tr><td><strong>400</strong></td><td>Malformed JSON or invalid input</td><td><code>@Valid</code> failure, unreadable JSON, missing required param</td></tr>
+<tr><td>401 / 403</td><td>Unauthenticated / Forbidden</td><td>Spring Security in Box 5 (lesson 13)</td></tr>
+<tr><td>404</td><td>Resource does not exist</td><td>Your domain <code>BookNotFoundException</code></td></tr>
+<tr><td>405 / 406 / 415</td><td>Wrong verb / can't produce <code>Accept</code> / can't read <code>Content-Type</code></td><td>Automatic in Box 6 (lesson 9)</td></tr>
+<tr><td><strong>409</strong></td><td>Conflict: duplicate key or optimistic lock failure</td><td><code>DuplicateKeyException</code>, <code>OptimisticLockingFailureException</code></td></tr>
+<tr><td>422</td><td>Syntactically valid JSON, business rule violated</td><td>Domain rule exception (pick 400 or 422 and be consistent)</td></tr>
+<tr><td>429</td><td>Rate limited</td><td>Your rate-limit filter/interceptor</td></tr>
+<tr><td>500 / 503</td><td>Server bug / downstream dependency unavailable</td><td>Catch-all handler · circuit breaker open</td></tr>
+</tbody></table>
+
+<h3>Calling other services — <code>RestClient</code> (Spring 6.1+)</h3>
+<pre><span class="an">@Bean</span>
+RestClient catalogClient(RestClient.Builder builder, CatalogProperties props) {
+    <span class="k">return</span> builder
+        .baseUrl(props.baseUrl())
+        .requestFactory(ClientHttpRequestFactories.get(            <span class="c">// ★ ALWAYS set timeouts!</span>
+            ClientHttpRequestFactorySettings.DEFAULTS
+                .withConnectTimeout(Duration.ofSeconds(2))
+                .withReadTimeout(props.timeout())))
+        .defaultHeader(<span class="s">"X-Correlation-Id"</span>, () -&gt; MDC.get(<span class="s">"correlationId"</span>))
+        .build();
+}</pre>
+<div class="pitfall"><strong>The #1 microservice outage cause:</strong> calling an outbound HTTP API with <em>no read timeout</em>. If the downstream service hangs, your Tomcat worker threads (Box 5) block forever until all 200 threads are exhausted and your entire server dies.</div>
+
+<h2><span class="n">§4</span>When to use</h2>
+<table>
+<thead><tr><th>Scenario</th><th>Choice</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Public or cross-team resource APIs</td><td>REST (L2) + <code>ProblemDetail</code></td><td>Standard HTTP caching, status codes, OpenAPI tooling.</td></tr>
+<tr><td>Many mobile/web screens needing custom field subsets</td><td>GraphQL (<code>spring-boot-starter-graphql</code>)</td><td>Avoids over/under-fetching at the cost of HTTP caching and N+1 care.</td></tr>
+<tr><td>High-throughput internal microservice-to-microservice calls</td><td>gRPC (Protobuf)</td><td>Strict binary contract, multiplexing, streaming; not directly browser-friendly.</td></tr>
+<tr><td>Need to set dynamic headers or status (201 + <code>Location</code>, ETag)</td><td>Return <code>ResponseEntity&lt;T&gt;</code></td><td>Gives full control over status line and headers; otherwise return <code>T</code> directly.</td></tr>
+<tr><td>Versioning a breaking change</td><td>URI path (<code>/api/v2/books</code>) or additive fields</td><td>Additive evolution (never removing/renaming fields) is best; URI versioning is clearest when forced to break.</td></tr>
+</tbody></table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+A REST API is like a <strong>library counter</strong>. Every book has an address on the shelf (<code>/api/books/42</code>). Everyone who walks up uses the same four standard action words: <em>look at it</em> (<code>GET</code>), <em>add a new book</em> (<code>POST</code>), <em>replace it</em> (<code>PUT</code>), or <em>remove it</em> (<code>DELETE</code>).
+</p>
+<p>
+When you hand the librarian a form to add a new book, her assistant checks the form right at the counter (<code>@Valid</code>) before bothering the head librarian: "Hey, the ISBN has to be 13 digits!" (400 Bad Request).
+</p>
+<p>
+And most importantly: the librarian <strong>never hands you the library's internal database ledger</strong> (<code>@Entity</code>). Instead, she copies just the public details onto a neat <strong>visitor card</strong> (a DTO record). That way, when the library reorganizes its basement cabinets next month, your visitor card looks identical and nothing breaks!
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← 09-web-mvc:</strong> <code>@Valid</code> runs inside Step 5 (<code>ArgumentResolver</code>); <code>@RestControllerAdvice</code> is Step 8 (<code>HandlerExceptionResolver</code>).</li>
+  <li><strong>← 06-aop:</strong> <code>@RestControllerAdvice</code> is <em>not</em> AOP — it is a <code>DispatcherServlet</code> catch hook in Box 6. By contrast, <code>@Validated</code> on a <code>@Service</code> class <em>is</em> an AOP proxy in Box 4.</li>
+  <li><strong>→ 11-data-access &amp; 12-transactions:</strong> why returning JPA entities from controllers causes <code>LazyInitializationException</code> once the Box 4 transaction closes.</li>
+  <li><strong>→ 13-spring-security:</strong> why 401/403 security failures happen in Box 5 before <code>@RestControllerAdvice</code> can see them.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Code Dissection &amp; Derive, Don't Memorize</h2>
+
+<h3>1. One Endpoint, End-to-End Dissection</h3>
+<pre><span class="c">// ---------- 1. Inbound DTO: immutable record + validation constraints ----------</span>
+<span class="k">public record</span> CreateBookRequest(
+        <span class="an">@NotBlank</span> <span class="an">@Size</span>(max = 200) String title,
+        <span class="an">@NotBlank</span> String author,
+        <span class="an">@Pattern</span>(regexp = <span class="s">"\\d{13}"</span>) String isbn) {
+
+    CreateBookCommand toCommand() {                    <span class="c">// ① DTO -&gt; domain command</span>
+        <span class="k">return new</span> CreateBookCommand(title.strip(), author.strip(), <span class="k">new</span> Isbn(isbn));
+    }
+}
+
+<span class="c">// ---------- 2. Outbound DTO: hides internal entity state ----------</span>
+<span class="k">public record</span> BookResponse(<span class="k">long</span> id, String title, String author,
+                            String isbn, Instant createdAt) {
+    <span class="k">static</span> BookResponse from(Book b) {                 <span class="c">// ② domain -&gt; DTO</span>
+        <span class="k">return new</span> BookResponse(b.id(), b.title(), b.author(),
+                                 b.isbn().value(), b.createdAt());
+    }
+}
+
+<span class="c">// ---------- 3. Controller (Box 6): thin translation + delegation ----------</span>
+<span class="an">@PostMapping</span>(consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
+ResponseEntity&lt;BookResponse&gt; create(<span class="an">@Valid</span> <span class="an">@RequestBody</span> CreateBookRequest req,  <span class="c">// ③</span>
+                                    UriComponentsBuilder uriBuilder) {       <span class="c">// ④</span>
+    Book created = service.create(req.toCommand());                          <span class="c">// ⑤ calls Box 4 proxy</span>
+    URI location = uriBuilder.path(<span class="s">"/api/books/{id}"</span>)
+                             .buildAndExpand(created.id()).toUri();
+    <span class="k">return</span> ResponseEntity.created(location)                                  <span class="c">// ⑥ 201 + Location</span>
+                         .body(BookResponse.from(created));
+}
+
+<span class="c">// ---------- 4. Global Advice (Box 6 catch block): domain exception -&gt; HTTP 409 ----------</span>
+<span class="an">@ExceptionHandler</span>(DuplicateIsbnException.class)
+ProblemDetail duplicate(DuplicateIsbnException ex) {                          <span class="c">// ⑦</span>
+    ProblemDetail p = ProblemDetail.forStatusAndDetail(CONFLICT,
+            <span class="s">"A book with ISBN "</span> + ex.isbn() + <span class="s">" already exists"</span>);
+    p.setTitle(<span class="s">"Duplicate ISBN"</span>);
+    p.setProperty(<span class="s">"isbn"</span>, ex.isbn().value());
+    <span class="k">return</span> p;
+}</pre>
+<div class="ann"><strong>Dissection.</strong>
+<strong>①②</strong> Static mapping methods on Java <code>record</code>s keep the controller 5 lines long and require zero reflection.
+<strong>③</strong> <code>@RequestBody</code> tells Box 6's <code>RequestResponseBodyMethodProcessor</code> to deserialize JSON via Jackson; <code>@Valid</code> tells that exact same processor to run Bean Validation immediately afterwards.
+<strong>⑤⑦</strong> <code>BookService</code> throws a pure domain exception (<code>DuplicateIsbnException</code>) with zero HTTP imports; <code>@RestControllerAdvice</code> catches it in Box 6 and maps it to HTTP 409 <code>ProblemDetail</code>.</div>
+
+<h3>2. How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead><tr><th>Classic Interview Question</th><th>Which Box / Rule?</th><th>10-Second Derivation</th></tr></thead>
+<tbody>
+<tr>
+  <td><em>"I put <code>@NotBlank</code> on my DTO fields, sent <code>{"title":""}</code>, and my controller still ran with an empty title! Why?"</em></td>
+  <td><strong>Box 6</strong><br/>(<code>ArgumentResolver</code>)</td>
+  <td><code>@NotBlank</code> is just passive metadata. Without <code>@Valid</code> (or <code>@Validated</code>) on the controller's <code>@RequestBody</code> parameter, <code>RequestResponseBodyMethodProcessor</code> deserializes the JSON via Jackson and never calls the validator!</td>
+</tr>
+<tr>
+  <td><em>"What is the difference between <code>@Valid</code> and <code>@Validated</code>?"</em></td>
+  <td><strong>Box 6 vs Box 4</strong><br/>(Rule 2: Proxy)</td>
+  <td><code>@Valid</code> is the standard Jakarta annotation used on <code>@RequestBody</code> parameters (Box 6) and nested fields. <code>@Validated</code> is Spring's annotation that adds <strong>validation groups</strong> and activates the <strong>AOP validation proxy (Box 4)</strong> on <code>@Service</code> beans (meaning <strong>Rule 2 self-invocation</strong> applies to <code>@Validated</code> services!).</td>
+</tr>
+<tr>
+  <td><em>"Why did a malformed JSON syntax error (<code>{"price": "abc"}</code>) throw a different exception than <code>@Positive</code> failing on <code>{"price": -5}</code>?"</em></td>
+  <td><strong>Rule 1</strong><br/>(Order inside Step 5)</td>
+  <td>Inside the <code>ArgumentResolver</code>, <strong>Jackson runs first</strong> to parse bytes into Java types; if <code>"abc"</code> can't parse into a <code>BigDecimal</code>, Jackson throws <code>HttpMessageNotReadableException</code> before Bean Validation ever runs. When <code>-5</code> parses cleanly into a <code>BigDecimal</code>, <strong>Bean Validation runs second</strong> and throws <code>MethodArgumentNotValidException</code>.</td>
+</tr>
+<tr>
+  <td><em>"Why shouldn't I return my <code>@Entity Book</code> directly from a <code>@RestController</code>?"</em></td>
+  <td><strong>Rule 1 &amp; Rule 3</strong><br/>(Box 4 vs Box 6)</td>
+  <td>1) Jackson serializes the response in <strong>Box 6 Step 7</strong>, <em>after</em> the <code>@Service</code>'s <code>@Transactional</code> proxy (<strong>Box 4</strong>) has already closed the <code>ThreadLocal</code> <code>PersistenceContext</code> — so any lazy field throws <code>LazyInitializationException</code>. 2) It couples your public JSON contract to your database table columns and risks mass-assignment security bugs.</td>
+</tr>
+<tr>
+  <td><em>"Why do we need both a DB unique constraint AND an exception handler if we already checked <code>if (repo.existsByIsbn(...))</code>?"</em></td>
+  <td><strong>Rule 3</strong><br/>(Concurrency across threads)</td>
+  <td>Two Tomcat worker threads can run <code>existsByIsbn()</code> at the exact same millisecond, both see <code>false</code>, and both insert (TOCTOU race condition). Only the database's unique constraint guarantees atomicity; Spring translates the DB error into <code>DuplicateKeyException</code> / <code>DataIntegrityViolationException</code>, which <code>@RestControllerAdvice</code> maps to 409.</td>
+</tr>
+</tbody></table>
+
+<div class="try"><strong>Predict the Output / Try This.</strong>
+<ol style="margin:.4rem 0 0">
+<li>POST <code>{"title":"","author":" Orwell ","isbn":"123"}</code> to <code>/api/books</code>. Inspect the 400 <code>application/problem+json</code> response. Then remove <code>@Valid</code> and watch the invalid record enter your service!</li>
+<li>Send malformed JSON <code>{"title": "1984",</code> (missing closing brace) and verify that <code>handleHttpMessageNotReadable</code> triggers instead of <code>handleMethodArgumentNotValid</code>.</li>
+<li>Add <code>spring.mvc.problemdetails.enabled=true</code> to <code>application.properties</code> and trigger a 404, 405, and 415 — see how Spring formats all built-in errors as RFC 9457 <code>ProblemDetail</code> automatically.</li>
+</ol></div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Exposing <code>@Entity</code> classes as request/response bodies.</strong> Couples your public API to your DB schema, leaks internal fields, triggers <code>LazyInitializationException</code> or accidental N+1 queries during Jackson serialization in Box 6, and opens mass-assignment vulnerabilities on input.</div>
+<div class="pitfall"><strong>Forgetting <code>@Valid</code> on <code>@RequestBody</code> (or forgetting <code>@Valid</code> on a nested child DTO field).</strong> Constraints on a record do nothing unless triggered. And if <code>CreateOrderRequest</code> contains <code>List&lt;AddressDto&gt; addresses</code>, you must annotate the field <code>@Valid List&lt;AddressDto&gt;</code> or the child items won't be validated!</div>
+<div class="pitfall"><strong>Unhandled <code>ConstraintViolationException</code> returning HTTP 500.</strong> Parameter/service validation with <code>@Validated</code> throws <code>ConstraintViolationException</code> (or <code>HandlerMethodValidationException</code> in Spring 6.1+). Always add an <code>@ExceptionHandler</code> mapping it to 400.</div>
+<div class="pitfall"><strong>Returning HTTP 200 with <code>{"success": false}</code> on errors.</strong> Breaks HTTP semantics, API gateways, observability metrics, and client retry logic.</div>
+<div class="pitfall"><strong>Leaking stack traces or SQL details in 500 responses.</strong> Your catch-all <code>@ExceptionHandler(Exception.class)</code> must log the full exception server-side and return a safe, generic <code>ProblemDetail</code> to the caller.</div>
+<div class="pitfall"><strong>Unbounded list endpoints without pagination.</strong> Never return <code>List&lt;BookResponse&gt;</code> from a table that can grow unboundedly. Accept <code>Pageable</code>, set <code>@PageableDefault(size = 20)</code>, and cap <code>spring.data.web.pageable.max-page-size=100</code>.</div>
+<div class="pitfall"><strong>No timeouts on <code>RestClient</code> / <code>RestTemplate</code>.</strong> A hung downstream service will block all 200 Tomcat worker threads in Box 5 and cause a cascading outage.</div>
+
+<h2><span class="n">§9</span>Recap &amp; Glossary / Reference</h2>
+<ul class="recap">
+  <li><strong>Every REST annotation is a Box 6 helper:</strong> <code>@RequestBody</code> runs Jackson in an <code>ArgumentResolver</code>; <code>@Valid</code> runs Bean Validation right after; <code>@RestControllerAdvice</code> is the <code>HandlerExceptionResolver</code> catch block.</li>
+  <li><strong>HTTP is the contract:</strong> URL = resource, verb = operation, status code = outcome. Know which verbs are <strong>safe</strong> (<code>GET</code>) and <strong>idempotent</strong> (<code>GET</code>, <code>PUT</code>, <code>DELETE</code> — <em>not</em> <code>POST</code>).</li>
+  <li><strong>Always use DTO <code>record</code>s at the controller boundary</strong> — separate <code>CreateXRequest</code>, <code>UpdateXRequest</code>, and <code>XResponse</code>.</li>
+  <li><strong>Keep domain exceptions HTTP-free:</strong> services throw domain exceptions (<code>DuplicateIsbnException</code>); one <code>@RestControllerAdvice</code> translates them into RFC 9457 <code>ProblemDetail</code> JSON.</li>
+  <li><strong>Paginate collection endpoints</strong> with <code>Pageable</code> and always set connect/read timeouts on outbound <code>RestClient</code> calls.</li>
+</ul>
+
+<hr/>
+<h2>Reference — quick cheat-sheet</h2>
+<table>
+<thead><tr><th>You want…</th><th>Write</th></tr></thead>
+<tbody>
+<tr><td>JSON in / JSON out controller</td><td><code>@RestController</code> + immutable Java <code>record</code> DTOs</td></tr>
+<tr><td>201 Created + <code>Location</code> header</td><td><code>ResponseEntity.created(uri).body(dto)</code></td></tr>
+<tr><td>204 No Content</td><td><code>@ResponseStatus(HttpStatus.NO_CONTENT)</code> on a <code>void</code> method</td></tr>
+<tr><td>Validate a JSON request body</td><td><code>@Valid @RequestBody CreateBookRequest req</code> (Box 6)</td></tr>
+<tr><td>Validate nested DTO fields</td><td>Put <code>@Valid</code> on the parent record's child field too</td></tr>
+<tr><td>Global error mapping to RFC 9457</td><td><code>@RestControllerAdvice extends ResponseEntityExceptionHandler</code> returning <code>ProblemDetail</code></td></tr>
+<tr><td>Turn on RFC 9457 for all Spring MVC errors</td><td><code>spring.mvc.problemdetails.enabled=true</code></td></tr>
+<tr><td>Pagination + sorting</td><td><code>Pageable</code> parameter + <code>@PageableDefault(size = 20)</code></td></tr>
+<tr><td>Call another HTTP service synchronously</td><td><code>RestClient</code> (Spring 6.1+) with explicit connect &amp; read timeouts</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>REST</dt><dd>Representational State Transfer — using HTTP's native URLs, verbs, status codes, and headers as the API contract.</dd>
+  <dt>DTO (Data Transfer Object)</dt><dd>Immutable Java <code>record</code> defining the public JSON shape, decoupled from JPA <code>@Entity</code> classes.</dd>
+  <dt>Idempotent</dt><dd>An operation where making the identical request 1 time or 10 times produces the exact same server state (<code>GET</code>, <code>PUT</code>, <code>DELETE</code>).</dd>
+  <dt>Safe method</dt><dd>An HTTP method that only reads data and does not modify server state (<code>GET</code>, <code>HEAD</code>).</dd>
+  <dt>ProblemDetail</dt><dd>Spring 6's built-in representation of RFC 9457 <code>application/problem+json</code> error responses.</dd>
+  <dt>@RestControllerAdvice</dt><dd>A global Box 6 interceptor/exception-resolver bean combining <code>@ControllerAdvice</code> and <code>@ResponseBody</code>.</dd>
+  <dt>Bean Validation</dt><dd>Jakarta specification (<code>@NotBlank</code>, <code>@Size</code>, <code>@Positive</code>) implemented by Hibernate Validator.</dd>
+  <dt>Richardson Maturity Model</dt><dd>L0–L3 scale measuring how completely an API uses HTTP (URIs → Verbs/Statuses → Hypermedia Links).</dd>
+  <dt>Mass assignment</dt><dd>Security vulnerability where binding raw JSON directly to a database entity lets attackers overwrite sensitive fields like <code>role</code> or <code>id</code>.</dd>
+  <dt>RestClient</dt><dd>Spring 6.1+'s fluent synchronous HTTP client replacing <code>RestTemplate</code>.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-ann-rest-exceptions.html">Spring Framework
+Reference — Error Responses</a> (<code>ProblemDetail</code>, <code>@ExceptionHandler</code>,
+<code>ResponseEntityExceptionHandler</code>) and the <a href="https://spring.io/guides/tutorials/rest">spring.io REST tutorial</a>.
+For the design side, <a href="https://www.rfc-editor.org/rfc/rfc9457">RFC 9457</a> is short and worth skimming once.</p>
+<p class="sources" style="margin-top:2rem">Sources: Spring Framework Reference Documentation (Web → Spring Web MVC:
+Annotated Controllers, Handler Methods, Error Responses / <code>ProblemDetail</code>, Validation; Integration →
+<code>RestClient</code>); Spring Boot Reference (Web → Spring MVC, error handling, <code>spring.mvc.problemdetails.enabled</code>);
+IETF RFC 9457 <em>Problem Details for HTTP APIs</em>; Richardson Maturity Model. Targeting Spring Framework 6.x / Boot 3.x.
+Authored per Knowledge-Base-2 rules §6.2–§6.3 and <code>topic-styles/framework.md</code>.</p>
+
+</body>
+</html>

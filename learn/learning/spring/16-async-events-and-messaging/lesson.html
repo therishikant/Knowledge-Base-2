@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lesson 16: Async, Events &amp; Messaging — Spring</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.6rem;margin-bottom:1.8rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{text-decoration:none;font-weight:600} .nav a:hover{text-decoration:underline}
+  h1{font-size:2.2rem;line-height:1.12;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .6rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.12rem;margin:1.5rem 0 .35rem}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.48}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f5f1e6;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner h3{margin:0 0 .4rem;color:var(--accent2);font-size:1.05rem}
+  .flow{background:#fff;border:1px solid var(--rule);border-left:4px solid var(--spring);padding:.8rem 1.1rem;border-radius:6px;margin:1rem 0;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.83rem;line-height:1.6}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.85rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.35rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  @media print{body{padding:1rem;max-width:100%} pre,table,figure{break-inside:avoid}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span><a href="../15-observability-and-production/lesson.html">← Lesson 15: Observability &amp; Production</a></span>
+  <span><a href="../overview.html">Spring 18-Lesson Map</a> · Lesson 16 of 18</span>
+  <span><a href="../17-reactive-and-webflux/lesson.html">Lesson 17: Reactive &amp; WebFlux →</a></span>
+</nav>
+
+<h1>Async, Events &amp; Messaging</h1>
+<p class="crumb"><a href="../overview.html">Spring</a> › lesson 16 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — Stepping Off the Request Thread</p>
+
+<div class="tldr">
+<strong>Summary —</strong> Until now, every request ran synchronously on a single Box 5 Tomcat thread from start to finish. This lesson gives you three tools to decouple work: <strong>Box 3 Events</strong> (<code>ApplicationEventPublisher</code> + <code>@TransactionalEventListener(AFTER_COMMIT)</code>), <strong>Box 4 Proxies</strong> (<code>@Async</code> worker threads, <code>@Cacheable</code> Maps, <code>@Retryable</code> loops), and <strong>Durable Message Brokers</strong> (Kafka/RabbitMQ + the Transactional Outbox)—plus <strong>Java 21 Virtual Threads</strong> in Box 5.
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the Map</h2>
+<p>
+In Lessons 9–13, a single Tomcat thread (Box 5) carried the request into <code>DispatcherServlet</code> (Box 6), held the database transaction and logged-in user inside <code>ThreadLocal</code>s, and waited for everything to finish. What happens when we want to trigger side effects without coupling classes, or step off the request thread onto a background worker thread?
+</p>
+
+<div class="map-banner">
+  <h3>📍 You Are Here: Stepping Off the Request Thread — Box 3 Events, Box 4 Proxies (@Async, @Cacheable, @Retryable), Brokers &amp; Virtual Threads</h3>
+  <p style="margin:.3rem 0">
+    <strong>What happened before:</strong> Lesson 6 introduced Box 4 AOP Proxies, Lesson 12 put the active DB <code>Connection</code> in Box 6 <code>ThreadLocal</code>, and Lesson 13 put the <code>SecurityContext</code> in Box 6 <code>ThreadLocal</code>.<br>
+    <strong>What this lesson zooms into:</strong> What happens when Box 3 publishes an in-memory Event, when a Box 4 <code>@Async</code> proxy jumps to a new worker thread (where <strong>Rule 2</strong> and <strong>Rule 3</strong> explain every single bug!), how <code>@Cacheable</code> caches return values in a Map, and how Kafka/RabbitMQ + the Outbox pattern survive JVM crashes.<br>
+    <strong>What happens right after:</strong> Lesson 17 explores the radical alternative—replacing Box 5 Tomcat &amp; Box 6 <code>DispatcherServlet</code> entirely with Netty's non-blocking event loop (Spring WebFlux).
+  </p>
+</div>
+
+<figure>
+<svg viewBox="0 0 800 350" width="100%" role="img" aria-label="6-Box Map showing Events, @Async Thread Jump, @Cacheable, and Outbox/Kafka">
+  <style>
+    .b-req{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.6}
+    .b-px{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.6}
+    .b-wk{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.6}
+    .b-ok{fill:#eefaf4;stroke:#1f6b4d;stroke-width:1.6}
+    .h{font:bold 12px Georgia,serif;fill:#2b2b28}
+    .t{font:11px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .s{font:10.5px Georgia,serif;fill:#3f3b34}
+    .arr{stroke:#2b2b28;stroke-width:1.5;marker-end:url(#ar16);fill:none}
+  </style>
+  <defs><marker id="ar16" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2b2b28"/></marker></defs>
+
+  <!-- Left: Request Thread in Box 5 & 6 -->
+  <rect class="b-req" x="12" y="14" width="360" height="195" rx="6"/>
+  <text class="h" x="24" y="34" style="fill:#1f4d7a">Box 5 &amp; 6: Tomcat Request Thread (http-nio-8080-exec-1)</text>
+  <text class="t" x="24" y="54">ThreadLocal State (Rule 3):</text>
+  <text class="t" x="24" y="70"> • DB Connection (active @Transactional)</text>
+  <text class="t" x="24" y="86"> • SecurityContext (User = "alice")</text>
+  <text class="t" x="24" y="102"> • MDC (traceId = "abc-123")</text>
+
+  <rect class="b-ok" x="24" y="116" width="336" height="80" rx="5"/>
+  <text class="h" x="34" y="134" style="fill:#1f6b4d">Box 3 Events: events.publishEvent(new LoanCreated())</text>
+  <text class="s" x="34" y="152">• Plain @EventListener → runs IMMEDIATELY on SAME thread</text>
+  <text class="s" x="34" y="168">  (shares Box 6 DB Transaction! Throwing rolls back tx!)</text>
+  <text class="s" x="34" y="184">• @TransactionalEventListener(AFTER_COMMIT) → runs after commit!</text>
+
+  <!-- Arrow from Request Thread to Box 4 Proxy -->
+  <path class="arr" d="M372,90 L416,90"/>
+
+  <!-- Top Right: Box 4 Proxy (@Async / @Cacheable / @Retryable) -->
+  <rect class="b-px" x="420" y="14" width="368" height="92" rx="6"/>
+  <text class="h" x="432" y="34" style="fill:#7a1f1f">Box 4: AOP Proxy Interceptors (Rule 2: No 'this.' calls!)</text>
+  <text class="t" x="432" y="52">• @Cacheable → checks ConcurrentMap&lt;Key,Val&gt; before target</text>
+  <text class="t" x="432" y="70">• @Retryable → catches exception &amp; loops with backoff+jitter</text>
+  <text class="t" x="432" y="88">• @Async     → submits task() to TaskExecutor BlockingQueue!</text>
+
+  <path class="arr" d="M604,106 L604,128"/>
+
+  <!-- Middle Right: Worker Thread Pool -->
+  <rect class="b-wk" x="420" y="130" width="368" height="79" rx="6"/>
+  <text class="h" x="432" y="150" style="fill:#7a1f1f">@Async Worker Thread (taskExecutor-1) — Rule 3 Alert!</text>
+  <text class="t" x="432" y="168">ThreadLocal State is EMPTY on this new thread!</text>
+  <text class="s" x="432" y="185">❌ Caller's DB Transaction = LOST!  ❌ SecurityContext = NULL!</text>
+  <text class="s" x="432" y="200">❌ JVM crash = queued tasks in RAM are LOST forever!</text>
+
+  <!-- Bottom Row: Durable Outbox + Kafka Broker + Virtual Threads -->
+  <rect class="b-ok" x="12" y="224" width="468" height="112" rx="6"/>
+  <text class="h" x="24" y="244" style="fill:#1f6b4d">Surviving JVM Crashes: Transactional Outbox → Message Broker (Kafka/RabbitMQ)</text>
+  <text class="t" x="24" y="264">1. Inside Box 6 TX: INSERT INTO loans + INSERT INTO outbox (Atomic!)</text>
+  <text class="t" x="24" y="282">2. Background Poller/CDC reads outbox → sends to Kafka → marks published</text>
+  <text class="t" x="24" y="300">3. @KafkaListener receives message (at-least-once → must be IDEMPOTENT!)</text>
+  <text class="s" x="24" y="320">Solves the Dual-Write Problem: DB and Kafka can never get out of sync.</text>
+
+  <rect class="b-req" x="492" y="224" width="296" height="112" rx="6"/>
+  <text class="h" x="504" y="244" style="fill:#1f4d7a">Java 21 Virtual Threads in Box 5</text>
+  <text class="t" x="504" y="264">spring.threads.virtual.enabled=true</text>
+  <text class="s" x="504" y="282">Box 5 Tomcat &amp; @Async spawn lightweight</text>
+  <text class="s" x="504" y="298">virtual threads that unmount during</text>
+  <text class="s" x="504" y="314">blocking I/O — no pool exhaustion!</text>
+</svg>
+<figcaption>Everything in Lesson 16 comes down to: Which thread runs it? Does it share Box 6's <code>ThreadLocal</code>? Does it survive a JVM crash?</figcaption>
+</figure>
+
+<h2><span class="n">§2</span>Why it exists — The Pain of Tightly-Coupled Synchronous Code</h2>
+<p>
+Look at what happens when <code>LoanService.borrow()</code> tries to do everything directly on the user's request thread:
+</p>
+
+<pre><span class="c">// ❌ THE PAINFUL WAY: Coupled, slow, and sends emails for rolled-back transactions!</span>
+<span class="an">@Transactional</span>
+<span class="k">public</span> Loan borrow(<span class="k">long</span> bookId, <span class="k">long</span> memberId) {
+    Loan loan = loans.save(<span class="k">new</span> Loan(bookId, memberId));
+    memberStats.incrementCount(memberId);
+    smtpMailer.sendEmail(memberId, loan.id());   <span class="c">// ☠ 1. Blocks Tomcat thread for 2,000 ms!</span>
+    kafkaTemplate.send(<span class="s">"loans"</span>, loan);           <span class="c">// ☠ 2. What if DB commit fails on the next line?!</span>
+    auditRepo.save(buildAuditThatMightFail());   <span class="c">// ☠ 3. Throws exception → DB rolls back,</span>
+    <span class="k">return</span> loan;                                 <span class="c">//      but email &amp; Kafka message were ALREADY SENT!</span>
+}</pre>
+
+<div class="callout">
+<strong>The Contrast Anchor:</strong> This code has three fatal flaws: (1) <code>LoanService</code> is hard-wired to email, Kafka, and stats; (2) the user waits 2 seconds for SMTP; and (3) if the database transaction rolls back at the end of the method, <strong>you cannot un-send an email or a Kafka message</strong>!
+</div>
+
+<h2><span class="n">§3</span>How it works — Plain Java Data Structures First (Level 1 → Level 2 Zoom)</h2>
+
+<h3>1. Plain Java Data Structures Behind Events, <code>@Async</code>, and <code>@Cacheable</code></h3>
+<ul>
+  <li><strong>Box 3 Event Bus (<code>List&lt;ApplicationListener&lt;?&gt;&gt;</code>):</strong> Inside Box 3 (<code>ApplicationContext</code>), Spring holds a simple list of listener methods. When you call <code>events.publishEvent(event)</code>, Spring loops over that list with a plain <code>for</code> loop <strong>on the exact same thread</strong>!</li>
+  <li><strong><code>@TransactionalEventListener</code> (Box 6 Transaction Hook List):</strong> Instead of running the listener immediately in the <code>for</code> loop, Spring registers a callback into Box 6's <code>TransactionSynchronizationManager</code> (a <code>ThreadLocal&lt;List&lt;TransactionSynchronization&gt;&gt;</code>). Right after Box 4's transaction proxy calls <code>connection.commit()</code>, it loops through that list and fires your <code>AFTER_COMMIT</code> listeners!</li>
+  <li><strong>Box 4 <code>@Async</code> Proxy + <code>BlockingQueue&lt;Runnable&gt;</code>:</strong> When you put <code>@Async</code> on a method, Box 4 wraps the bean in a proxy. Calling the proxy does <em>not</em> run your method—it packages your method call into a <code>Runnable</code> lambda and drops it into a <code>ThreadPoolTaskExecutor</code>'s <code>BlockingQueue&lt;Runnable&gt;</code>, returning immediately to the caller while a background worker thread picks it up.</li>
+  <li><strong>Box 4 <code>@Cacheable</code> Proxy + <code>ConcurrentMap&lt;Object, Object&gt;</code>:</strong> A <code>@Cacheable("books")</code> proxy intercepts the call, builds a key from the method parameters, checks <code>cacheMap.get(key)</code>, and if found, returns the cached value <em>without ever calling your target method</em>.</li>
+</ul>
+
+<h3>2. Step-by-Step Control Flows</h3>
+
+<div class="flow">
+<strong>Flow A: <code>@TransactionalEventListener(phase = AFTER_COMMIT)</code></strong><br>
+Step 1 → Caller invokes Box 4 <code>@Transactional</code> proxy → binds DB <code>Connection</code> to Box 6 <code>ThreadLocal</code>.<br>
+Step 2 → <code>loanService.borrow()</code> runs <code>loans.save()</code> and calls <code>events.publishEvent(new LoanCreated(...))</code>.<br>
+Step 3 → Spring sees <code>@TransactionalEventListener(AFTER_COMMIT)</code> → does NOT run it yet; appends callback to Box 6 <code>ThreadLocal</code> synchronization list.<br>
+Step 4 → <code>borrow()</code> returns → Box 4 proxy calls <code>connection.commit()</code> on the database.<br>
+Step 5 → <strong>Only because commit succeeded</strong>, Spring invokes <code>onLoanCreated(event)</code>! (If commit rolled back, Step 5 is skipped!).
+</div>
+
+<div class="flow">
+<strong>Flow B: What Happens When You Call an <code>@Async</code> Method (Rule 2 &amp; Rule 3 in Action!)</strong><br>
+Step 1 → Controller calls <code>reportServiceProxy.generateReport(42L)</code> (must call the <strong>Box 4 Proxy</strong>, not <code>this.generateReport()</code>!).<br>
+Step 2 → Box 4 <code>AsyncExecutionInterceptor</code> catches the call and calls <code>taskExecutor.submit(() -&gt; target.generateReport(42L))</code>.<br>
+Step 3 → Worker thread <code>bookvault-async-1</code> pulls the task from the <code>BlockingQueue</code>.<br>
+Step 4 → <strong>Rule 3 Check:</strong> Worker thread <code>bookvault-async-1</code> has its own <strong>brand-new, empty <code>ThreadLocal</code> map</strong>! It does NOT have the HTTP thread's DB transaction, it does NOT have <code>SecurityContextHolder</code>'s logged-in user, and it does NOT have MDC's <code>traceId</code>!
+</div>
+
+<h3>3. Code Building Blocks: <code>@Async</code>, <code>@Scheduled</code>, <code>@Cacheable</code>, and Virtual Threads</h3>
+
+<pre><span class="an">@Configuration</span>
+<span class="an">@EnableAsync</span>
+<span class="an">@EnableScheduling</span>
+<span class="an">@EnableCaching</span>
+<span class="k">class</span> AsyncAndCacheConfig {
+
+    <span class="an">@Bean</span>(name = <span class="s">"taskExecutor"</span>)
+    ThreadPoolTaskExecutor taskExecutor() {
+        ThreadPoolTaskExecutor ex = <span class="k">new</span> ThreadPoolTaskExecutor();
+        ex.setCorePoolSize(4);
+        ex.setMaxPoolSize(8);
+        ex.setQueueCapacity(100);                                <span class="c">// ★ ALWAYS bound the BlockingQueue!</span>
+        ex.setThreadNamePrefix(<span class="s">"bookvault-async-"</span>);
+        ex.setRejectedExecutionHandler(<span class="k">new</span> CallerRunsPolicy()); <span class="c">// Backpressure instead of OOM</span>
+        ex.setTaskDecorator(<span class="k">new</span> ContextPropagatingTaskDecorator()); <span class="c">// Copies MDC traceId across threads!</span>
+        <span class="k">return</span> ex;
+    }
+}</pre>
+
+<div class="pitfall">
+<strong>Why You Must Configure a Bounded <code>ThreadPoolTaskExecutor</code> (Or Enable Virtual Threads):</strong><br>
+Historically, Spring's default fallback <code>SimpleAsyncTaskExecutor</code> did not pool threads at all—it spawned a brand-new OS thread on every call with no cap! And if you create a pool with an unbounded queue (<code>Integer.MAX_VALUE</code>), a traffic spike fills heap RAM until the JVM dies with <code>OutOfMemoryError</code>.<br>
+<strong>Java 21 Alternative:</strong> Setting <code>spring.threads.virtual.enabled=true</code> in Box 1 switches Box 5 (Tomcat) and Box 4 (<code>@Async</code> / <code>@Scheduled</code>) to use lightweight <strong>Virtual Threads</strong> that unmount from carrier OS threads whenever they wait on SQL, HTTP, or SMTP!
+</div>
+
+<h3>4. In-Memory Events vs Durable Message Brokers (And the Outbox Pattern)</h3>
+<p>
+An in-memory <code>ApplicationEvent</code> lives in JVM RAM—if the pod crashes 1 millisecond after <code>connection.commit()</code>, your <code>AFTER_COMMIT</code> listener never runs. When an event <strong>must survive a crash or cross into another microservice</strong>, you need a durable message broker (Kafka or RabbitMQ).
+</p>
+<p>
+But how do you save a row to PostgreSQL <em>and</em> publish a message to Kafka atomically? You cannot use a database transaction across Kafka (that's the <strong>Dual-Write Problem</strong>). The industry-standard solution is the <strong>Transactional Outbox Pattern</strong>:
+</p>
+<ol>
+  <li>Inside the <strong>same Box 6 database transaction</strong> that inserts the <code>Loan</code> row, insert an <code>OutboxEvent</code> row into an <code>outbox</code> table in PostgreSQL. Either <em>both</em> rows commit, or <em>neither</em> commits!</li>
+  <li>A background <code>@Scheduled</code> poller (or Debezium CDC) reads unpublished rows from the <code>outbox</code> table, sends them to Kafka, and marks them published.</li>
+  <li>Because the poller might crash right after sending to Kafka but before marking the row published, Kafka receives messages <strong>at-least-once</strong>—so every <code>@KafkaListener</code> consumer <strong>must be idempotent</strong> (check if <code>eventId</code> was already processed).</li>
+</ol>
+
+<h2><span class="n">§4</span>When to use — Practical Decision Table</h2>
+<table>
+<thead>
+  <tr><th>Mechanism</th><th>Where It Lives</th><th>Survives JVM Crash?</th><th>Best Used When…</th></tr>
+</thead>
+<tbody>
+  <tr>
+    <td>Plain <code>@EventListener</code></td>
+    <td>Box 3 (same thread &amp; TX)</td>
+    <td>Atomic with caller's DB TX</td>
+    <td>Decoupling two domain modules inside one monolith that <strong>must commit or roll back together</strong>.</td>
+  </tr>
+  <tr>
+    <td><code>@TransactionalEventListener(AFTER_COMMIT)</code></td>
+    <td>Box 6 TX synchronization hook</td>
+    <td>No (in-memory after commit)</td>
+    <td>Triggering non-critical side effects (cache eviction, best-effort notifications) <strong>only after DB commit succeeds</strong>.</td>
+  </tr>
+  <tr>
+    <td><code>@Async</code></td>
+    <td>Box 4 Proxy → Worker Thread</td>
+    <td>No (lost if JVM dies)</td>
+    <td>Moving slow I/O off the HTTP thread or running 3 independent calls in parallel via <code>CompletableFuture.allOf()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>@Cacheable</code> / <code>@CacheEvict</code></td>
+    <td>Box 4 Proxy → Cache Map (Caffeine/Redis)</td>
+    <td>In-memory (no) / Redis (yes)</td>
+    <td>Expensive, read-heavy queries that tolerate a TTL (Time-To-Live).</td>
+  </tr>
+  <tr>
+    <td><code>@Scheduled</code> (+ ShedLock)</td>
+    <td>Box 3 background timer thread</td>
+    <td>Re-runs on next schedule tick</td>
+    <td>Periodic jobs (nightly cleanup, polling an outbox). Always add <strong>ShedLock</strong> if running &gt;1 pod!</td>
+  </tr>
+  <tr>
+    <td><strong>Transactional Outbox + Kafka / RabbitMQ</strong></td>
+    <td>DB Table → Broker → <code>@KafkaListener</code></td>
+    <td><strong>Yes (100% durable)</strong></td>
+    <td>Cross-service events or critical workflows (billing, fulfillment) where losing an event is unacceptable.</td>
+  </tr>
+</tbody>
+</table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine you buy a toy online at a store checkout counter.
+</p>
+<p>
+<strong>Plain <code>@EventListener</code>:</strong> The cashier rings up your toy and immediately hands a slip to the clerk standing right next to her on the same counter. If your credit card declines, both the cashier and the clerk tear up their slips together.
+</p>
+<p>
+<strong><code>@TransactionalEventListener(AFTER_COMMIT)</code>:</strong> The cashier waits until the credit card machine prints <em>"APPROVED"</em> before shouting to the gift-wrapper: <em>"Wrap it up!"</em> That way they never gift-wrap a toy for a card that got declined.
+</p>
+<p>
+<strong><code>@Async</code> (Rule 3 Thread Jump):</strong> The cashier hands your task to a runner in the back room so you don't have to wait in line. Because the runner is a different person in a different room, he doesn't automatically have your credit card receipt or ID badge in his pocket (<code>ThreadLocal</code> is lost on the new thread!).
+</p>
+<p>
+<strong>Transactional Outbox + Kafka:</strong> What if the power goes out right after your card is charged, before the runner hears the shout? To prevent that, the cashier writes your order AND a "To-Be-Shipped" sticky note into the <strong>same permanent ledger book</strong> at the exact same moment. Even if the power goes out and comes back an hour later, the delivery truck driver reads the ledger book and ships your toy!
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← Lesson 06 (AOP &amp; Proxies — Rule 2):</strong> <code>@Async</code>, <code>@Cacheable</code>, and <code>@Retryable</code> are all Box 4 proxies. Calling <code>this.asyncMethod()</code> or <code>this.cachedMethod()</code> inside the same class bypasses Box 4 and silently does nothing!</li>
+  <li><strong>← Lesson 12 (Transactions — Rule 3):</strong> Explains why <code>@Async</code> loses the caller's <code>ThreadLocal</code> transaction, and why writing to the DB inside an <code>AFTER_COMMIT</code> listener requires <code>@Transactional(propagation = REQUIRES_NEW)</code> (because the original transaction already committed!).</li>
+  <li><strong>← Lesson 13 (Spring Security — Rule 3):</strong> Explains why <code>SecurityContextHolder.getContext().getAuthentication()</code> is <code>null</code> inside an <code>@Async</code> thread unless wrapped with <code>DelegatingSecurityContextAsyncTaskExecutor</code>.</li>
+  <li><strong>← <a href="../../java/11-concurrency/lesson.html">Java Lesson 11 (Concurrency &amp; Virtual Threads)</a>:</strong> Directly supplies <code>ThreadPoolExecutor</code>, <code>BlockingQueue</code>, <code>CompletableFuture</code>, and Java 21 Virtual Threads.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Code Dissection &amp; Derive, Don't Memorize</h2>
+
+<pre><span class="c">// ═══ 1. Immutable Past-Tense Domain Event ═══════════════════════════════════</span>
+<span class="k">public record</span> LoanCreated(<span class="k">long</span> loanId, <span class="k">long</span> memberId, <span class="k">long</span> bookId, Instant occurredAt) {}
+
+<span class="c">// ═══ 2. Publisher: Saves Loan + Publishes Event Inside Box 6 Transaction ════</span>
+<span class="an">@Service</span>
+<span class="k">public class</span> LoanService {
+    <span class="k">private final</span> LoanRepository loans;
+    <span class="k">private final</span> ApplicationEventPublisher events;
+
+    <span class="an">@Transactional</span>
+    <span class="k">public</span> Loan borrow(<span class="k">long</span> bookId, <span class="k">long</span> memberId) {
+        Loan loan = loans.save(Loan.create(bookId, memberId));
+        events.publishEvent(<span class="k">new</span> LoanCreated(loan.id(), memberId, bookId, Instant.now())); <span class="c">// ①</span>
+        <span class="k">return</span> loan;
+    }
+
+    <span class="an">@Cacheable</span>(value = <span class="s">"books"</span>, key = <span class="s">"#bookId"</span>, unless = <span class="s">"#result == null"</span>)              <span class="c">// ② Box 4 Cache Proxy</span>
+    <span class="k">public</span> Book findBookCached(<span class="k">long</span> bookId) { <span class="k">return</span> loans.findBook(bookId); }
+}
+
+<span class="c">// ═══ 3. Listener A: Writes Outbox Row INSIDE the Same DB Transaction ════════</span>
+<span class="an">@Component</span>
+<span class="k">class</span> LoanOutboxWriter {
+    <span class="an">@EventListener</span>                                              <span class="c">// ③ Synchronous! Shares caller's Box 6 TX</span>
+    <span class="k">void</span> on(LoanCreated e) {
+        outboxRepo.save(<span class="k">new</span> OutboxRow(e.loanId(), <span class="s">"loans"</span>, toJson(e))); <span class="c">// Atomic with Loan row!</span>
+    }
+}
+
+<span class="c">// ═══ 4. Listener B: Async Email AFTER Commit with Retry + Jitter ════════════</span>
+<span class="an">@Component</span>
+<span class="k">class</span> LoanEmailNotifier {
+    <span class="an">@TransactionalEventListener</span>(phase = TransactionPhase.AFTER_COMMIT) <span class="c">// ④ Fires ONLY if DB committed</span>
+    <span class="an">@Async</span>                                                             <span class="c">// ⑤ Jumps to worker thread pool</span>
+    <span class="an">@Retryable</span>(retryFor = MailException.class, maxAttempts = 3,
+               backoff = <span class="an">@Backoff</span>(delay = 1000, multiplier = 2, random = <span class="k">true</span>)) <span class="c">// ⑥ Jitter!</span>
+    <span class="k">public void</span> sendReceipt(LoanCreated e) {
+        mailer.send(e.memberId(), e.loanId());
+    }
+
+    <span class="an">@Recover</span>                                                           <span class="c">// ⑦ Fallback after 3 failed tries</span>
+    <span class="k">public void</span> onMailFailed(MailException ex, LoanCreated e) {
+        log.error(<span class="s">"Failed to email receipt for loan {}"</span>, e.loanId(), ex);
+    }
+}</pre>
+
+<div class="ann">
+<strong>Code Dissection:</strong><br>
+<strong>① &amp; ③ Atomic Outbox Write:</strong> Because <code>LoanOutboxWriter.on()</code> uses plain <code>@EventListener</code>, it executes on the same thread and inside the exact same Box 6 database transaction as <code>loans.save()</code>. If either fails, both roll back.<br>
+<strong>④ &amp; ⑤ Post-Commit Async Side Effect:</strong> <code>sendReceipt()</code> waits until the Box 6 transaction commits (<code>AFTER_COMMIT</code>) and then hands the slow SMTP call to the <code>@Async</code> thread pool so the HTTP response returns immediately.<br>
+<strong>⑥ &amp; ⑦ Retry with Jitter + Recover:</strong> <code>random = true</code> spreads out retry delays so 500 failing calls don't hammer the mail server at the exact same millisecond, and <code>@Recover</code> prevents silent failure when all 3 attempts fail.
+</div>
+
+<h3>How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead>
+  <tr><th>Classic Interview Question</th><th>Derive the Answer in 10 Seconds from the 6-Box Map &amp; 3 Rules</th></tr>
+</thead>
+<tbody>
+  <tr>
+    <td><em>"I put <code>@Async</code> (or <code>@Cacheable</code>) on a method, but it runs synchronously (or never caches). Why?"</em></td>
+    <td><strong>Apply Rule 2 (Who You Call — Box 4 Proxy):</strong> Either you forgot <code>@EnableAsync</code>/<code>@EnableCaching</code>, the method is <code>private</code>, or you called <code>this.myMethod()</code> from inside the same class, bypassing the Box 4 proxy wrapper!</td>
+  </tr>
+  <tr>
+    <td><em>"Inside my <code>@Async</code> method, why is <code>SecurityContextHolder</code> null, and why didn't my caller's <code>@Transactional</code> roll back the async DB write?"</em></td>
+    <td><strong>Apply Rule 3 (Where State Lives — <code>ThreadLocal</code>):</strong> Both the active DB <code>Connection</code> and the <code>SecurityContext</code> live inside <code>ThreadLocal</code> variables in Box 6 on the Tomcat request thread. When <code>@Async</code> jumps to a worker thread, that worker thread has an empty <code>ThreadLocal</code>!</td>
+  </tr>
+  <tr>
+    <td><em>"Why did my DB <code>save()</code> inside a <code>@TransactionalEventListener(AFTER_COMMIT)</code> not persist or throw an error?"</em></td>
+    <td><strong>Look at the Transaction Timeline:</strong> When <code>AFTER_COMMIT</code> fires, the original Box 6 transaction has <em>already committed</em>! If the listener wants to write to the DB, it must open a brand-new transaction via <code>@Transactional(propagation = Propagation.REQUIRES_NEW)</code>.</td>
+  </tr>
+  <tr>
+    <td><em>"How do you guarantee a DB update and a Kafka message happen atomically?"</em></td>
+    <td><strong>Use the Transactional Outbox Pattern:</strong> You cannot span a JDBC transaction across Kafka (Dual-Write Problem). Write the business row AND an <code>outbox</code> row in the same Box 6 DB transaction, then publish from the <code>outbox</code> table asynchronously to Kafka with an idempotent consumer.</td>
+  </tr>
+</tbody>
+</table>
+
+<div class="try">
+<strong>Try This / Predict the Output:</strong><br>
+You deploy <strong>3 replicas (pods)</strong> of your Spring Boot app to Kubernetes. Inside the app is a method annotated with <code>@Scheduled(cron = "0 0 9 * * *", zone = "UTC")</code> that sends a daily summary email to every customer.<br>
+<strong>Question:</strong> What happens at 09:00 UTC? Why? How do you fix it?<br>
+<em>Answer:</em> Every customer gets <strong>3 identical emails</strong>! Each of the 3 pods has its own independent Box 3 container running its own <code>@Scheduled</code> timer thread in memory. Fix it by adding a distributed lock like <strong>ShedLock</strong> (<code>@SchedulerLock(name = "dailySummary")</code> backed by your shared Postgres/Redis) so only 1 pod acquires the lock at 09:00.
+</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Pitfall 1: Thinking <code>@EventListener</code> is asynchronous by default.</strong><br>
+<em>Mechanical cause:</em> <code>ApplicationEventPublisher</code> invokes <code>@EventListener</code> methods in a synchronous <code>for</code> loop on the caller's thread and inside the caller's transaction. If a listener throws an exception, the publisher's transaction rolls back!</div>
+
+<div class="pitfall"><strong>Pitfall 2: Sending emails or Kafka messages before the transaction commits.</strong><br>
+<em>Mechanical cause:</em> If you call SMTP or <code>kafkaTemplate.send()</code> inside a <code>@Transactional</code> method and the commit fails on the last line, you have sent a permanent external message about data that does not exist. Always use <code>@TransactionalEventListener(AFTER_COMMIT)</code> or the Transactional Outbox.</div>
+
+<div class="pitfall"><strong>Pitfall 3: Using <code>@Async void</code> without an exception handler, or leaving the executor queue unbounded.</strong><br>
+<em>Mechanical cause:</em> On an <code>@Async void</code> method, no caller holds a <code>Future</code>, so uncaught exceptions vanish unless an <code>AsyncUncaughtExceptionHandler</code> is registered. And an unbounded queue turns traffic spikes into an <code>OutOfMemoryError</code>.</div>
+
+<div class="pitfall"><strong>Pitfall 4: Caching without a TTL or mutating cached objects in place.</strong><br>
+<em>Mechanical cause:</em> Box 4's <code>@Cacheable</code> stores a reference to the returned Java object in an in-memory Map (or Redis). Without a TTL, the Map grows forever; if callers mutate fields on the returned object, they corrupt the cached entry for all other threads (Rule 3)!</div>
+
+<h2><span class="n">§9</span>Recap &amp; Glossary / Reference</h2>
+<ul class="recap">
+  <li><strong>In-process Events (Box 3):</strong> <code>@EventListener</code> runs synchronously on the same thread and transaction; <code>@TransactionalEventListener(AFTER_COMMIT)</code> waits until the Box 6 DB commit succeeds.</li>
+  <li><strong><code>@Async</code> (Box 4 Proxy):</strong> Submits work to a <code>TaskExecutor</code> thread pool. Remember <strong>Rule 2</strong> (self-invocation <code>this.async()</code> bypasses the proxy) and <strong>Rule 3</strong> (the new thread loses the caller's <code>ThreadLocal</code> DB transaction, <code>SecurityContext</code>, and MDC!).</li>
+  <li><strong>Java 21 Virtual Threads (<code>spring.threads.virtual.enabled=true</code>):</strong> Lets Box 5 Tomcat and <code>@Async</code> spawn millions of cheap virtual threads that unmount during blocking I/O.</li>
+  <li><strong><code>@Cacheable</code> &amp; <code>@Retryable</code> (Box 4 Proxies):</strong> Always set a cache TTL, and always use exponential backoff with random <strong>jitter</strong> on retries.</li>
+  <li><strong>Durable Messaging (Kafka/RabbitMQ):</strong> Solve the Dual-Write Problem with the <strong>Transactional Outbox</strong> pattern, and make consumers <strong>idempotent</strong> for at-least-once delivery.</li>
+</ul>
+
+<h3>Quick Reference Cheat-Sheet</h3>
+<table>
+<thead><tr><th>Goal</th><th>Annotation / Pattern</th><th>Rule / Gotcha to Remember</th></tr></thead>
+<tbody>
+<tr><td>In-process listener in same DB TX</td><td><code>@EventListener</code></td><td>Synchronous! Throwing rolls back caller's TX.</td></tr>
+<tr><td>Run side effect only after DB commit</td><td><code>@TransactionalEventListener(AFTER_COMMIT)</code></td><td>Needs <code>REQUIRES_NEW</code> if it writes to DB.</td></tr>
+<tr><td>Run on background worker thread</td><td><code>@EnableAsync</code> + <code>@Async</code></td><td>Rule 2 (no <code>this.</code>) &amp; Rule 3 (loses <code>ThreadLocal</code>s).</td></tr>
+<tr><td>Turn on Java 21 Virtual Threads</td><td><code>spring.threads.virtual.enabled=true</code></td><td>Great for I/O-bound waiting; doesn't speed up CPU loops.</td></tr>
+<tr><td>Run cron/periodic job across N pods</td><td><code>@Scheduled(cron=..., zone=...)</code> + <code>@SchedulerLock</code></td><td>Without ShedLock, runs N times across N pods!</td></tr>
+<tr><td>Cache expensive read results</td><td><code>@EnableCaching</code> + <code>@Cacheable("books")</code></td><td>Box 4 proxy; always configure a TTL.</td></tr>
+<tr><td>Save to DB + publish to Kafka safely</td><td>Transactional Outbox + Idempotent <code>@KafkaListener</code></td><td>Never dual-write to DB and Kafka directly.</td></tr>
+</tbody>
+</table>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>ApplicationEventPublisher</dt><dd>Box 3 interface used to publish domain events to all matching <code>@EventListener</code> beans.</dd>
+  <dt>@TransactionalEventListener</dt><dd>Event listener registered into Box 6's transaction synchronization list that runs at a specific transaction phase (default <code>AFTER_COMMIT</code>).</dd>
+  <dt>ThreadPoolTaskExecutor</dt><dd>Spring's bounded thread pool (wrapping Java's <code>ThreadPoolExecutor</code>) that executes <code>@Async</code> tasks.</dd>
+  <dt>Dual-Write Problem</dt><dd>The impossibility of atomically committing to two separate systems (e.g., PostgreSQL and Kafka) without a distributed transaction or outbox.</dd>
+  <dt>Transactional Outbox Pattern</dt><dd>Saving outbound events into a database table within the same ACID transaction as the business entity, then relaying them to a message broker.</dd>
+  <dt>Idempotent Consumer</dt><dd>A message consumer that tracks processed message IDs so receiving the same message twice (at-least-once delivery) produces no duplicate effect.</dd>
+  <dt>Backoff with Jitter</dt><dd>Adding randomness to exponential retry delays so failing clients don't retry in synchronized waves (thundering herd).</dd>
+</dl>
+
+<p class="sources" style="margin-top:2rem">
+<strong>Official Documentation Citations:</strong>
+<a href="https://docs.spring.io/spring-framework/reference/core/beans/context-introduction.html#context-functionality-events">Spring Framework Reference — Application Events &amp; Transaction-Bound Events</a>;
+<a href="https://docs.spring.io/spring-framework/reference/integration/scheduling.html">Spring Framework Reference — Task Execution and Scheduling (<code>@Async</code>, <code>@Scheduled</code>)</a>;
+<a href="https://docs.spring.io/spring-framework/reference/integration/cache.html">Spring Framework Reference — Cache Abstraction</a>;
+<a href="https://docs.spring.io/spring-boot/reference/features/spring-application.html#features.spring-application.virtual-threads">Spring Boot Reference — Virtual Threads</a>.
+</p>
+
+</body>
+</html>

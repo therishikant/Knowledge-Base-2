@@ -1,0 +1,69 @@
+{
+  "topic": "java",
+  "subtopic": "01-jvm-bytecode-pipeline",
+  "questions": [
+    {
+      "number": 1,
+      "question": "Trace the complete flow from writing Hello.java to it printing output. Name all six hand-offs and who performs each.",
+      "level": "easy",
+      "areas": ["theory", "diagram"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 2,
+      "question": "Which hand-offs are compile-time and which are run-time? Put a compile error and a NoClassDefFoundError on the right steps.",
+      "level": "easy",
+      "areas": ["theory"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 3,
+      "question": "Why does javac emit bytecode instead of machine code? What does that buy, and where does native code eventually come from?",
+      "level": "medium",
+      "areas": ["theory", "trade-offs"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 4,
+      "question": "What's inside a .class file (magic number, constant pool, method bytecode) and how does the JVM use each part downstream?",
+      "level": "medium",
+      "areas": ["theory"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 5,
+      "question": "The JVM is a stack machine. Given `static int add(int a,int b){return a+b;}`, predict the bytecode and explain each opcode.",
+      "level": "medium",
+      "areas": ["practical", "theory"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 6,
+      "question": "How does `java Hello` start execution? What is the initial class, and when does the JVM terminate?",
+      "level": "medium",
+      "areas": ["theory"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 7,
+      "question": "Why can Kotlin/Scala run on the JVM? At which hand-off do they join, and what does that imply about the language vs the platform?",
+      "level": "hard",
+      "areas": ["theory", "trade-offs"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    }
+  ]
+}

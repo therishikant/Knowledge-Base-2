@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Thread Pools &amp; Futures — Concurrency, Part 3 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .step{display:flex;gap:.8rem;margin:.9rem 0} .step .num{flex:0 0 2rem;height:2rem;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.95rem}
+  .step .body{flex:1} .step .body strong{display:block}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Thread Pools &amp; Futures</h1>
+<p class="crumb">Java › concurrency cluster · lesson 11, <strong>part 3 of 4</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — how real programs actually run concurrent work</p>
+
+<p class="nav"><strong>Concurrency cluster:</strong>
+  <a href="lesson.html">1. Threads</a> ·
+  <a href="lesson-2-sharing-data-safely.html">2. Sharing data safely</a> ·
+  <strong>3. Thread pools &amp; futures</strong> ·
+  <a href="lesson-4-virtual-threads.html">4. Virtual threads</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> In real code you almost never write <code>new Thread(...)</code>. You hand <em>tasks</em> to
+an <strong>ExecutorService</strong> — a pool of reusable threads — and get back a <strong>Future</strong>, a receipt you
+redeem for the answer later. <code>CompletableFuture</code> lets you chain those answers without ever blocking, and
+<code>java.util.concurrent</code> ships ready-made thread-safe collections and coordination tools so you rarely have to
+write a lock by hand.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+<a href="lesson.html">Part 1</a> gave you threads. <a href="lesson-2-sharing-data-safely.html">Part 2</a> gave you the
+rules for sharing data. Both were about <em>mechanism</em>. This part is about the <strong>library</strong> that Java 5
+introduced — <code>java.util.concurrent</code> — which wraps all of that into pieces you can safely use without
+re-deriving the memory model every time.
+</p>
+<p>
+This is the layer you will write day to day. When an interviewer asks "how would you call three services in parallel and
+combine the results?", the answer lives on this page.
+</p>
+
+<h2><span class="n">§2</span>Why it exists — what goes wrong with raw threads</h2>
+<p>The obvious design is "one new thread per task":</p>
+<pre><span class="k">while</span> (<span class="k">true</span>) {
+    Socket s = serverSocket.accept();
+    <span class="k">new</span> Thread(() -&gt; handle(s)).start();   <span class="c">// looks fine. is a trap.</span>
+}</pre>
+<p>It fails in four separate ways, and each one maps to a feature of the executor framework:</p>
+<table>
+<thead><tr><th>Problem with thread-per-task</th><th>What the executor gives you</th></tr></thead>
+<tbody>
+<tr><td><strong>Creation cost.</strong> Each thread is a system call plus ~1&nbsp;MB of stack. For a 2&nbsp;ms task, setup can cost more than the work.</td><td>Threads are created once and <strong>reused</strong> for task after task.</td></tr>
+<tr><td><strong>No limit.</strong> 10,000 clients means 10,000 OS threads. The machine thrashes on context switches, then dies with <code>OutOfMemoryError: unable to create new native thread</code>.</td><td>A <strong>fixed pool size</strong> — a hard ceiling you choose.</td></tr>
+<tr><td><strong>No backpressure.</strong> Nothing tells the caller "I am full, slow down".</td><td>A <strong>bounded queue</strong> plus a <strong>rejection policy</strong>.</td></tr>
+<tr><td><strong>No results, no errors.</strong> <code>Runnable</code> returns nothing, and an exception inside it vanishes.</td><td><code>Callable</code> + <code>Future</code>: a value, or the exception, delivered to you.</td></tr>
+</tbody>
+</table>
+<p>
+Underneath all four is one idea: <strong>separate <em>what</em> to run from <em>how</em> it is run.</strong> Your code
+submits a task and stops caring which thread executes it. That one separation is why you can later switch a fixed pool
+for a virtual-thread executor (<a href="lesson-4-virtual-threads.html">part 4</a>) by changing one line
+<span class="sources">(<a href="https://docs.oracle.com/javase/tutorial/essential/concurrency/executors.html">Oracle — Executors</a>)</span>.
+</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>The three interfaces</h3>
+<ul>
+  <li><strong><code>Executor</code></strong> — one method, <code>execute(Runnable)</code>. "Run this somehow."</li>
+  <li><strong><code>ExecutorService</code></strong> — adds <code>submit()</code> (returns a <code>Future</code>), <code>invokeAll()</code>, and lifecycle (<code>shutdown()</code>). <em>This is the one you use.</em></li>
+  <li><strong><code>ScheduledExecutorService</code></strong> — adds "run this in 5 seconds" and "run this every minute".</li>
+</ul>
+
+<h3>Inside a thread pool</h3>
+<figure>
+<svg viewBox="0 0 770 300" width="100%" role="img" aria-label="Anatomy of a ThreadPoolExecutor: submit, queue, workers, rejection">
+  <style>
+    .box{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .q{fill:#f1ece0;stroke:#6b675e;stroke-width:1.3}
+    .w{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .rej{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .h{font:12px Georgia,serif;fill:#2b2b28;font-weight:bold}
+    .a{stroke:#6b675e;stroke-width:1.3;marker-end:url(#mp);fill:none}
+    .ar{stroke:#7a1f1f;stroke-width:1.3;marker-end:url(#mr);fill:none;stroke-dasharray:5 4}
+  </style>
+  <defs>
+    <marker id="mp" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker>
+    <marker id="mr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker>
+  </defs>
+
+  <rect class="box" x="15" y="110" width="120" height="50" rx="6"/><text class="t" x="35" y="132">submit(task)</text><text class="c" x="30" y="150">your thread</text>
+
+  <text class="h" x="175" y="95">work queue (bounded)</text>
+  <rect class="q" x="175" y="105" width="210" height="60" rx="6"/>
+  <rect class="q" x="183" y="115" width="42" height="40" rx="3"/><text class="t" x="196" y="140">t5</text>
+  <rect class="q" x="231" y="115" width="42" height="40" rx="3"/><text class="t" x="244" y="140">t6</text>
+  <rect class="q" x="279" y="115" width="42" height="40" rx="3"/><text class="t" x="292" y="140">t7</text>
+  <rect class="q" x="327" y="115" width="42" height="40" rx="3"/><text class="t" x="340" y="140">t8</text>
+  <text class="c" x="190" y="182">tasks wait here when every worker is busy</text>
+
+  <text class="h" x="440" y="35">worker threads (reused forever)</text>
+  <rect class="w" x="440" y="45" width="300" height="40" rx="6"/><text class="t" x="455" y="70">pool-1-thread-1   running t1</text>
+  <rect class="w" x="440" y="95" width="300" height="40" rx="6"/><text class="t" x="455" y="120">pool-1-thread-2   running t2</text>
+  <rect class="w" x="440" y="145" width="300" height="40" rx="6"/><text class="t" x="455" y="170">pool-1-thread-3   running t3</text>
+  <rect class="w" x="440" y="195" width="300" height="40" rx="6"/><text class="t" x="455" y="220">pool-1-thread-4   running t4</text>
+
+  <line class="a" x1="135" y1="135" x2="173" y2="135"/>
+  <line class="a" x1="385" y1="125" x2="438" y2="65"/>
+  <line class="a" x1="385" y1="135" x2="438" y2="115"/>
+  <line class="a" x1="385" y1="140" x2="438" y2="165"/>
+  <line class="a" x1="385" y1="150" x2="438" y2="215"/>
+  <text class="c" x="395" y="255">a worker finishes → takes the next task from the queue</text>
+
+  <rect class="rej" x="15" y="215" width="120" height="50" rx="6"/><text class="t" x="35" y="237">REJECTED</text><text class="c" x="22" y="255">queue full too</text>
+  <line class="ar" x1="250" y1="168" x2="135" y2="225"/><text class="c" x="150" y="205">backpressure</text>
+</svg>
+<figcaption>A <code>ThreadPoolExecutor</code> is four things: a set of worker threads, a queue, a size policy, and a
+rejection policy. Everything the <code>Executors</code> factory gives you is just this class with different arguments
+(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ThreadPoolExecutor.html">Javadoc — <code>ThreadPoolExecutor</code></a>).</figcaption>
+</figure>
+
+<p>The growth rule surprises people, so learn it explicitly. When a task arrives:</p>
+<div class="step"><div class="num">1</div><div class="body"><strong>Fewer than <code>corePoolSize</code> threads?</strong> Start a new thread, even if others are idle.</div></div>
+<div class="step"><div class="num">2</div><div class="body"><strong>Otherwise, try to queue it.</strong> If the queue accepts it, done.</div></div>
+<div class="step"><div class="num">3</div><div class="body"><strong>Queue full?</strong> Start another thread, up to <code>maximumPoolSize</code>.</div></div>
+<div class="step"><div class="num">4</div><div class="body"><strong>At max and queue still full?</strong> Hand the task to the <strong>rejection policy</strong> (by default, throw <code>RejectedExecutionException</code>).</div></div>
+<div class="callout"><strong>The consequence everyone trips over:</strong> with an <em>unbounded</em> queue, step 3 never
+happens, so <code>maximumPoolSize</code> is meaningless and the pool never grows past core size. Instead the queue grows
+until you run out of heap. An unbounded queue does not remove backpressure — it converts it into an
+<code>OutOfMemoryError</code>.</div>
+
+<h3>The factory methods, and their traps</h3>
+<table>
+<thead><tr><th>Factory</th><th>What it really is</th><th>Trap</th></tr></thead>
+<tbody>
+<tr><td><code>newFixedThreadPool(n)</code></td><td>n threads, <strong>unbounded</strong> <code>LinkedBlockingQueue</code></td><td>queue can grow until OOM</td></tr>
+<tr><td><code>newCachedThreadPool()</code></td><td><strong>unbounded</strong> threads, no queueing, 60s idle reaping</td><td>a traffic spike creates thousands of threads</td></tr>
+<tr><td><code>newSingleThreadExecutor()</code></td><td>1 thread, unbounded queue</td><td>guarantees task order; same queue risk</td></tr>
+<tr><td><code>newScheduledThreadPool(n)</code></td><td>timer-style pool</td><td>a task that throws silently stops repeating</td></tr>
+<tr><td><code>newWorkStealingPool()</code></td><td>a <code>ForkJoinPool</code></td><td>no FIFO order at all</td></tr>
+</tbody>
+</table>
+<div class="idiom"><strong>Production idiom: build it yourself.</strong> A bounded queue and a named thread factory are
+worth the extra five lines.
+<pre><span class="k">new</span> ThreadPoolExecutor(
+    8, 16,                                  <span class="c">// core, max</span>
+    60L, TimeUnit.SECONDS,                  <span class="c">// idle timeout for extra threads</span>
+    <span class="k">new</span> ArrayBlockingQueue&lt;&gt;(1000),         <span class="c">// BOUNDED: real backpressure</span>
+    namedThreadFactory(<span class="s">"orders-"</span>),          <span class="c">// readable thread dumps</span>
+    <span class="k">new</span> ThreadPoolExecutor.CallerRunsPolicy() <span class="c">// full? the submitter runs it, slowing itself</span>
+);</pre>
+<code>CallerRunsPolicy</code> is the elegant one: when the pool is saturated, the submitting thread executes the task
+itself, which automatically throttles the producer instead of dropping work or exploding.</div>
+
+<h3>How big should the pool be?</h3>
+<ul>
+  <li><strong>CPU-bound</strong> work (maths, parsing, compression): about <code>Runtime.getRuntime().availableProcessors()</code>, give or take one. More threads than cores just adds context switches.</li>
+  <li><strong>I/O-bound</strong> work (HTTP, database): threads spend most of their life blocked, so you want many more. The classic formula is <code>threads ≈ cores × (1 + waitTime / computeTime)</code>. A call that waits 50&nbsp;ms and computes 1&nbsp;ms on 8 cores suggests ~400 threads — which is also exactly where platform threads start hurting, and the reason part 4 exists.</li>
+  <li><strong>Never share one pool between the two kinds.</strong> A slow I/O task will occupy a thread your CPU work needed. Separate pools, separately sized, are easier to reason about and to bulkhead.</li>
+</ul>
+
+<h3><code>Runnable</code> vs <code>Callable</code> vs <code>Future</code></h3>
+<table>
+<thead><tr><th></th><th><code>Runnable</code></th><th><code>Callable&lt;V&gt;</code></th></tr></thead>
+<tbody>
+<tr><td>Method</td><td><code>void run()</code></td><td><code>V call() throws Exception</code></td></tr>
+<tr><td>Returns a value?</td><td>no</td><td>yes</td></tr>
+<tr><td>Can throw checked exceptions?</td><td>no</td><td>yes</td></tr>
+<tr><td>Submit with</td><td><code>execute()</code> or <code>submit()</code></td><td><code>submit()</code></td></tr>
+</tbody>
+</table>
+<p>
+<code>submit()</code> immediately returns a <strong>Future</strong> — a placeholder for a value that does not exist yet.
+Four methods matter: <code>get()</code> (block until ready, then return the value <em>or</em> throw
+<code>ExecutionException</code> wrapping whatever the task threw), <code>get(timeout, unit)</code>, <code>isDone()</code>,
+and <code>cancel(mayInterruptIfRunning)</code>.
+</p>
+<div class="idiom"><strong>Submit everything first, then <code>get()</code>.</strong>
+<pre><span class="c">// WRONG - fully sequential, the pool is pointless</span>
+<span class="k">for</span> (Task t : tasks) pool.submit(t).get();
+
+<span class="c">// RIGHT - all tasks in flight, then collect</span>
+List&lt;Future&lt;R&gt;&gt; fs = <span class="k">new</span> ArrayList&lt;&gt;();
+<span class="k">for</span> (Task t : tasks) fs.add(pool.submit(t));
+<span class="k">for</span> (Future&lt;R&gt; f : fs) results.add(f.get());</pre>
+Calling <code>get()</code> inside the submission loop waits for each task before submitting the next one. It is the most
+common way to accidentally un-parallelise a program.</div>
+
+<h3>Shutting down properly</h3>
+<p>A pool's threads are non-daemon by default, so <strong>a pool you forget to shut down keeps the JVM alive forever</strong>.</p>
+<table>
+<thead><tr><th>Call</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>shutdown()</code></td><td>stop accepting new tasks; finish everything already submitted</td></tr>
+<tr><td><code>shutdownNow()</code></td><td>also drop the queue and <code>interrupt()</code> running tasks; returns what never ran</td></tr>
+<tr><td><code>awaitTermination(t, unit)</code></td><td>wait up to <em>t</em> for the above to complete; returns <code>true</code> if it did</td></tr>
+</tbody>
+</table>
+<pre>pool.shutdown();
+<span class="k">if</span> (!pool.awaitTermination(30, TimeUnit.SECONDS)) {
+    pool.shutdownNow();                 <span class="c">// escalate</span>
+    pool.awaitTermination(10, TimeUnit.SECONDS);
+}</pre>
+<p>In Java 19+ <code>ExecutorService</code> implements <code>AutoCloseable</code>, so
+<code>try (var pool = ...) { }</code> does the graceful version for you.</p>
+
+<h3><code>CompletableFuture</code> — composing instead of blocking</h3>
+<p>
+<code>Future.get()</code> has one fatal flaw: <strong>it blocks</strong>. A thread sitting in <code>get()</code> is a
+wasted thread, and you cannot say "when this finishes, do that" without someone waiting. Java 8's
+<code>CompletableFuture</code> fixes this by letting you <em>describe the pipeline</em> up front and letting the
+completing thread push the work forwards.
+</p>
+<pre>CompletableFuture&lt;String&gt; page =
+    CompletableFuture.supplyAsync(() -&gt; loadUser(id), pool)   <span class="c">// start async, on YOUR pool</span>
+        .thenApply(User::displayName)                         <span class="c">// transform the value</span>
+        .thenCombine(ordersFuture, (name, orders) -&gt; render(name, orders))  <span class="c">// join two</span>
+        .exceptionally(ex -&gt; <span class="s">"sorry, try again"</span>);             <span class="c">// recover from failure</span></pre>
+<table>
+<thead><tr><th>Method</th><th>Use it when…</th></tr></thead>
+<tbody>
+<tr><td><code>supplyAsync</code> / <code>runAsync</code></td><td>start async work that returns / returns nothing</td></tr>
+<tr><td><code>thenApply</code></td><td>transform the result (like <code>Stream.map</code>)</td></tr>
+<tr><td><code>thenCompose</code></td><td>the next step itself returns a future (like <code>flatMap</code>) — avoids <code>CF&lt;CF&lt;T&gt;&gt;</code></td></tr>
+<tr><td><code>thenCombine</code></td><td>two independent futures, combine both results</td></tr>
+<tr><td><code>allOf</code> / <code>anyOf</code></td><td>wait for all / first of many</td></tr>
+<tr><td><code>exceptionally</code> / <code>handle</code></td><td>recover from failure / see both value and error</td></tr>
+<tr><td><code>thenApplyAsync(fn, pool)</code></td><td>force the next step onto a specific pool</td></tr>
+</tbody>
+</table>
+<div class="pitfall"><strong>Always pass your own executor.</strong> With no executor argument, <code>supplyAsync</code>
+uses the shared <code>ForkJoinPool.commonPool()</code>, whose size is <code>cores − 1</code> and which is shared with
+parallel streams across your whole application. One blocking call in there can starve everything else.</div>
+
+<h3>Fork/join and parallel streams</h3>
+<p>
+<code>ForkJoinPool</code> is a special pool for <em>divide-and-conquer</em> CPU work: split the problem, solve the halves,
+merge. Its trick is <strong>work stealing</strong> — an idle worker takes tasks from the back of a busy worker's queue, so
+the load balances itself. <code>list.parallelStream()</code> is simply a friendly face over the common pool.
+</p>
+<p>Parallel streams pay off only when all of these hold: a large data set, work per element that is genuinely expensive,
+a cheaply splittable source (array, <code>ArrayList</code>), and no blocking or shared mutable state in the lambda. For a
+few thousand cheap operations, the plain sequential stream usually wins.</p>
+
+<h3>The ready-made thread-safe collections</h3>
+<p>Before you write a lock around a map, check whether the library has already done it better.</p>
+<table>
+<thead><tr><th>Use</th><th>Class</th><th>How it stays safe</th></tr></thead>
+<tbody>
+<tr><td>shared map</td><td><code>ConcurrentHashMap</code></td><td>lock-free reads; per-bin locking on write. Atomic <code>putIfAbsent</code>/<code>compute</code>/<code>merge</code>.</td></tr>
+<tr><td>hand work between threads</td><td><code>ArrayBlockingQueue</code>, <code>LinkedBlockingQueue</code></td><td><code>put</code> blocks when full, <code>take</code> blocks when empty — producer/consumer with zero locks of your own</td></tr>
+<tr><td>hand-off with no buffer</td><td><code>SynchronousQueue</code></td><td>each <code>put</code> waits for a matching <code>take</code></td></tr>
+<tr><td>delayed/scheduled items</td><td><code>DelayQueue</code>, <code>PriorityBlockingQueue</code></td><td>ordering by time or priority</td></tr>
+<tr><td>read-mostly list (listeners)</td><td><code>CopyOnWriteArrayList</code></td><td>every write copies the array; reads never lock. Terrible for frequent writes.</td></tr>
+<tr><td>non-blocking queue</td><td><code>ConcurrentLinkedQueue</code></td><td>CAS-based, never blocks</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong><code>ConcurrentHashMap</code> vs <code>Collections.synchronizedMap</code>.</strong> The
+wrapper puts one global lock around every method — correct, but all threads queue at a single door, and you still must
+lock manually while iterating. <code>ConcurrentHashMap</code> locks only the affected bin, lets readers through without
+locking, and its iterators are <em>weakly consistent</em> (they never throw
+<code>ConcurrentModificationException</code>). Prefer it.</div>
+
+<h3>Coordination tools</h3>
+<table>
+<thead><tr><th>Class</th><th>In one line</th><th>Typical use</th></tr></thead>
+<tbody>
+<tr><td><code>CountDownLatch</code></td><td>wait until N things have happened; <strong>one-shot</strong></td><td>"wait for all services to warm up"</td></tr>
+<tr><td><code>CyclicBarrier</code></td><td>N threads wait for each other, then all go; <strong>reusable</strong></td><td>simulations advancing in rounds</td></tr>
+<tr><td><code>Semaphore</code></td><td>N permits; <code>acquire</code>/<code>release</code></td><td>"at most 5 concurrent calls to this API"</td></tr>
+<tr><td><code>Phaser</code></td><td>a barrier with a changing number of parties</td><td>dynamic multi-phase work</td></tr>
+<tr><td><code>Exchanger</code></td><td>two threads swap objects</td><td>buffer hand-off pipelines</td></tr>
+</tbody>
+</table>
+
+<h2><span class="n">§4</span>When to use what</h2>
+<ul>
+  <li><strong>A pool</strong> — the default for any background or parallel work. Bounded queue, named threads, sized for the workload.</li>
+  <li><strong><code>Future</code> + <code>invokeAll</code></strong> — a fixed batch of independent tasks you need all the answers to.</li>
+  <li><strong><code>CompletableFuture</code></strong> — multi-step async flows: call A, then B with A's result, combine with C, fall back on error.</li>
+  <li><strong>Parallel stream / fork-join</strong> — one big CPU-bound computation over a large, splittable collection.</li>
+  <li><strong><code>BlockingQueue</code></strong> — any producer/consumer pipeline; it gives you backpressure for free.</li>
+  <li><strong><code>Semaphore</code></strong> — rate-limiting a shared downstream resource.</li>
+  <li><strong><code>ScheduledExecutorService</code></strong> — periodic jobs. Never <code>java.util.Timer</code>: one thread, and one thrown exception kills every future task.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Think of a small café with four staff.
+</p>
+<p>
+The silly way to run it would be to <em>hire a brand-new person for every single order</em>, then fire them the moment
+the coffee is handed over. Hiring takes longer than making the coffee, and on a busy morning you would have two hundred
+people crammed behind the counter, unable to move. That is <code>new Thread()</code> per task.
+</p>
+<p>
+A café instead keeps <strong>four staff</strong> and a <strong>spike of order tickets</strong>. Whenever someone is free,
+they take the next ticket. That is a <strong>thread pool</strong>: fixed staff, a queue of work.
+</p>
+<p>
+When you order, you do not stand frozen at the counter. You get a <strong>buzzer</strong> and go sit down. The buzzer is a
+<code>Future</code> — not the coffee, but a promise of coffee. <code>get()</code> is choosing to stand and stare at the
+buzzer until it goes off.
+</p>
+<p>
+<code>CompletableFuture</code> is better still: you tell the staff "when it is ready, add oat milk and bring it to table
+six." Now <em>nobody</em> stands waiting — the work continues by itself when the coffee is done.
+</p>
+<p>
+And if the ticket spike is full, the café has to say "sorry, we are full" rather than accept ten thousand orders it can
+never make. That is the <strong>bounded queue</strong>, and saying no on time is what keeps the café standing.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson.html">part 1</a>:</strong> a pool exists because platform threads are expensive to create and limited in number.</li>
+  <li><strong>← <a href="lesson-2-sharing-data-safely.html">part 2</a>:</strong> every concurrent collection here is locks and CAS applied for you; submitting a task and reading its result via <code>Future.get()</code> is itself a happens-before edge, so you need no extra synchronisation for the result.</li>
+  <li><strong>← <a href="../07-java8-functional/lesson.html">java8-functional</a>:</strong> <code>thenApply</code>/<code>thenCompose</code> are <code>map</code>/<code>flatMap</code> for a value that has not arrived yet.</li>
+  <li><strong>← <a href="../10-exceptions-and-error-design/lesson.html">exceptions</a>:</strong> <code>ExecutionException</code> is the wrapper that carries a task's failure across the thread boundary — always inspect <code>getCause()</code>.</li>
+  <li><strong>→ <a href="lesson-4-virtual-threads.html">part 4</a>:</strong> virtual threads make pool <em>sizing</em> for I/O largely obsolete, while the <code>ExecutorService</code> interface stays.</li>
+  <li><strong>→ <a href="../13-application-architecture/lesson.html">application-architecture</a>:</strong> separate, bounded pools per dependency is the <em>bulkhead</em> pattern — one slow service cannot sink the whole app.</li>
+  <li><strong>Same idea elsewhere:</strong> JavaScript's <code>Promise.then/all</code> is <code>CompletableFuture</code> with different names; C#'s <code>Task</code>/<code>async-await</code> and Python's <code>concurrent.futures</code> are the same two ideas — a pool and a promise.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — seven experiments, with real output</h2>
+<p>Run on JDK 1.8 — <a href="../code/ConcurrencyDemo4.java">code/ConcurrencyDemo4.java</a>. All output is real.</p>
+
+<h3>A. Two threads, six tasks</h3>
+<pre>ExecutorService pool = Executors.newFixedThreadPool(2);
+<span class="k">for</span> (int i = 1; i &lt;= 6; i++) results.add(pool.submit(() -&gt; {
+    Thread.sleep(20);
+    <span class="k">return</span> <span class="s">"task "</span> + id + <span class="s">" ran on "</span> + Thread.currentThread().getName();
+}));</pre>
+<pre>task 1 ran on pool-1-thread-1
+task 2 ran on pool-1-thread-2
+task 3 ran on pool-1-thread-2
+task 4 ran on pool-1-thread-1
+task 5 ran on pool-1-thread-1
+task 6 ran on pool-1-thread-2
+terminated cleanly = true</pre>
+<div class="ann">Six tasks, exactly two thread names. The threads were never re-created — they finished one task and pulled the
+next from the queue. Note the default naming (<code>pool-1-thread-N</code>): useful, but a custom
+<code>ThreadFactory</code> naming them <code>orders-1</code> would be far better in a thread dump. The last line is
+<code>awaitTermination</code> confirming a clean shutdown.</div>
+
+<h3>B. <code>invokeAll</code> — parallel really is parallel</h3>
+<pre>List&lt;Future&lt;Integer&gt;&gt; fs = pool.invokeAll(jobs);  <span class="c">// 3 jobs sleeping 50, 100, 150ms</span></pre>
+<pre>sum of squares = 14
+serial would take ~300ms; parallel took about 150ms</pre>
+<div class="ann">Three tasks that would take 50+100+150 = 300&nbsp;ms one after another finished in ~150&nbsp;ms — the duration of
+the <em>slowest</em> one, because all three were in flight at once. That is the whole payoff of a pool in one number.
+<code>invokeAll</code> blocks until every task is done, so by the time it returns, every <code>Future</code> is complete
+and <code>get()</code> will not wait.</div>
+
+<h3>C. A failure asleep inside a <code>Future</code></h3>
+<pre>Future&lt;Integer&gt; f = pool.submit(() -&gt; 1 / 0);</pre>
+<pre>submitted; nothing printed yet - the failure is still asleep
+get() rethrew it: java.lang.ArithmeticException: / by zero</pre>
+<div class="ann">The division by zero happened on the pool thread immediately — but printed nothing, logged nothing, and the
+program carried on. The exception was <em>stored</em> in the <code>Future</code> and only surfaced at <code>get()</code>,
+wrapped in an <code>ExecutionException</code>. This is why a <code>Future</code> you never <code>get()</code> is a
+silently swallowed bug, and why <code>execute()</code> (which has no Future) needs an
+<code>UncaughtExceptionHandler</code>.</div>
+
+<h3>D. A <code>CompletableFuture</code> pipeline</h3>
+<pre>user.thenCombine(orders, (u, o) -&gt; u + <span class="s">" | "</span> + o)
+    .thenApply(String::toUpperCase)
+    .exceptionally(ex -&gt; <span class="s">"fallback page"</span>);</pre>
+<pre>page = USER:ANA | ORDERS:3
+fallback: db down</pre>
+<div class="ann">Two independent 60&nbsp;ms lookups ran at the same time and were joined by <code>thenCombine</code>; nothing
+blocked until the final <code>get()</code>. The second line is a different future that threw immediately —
+<code>exceptionally</code> turned the failure into a usable fallback value rather than an exploding call stack. Note that
+<code>ex</code> here is a <code>CompletionException</code>, so the real cause is <code>ex.getCause()</code>.</div>
+
+<h3>E. Producer/consumer with a queue of size 2</h3>
+<pre>BlockingQueue&lt;String&gt; queue = <span class="k">new</span> ArrayBlockingQueue&lt;&gt;(2);
+queue.put(item);    <span class="c">// blocks while full</span>
+String item = queue.take();  <span class="c">// blocks while empty</span></pre>
+<pre>produced item-1 (queue size 1)
+produced item-2 (queue size 2)
+produced item-3 (queue size 2)
+  consumed item-1
+produced item-4 (queue size 2)
+  consumed item-2
+produced item-5 (queue size 2)
+  consumed item-3
+  consumed item-4
+  consumed item-5</pre>
+<div class="ann">Watch the queue size: it reaches 2 and <em>stays</em> there. The producer is faster than the consumer, so
+<code>put()</code> blocked until a slot freed up — and from then on the two ran in lock-step, one produced for one
+consumed. That is <strong>backpressure</strong>, achieved with no locks, no <code>wait</code>/<code>notify</code> and no
+<code>sleep</code>. The <code>__done__</code> marker ("poison pill") is the standard way to tell a consumer there will be
+no more work.</div>
+
+<h3>F. <code>CountDownLatch</code> — wait for N things</h3>
+<pre>CountDownLatch ready = <span class="k">new</span> CountDownLatch(3);
+<span class="c">// each worker: ... ready.countDown();</span>
+ready.await();   <span class="c">// main waits until the count hits zero</span></pre>
+<pre>  worker 1 warmed up
+  worker 2 warmed up
+  worker 3 warmed up
+all workers ready - starting traffic</pre>
+<div class="ann">"all workers ready" can only print after three <code>countDown()</code> calls, no matter how long each took.
+A latch counts down only — once it hits zero it stays there, which is why it is one-shot. If you need the same gate again
+next round, that is <code>CyclicBarrier</code>.</div>
+
+<h3>G. Atomic map updates without a lock</h3>
+<pre>counts.merge(word, 1, Integer::sum);   <span class="c">// read-modify-write, atomic per key</span></pre>
+<pre>counts = {a=3, b=2, c=1}
+HashMap is fine when only one thread touches it: {a=1}</pre>
+<div class="ann">Six tasks on four threads updating three keys, and every count is exact. Written by hand as
+<code>counts.put(w, counts.get(w) + 1)</code> this would lose updates exactly like §7B of part 2 — <code>get</code> and
+<code>put</code> are each atomic, but the pair is not. <code>merge</code>, <code>compute</code> and
+<code>computeIfAbsent</code> exist precisely to make the pair atomic too.</div>
+
+<div class="try"><strong>Predict, then run.</strong>
+(1) In A, change <code>pool.submit(...)</code> to <code>f.get()</code> inside the loop. How many distinct thread names
+appear now, and what happened to the parallelism?
+(2) Delete <code>pool.shutdown()</code> from any demo — does the JVM still exit? Why not?
+(3) In E, make the queue size 10. Does the output interleave differently? Which number stops appearing?
+(4) Replace <code>merge</code> in G with <code>put(w, counts.getOrDefault(w,0)+1)</code> and run it twenty times. How
+often is it wrong?</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Unbounded queues.</strong> <code>newFixedThreadPool</code> queues without limit. Under overload
+you do not get backpressure, you get an <code>OutOfMemoryError</code>.</div>
+<div class="pitfall"><strong><code>newCachedThreadPool</code> in a server.</strong> No thread ceiling. A burst of traffic
+creates a thread per request and takes the process down.</div>
+<div class="pitfall"><strong>Calling <code>get()</code> inside the submission loop.</strong> Fully sequential execution that
+looks parallel.</div>
+<div class="pitfall"><strong>Never shutting the pool down.</strong> Non-daemon threads keep the JVM alive; in a web app
+this also leaks a classloader on redeploy.</div>
+<div class="pitfall"><strong>Blocking inside the common <code>ForkJoinPool</code>.</strong> <code>supplyAsync</code> without
+an executor, or a blocking call in a <code>parallelStream</code>, starves every other parallel task in the JVM.</div>
+<div class="pitfall"><strong>Ignoring the <code>Future</code> returned by <code>submit()</code>.</strong> Exceptions
+disappear into it. If you do not want the result, at least handle failure with
+<code>whenComplete</code>/<code>exceptionally</code>.</div>
+<div class="pitfall"><strong>Pool-within-a-pool deadlock.</strong> Tasks in a fixed pool that submit to the <em>same</em>
+pool and then <code>get()</code> can occupy every thread waiting for tasks that can never start.</div>
+<div class="pitfall"><strong>Thinking a thread-safe collection makes your <em>logic</em> thread-safe.</strong>
+<code>if (!map.containsKey(k)) map.put(k, v)</code> is still a race.</div>
+<div class="pitfall"><strong>Leaking <code>ThreadLocal</code>s in a pool.</strong> Threads are reused, so a value you set
+is still there for the next task — a classic source of leaked user context. Always <code>remove()</code> in a
+<code>finally</code>.</div>
+<div class="pitfall"><strong>Unnamed threads.</strong> A production thread dump full of <code>pool-3-thread-7</code> tells
+you nothing. Pass a <code>ThreadFactory</code>.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>Don't write <code>new Thread()</code> per task: it costs too much, has no limit, no backpressure, and no results.</li>
+  <li><strong><code>ExecutorService</code></strong> separates <em>what</em> to run from <em>how</em> it runs — that is the whole design.</li>
+  <li>A pool = workers + queue + size policy + rejection policy. Growth order: core threads → queue → extra threads → reject.</li>
+  <li><strong>Unbounded queue ⇒ <code>maximumPoolSize</code> is ignored</strong> and overload becomes an OOM. Use a bounded queue and <code>CallerRunsPolicy</code>.</li>
+  <li>Size CPU-bound pools ≈ cores; I/O-bound pools much larger (<code>cores × (1 + wait/compute)</code>). Keep them separate.</li>
+  <li><code>Callable</code> returns a value and may throw; <code>submit()</code> hands back a <code>Future</code>; <code>get()</code> blocks and rethrows as <code>ExecutionException</code>.</li>
+  <li>Submit everything <em>first</em>, then collect — otherwise you have written sequential code.</li>
+  <li>Always <code>shutdown()</code> then <code>awaitTermination()</code>, escalating to <code>shutdownNow()</code>.</li>
+  <li><strong><code>CompletableFuture</code></strong> composes async steps without blocking: <code>thenApply</code>, <code>thenCompose</code>, <code>thenCombine</code>, <code>allOf</code>, <code>exceptionally</code> — always with your own executor.</li>
+  <li>Prefer the library: <code>ConcurrentHashMap</code>, <code>BlockingQueue</code>, <code>CountDownLatch</code>, <code>Semaphore</code> over hand-rolled locking.</li>
+</ul>
+
+<hr/>
+<h2>Reference — picking the right tool</h2>
+<table>
+<thead><tr><th>You need…</th><th>Use</th></tr></thead>
+<tbody>
+<tr><td>background work, bounded</td><td><code>ThreadPoolExecutor</code> with an <code>ArrayBlockingQueue</code></td></tr>
+<tr><td>a batch of results</td><td><code>invokeAll</code> + <code>Future.get()</code></td></tr>
+<tr><td>the first answer only</td><td><code>invokeAny</code> / <code>CompletableFuture.anyOf</code></td></tr>
+<tr><td>chained async steps</td><td><code>CompletableFuture</code></td></tr>
+<tr><td>periodic jobs</td><td><code>ScheduledExecutorService</code> (never <code>Timer</code>)</td></tr>
+<tr><td>producer/consumer</td><td><code>BlockingQueue</code></td></tr>
+<tr><td>shared counters/maps</td><td><code>LongAdder</code>, <code>ConcurrentHashMap</code></td></tr>
+<tr><td>"wait for N to finish"</td><td><code>CountDownLatch</code></td></tr>
+<tr><td>"at most N at a time"</td><td><code>Semaphore</code></td></tr>
+<tr><td>big CPU-bound data crunch</td><td>parallel stream / <code>ForkJoinPool</code></td></tr>
+</tbody>
+</table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Executor / ExecutorService</dt><dd>Runs submitted tasks; adds results and lifecycle.</dd>
+  <dt>Thread pool</dt><dd>A fixed set of reusable worker threads fed by a queue.</dd>
+  <dt>Core / maximum pool size</dt><dd>Threads kept alive / the hard ceiling.</dd>
+  <dt>Work queue</dt><dd>Where tasks wait. Bounded = backpressure; unbounded = a memory risk.</dd>
+  <dt>Rejection policy</dt><dd>What happens when the pool and queue are both full (<code>AbortPolicy</code>, <code>CallerRunsPolicy</code>, …).</dd>
+  <dt>Callable / Future</dt><dd>A task that returns a value / the receipt you redeem for it.</dd>
+  <dt>ExecutionException</dt><dd>The wrapper <code>get()</code> throws around whatever the task threw.</dd>
+  <dt>CompletableFuture</dt><dd>A future you can chain, combine and recover from without blocking.</dd>
+  <dt>ForkJoinPool / work stealing</dt><dd>Divide-and-conquer pool where idle workers steal queued tasks.</dd>
+  <dt>BlockingQueue</dt><dd>A queue whose <code>put</code>/<code>take</code> wait for space/items.</dd>
+  <dt>Backpressure</dt><dd>Slowing the producer when the consumer cannot keep up.</dd>
+  <dt>Bulkhead</dt><dd>Separate pools per dependency so one failure cannot sink the whole app.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p>
+<a href="https://docs.oracle.com/javase/tutorial/essential/concurrency/executors.html">Oracle Java Tutorials — Executors</a>,
+then the <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ThreadPoolExecutor.html">Javadoc for <code>ThreadPoolExecutor</code></a>
+(its class comment is effectively the design document) and
+<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/CompletableFuture.html"><code>CompletableFuture</code></a>.
+Chapters 6–8 of <em>Java Concurrency in Practice</em> (Goetz) cover task execution and pool sizing in depth.
+</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>Java Tutorials</em> (Executors, High Level Concurrency Objects); Oracle, <em>Java SE 21 API</em> (<code>ExecutorService</code>, <code>ThreadPoolExecutor</code>, <code>CompletableFuture</code>, <code>ConcurrentHashMap</code>); Goetz, <em>Java Concurrency in Practice</em>. Demos run on JDK 1.8. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

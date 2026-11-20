@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Modern Java 9–21 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<h1>Modern Java — 9 to 21</h1>
+<p class="crumb">Java › lesson 12 of 14 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — what changed after Java 8, and why</p>
+
+<div class="tldr">
+<strong>In one line —</strong> Since Java 8, the language got shorter and safer: <code>var</code> for less boilerplate,
+<strong>records</strong> for data classes, <strong>sealed</strong> classes to control who can extend, <strong>switch
+expressions</strong> + <strong>pattern matching</strong> to replace clunky <code>if</code>-casts, and <strong>text blocks</strong>
+for multi-line strings. This lesson teaches each as <em>"what did it replace, and why?"</em> — your contrast anchor is the Java 8
+you already know.</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>This is your explicit post-8 goal. Each feature is an upgrade to something from earlier lessons — records upgrade
+<em>type-system-and-oop</em>'s data classes, pattern matching upgrades <em>polymorphism</em>, virtual threads (lesson 11) upgrade
+concurrency. Adopt them and idiomatic modern Java reads very differently from 2014 Java.</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+<p>Java 8 code has a lot of ceremony: 40-line "data" classes, casts after <code>instanceof</code>, fall-through
+<code>switch</code>, escaped multi-line strings. Each modern feature removes one specific pain while keeping full backward
+compatibility — and the six-month release train (since Java 9) ships them steadily, with LTS versions (11, 17, 21) for enterprises to
+standardize on <span class="sources">(<a href="https://docs.oracle.com/en/java/javase/21/language/java-language-changes.html">Oracle — Java Language Changes</a>)</span>.</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+<figure>
+<svg viewBox="0 0 760 130" width="100%" role="img" aria-label="Feature ladder from Java 9 to 21">
+  <style>
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.3}.l{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.6}
+    .t{font:11px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:10px Georgia,serif;fill:#6b675e}
+  </style>
+  <line x1="30" y1="90" x2="740" y2="90" stroke="#6b675e" stroke-width="1.4"/>
+  <g><rect class="b" x="30" y="55" width="80" height="32" rx="4"/><text class="t" x="48" y="76">9 JPMS</text></g>
+  <g><rect class="l" x="130" y="55" width="80" height="32" rx="4"/><text class="t" x="150" y="76">11 var*</text></g>
+  <g><rect class="b" x="230" y="55" width="90" height="32" rx="4"/><text class="t" x="245" y="76">14 switch</text></g>
+  <g><rect class="l" x="340" y="55" width="90" height="32" rx="4"/><text class="t" x="352" y="76">16 records</text></g>
+  <g><rect class="l" x="450" y="55" width="100" height="32" rx="4"/><text class="t" x="460" y="76">17 sealed</text></g>
+  <g><rect class="b" x="570" y="55" width="80" height="32" rx="4"/><text class="t" x="580" y="76">15 text</text></g>
+  <g><rect class="l" x="660" y="55" width="80" height="32" rx="4"/><text class="t" x="668" y="76">21 LTS</text></g>
+  <text class="c" x="150" y="115">var: 10; virtual threads &amp; record patterns: 21</text>
+</svg>
+<figcaption>The modern ladder. Highlighted = language features (this lesson); JPMS is a platform feature. LTS = 11, 17, 21.
+(Per Oracle Java Language Changes.)</figcaption>
+</figure>
+
+<h3><code>var</code> — local type inference (10/11)</h3>
+<p><code>var list = new ArrayList&lt;String&gt;();</code> — the compiler infers the type from the right side. It's still
+<em>static</em> typing (the type is fixed, just not written), only for <em>local</em> variables. Use it when the type is obvious;
+don't use it when it hurts readability.</p>
+
+<h3>Records (16) — data classes without the boilerplate</h3>
+<p>A <code>record</code> is an immutable data carrier. One line generates the constructor, <code>equals</code>, <code>hashCode</code>,
+<code>toString</code>, and accessors — the exact "value object" you hand-wrote in lesson 5, now correct by construction. Replaces the
+40-line POJO.</p>
+
+<h3>Sealed classes (17) — a closed family</h3>
+<p><code>sealed</code> lets a type say <em>exactly</em> which classes may extend it (<code>permits Dog, Cat</code>). Now the compiler
+knows the full set — so a <code>switch</code> over them can be checked for completeness. Together with records, this gives Java
+<strong>algebraic data types</strong> (a fixed set of shapes).</p>
+
+<h3>Switch expressions + pattern matching (14 → 21)</h3>
+<p><code>switch</code> becomes an <em>expression</em> that returns a value with arrow labels and no fall-through.
+<strong>Pattern matching</strong> for <code>instanceof</code> removes the redundant cast; for <code>switch</code> (21) it lets you
+branch on <em>type and shape</em>; <strong>record patterns</strong> destructure a record inline. Together they replace towers of
+<code>if (x instanceof Y y) …</code>.</p>
+
+<h3>Text blocks (15)</h3>
+<p><code>"""… """</code> spans multiple lines with no <code>\n</code> or <code>+</code> — ideal for JSON, SQL, HTML.</p>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong>records</strong> — DTOs, value objects, map keys, method return tuples. Default for "just data."</li>
+  <li><strong>sealed + records + switch patterns</strong> — modelling a fixed set of cases (states, events, AST nodes).</li>
+  <li><strong>switch expression</strong> — mapping an input to a value; safer than statement <code>switch</code>.</li>
+  <li><strong>var</strong> — obvious local types; keep explicit types on public APIs.</li>
+  <li><strong>text blocks</strong> — any embedded multi-line literal.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>Old Java made you write a long form every time you described a simple thing — name, address, phone — even though it's always the
+same form. A <strong>record</strong> is a stamp that fills the whole form for you. A <strong>sealed</strong> class is a club with a
+posted guest list: only named people get in, so the bouncer (compiler) can be sure nobody's missing. And the new
+<strong>switch</strong> is a smart sorting hat that looks at what something <em>is</em> and hands back the right answer in one line.</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← type-system-and-oop:</strong> records = the value object done right; sealed = controlled inheritance.</li>
+  <li><strong>← collections-and-equality:</strong> a record's auto <code>equals</code>/<code>hashCode</code> makes it a safe key.</li>
+  <li><strong>← concurrency:</strong> immutable records are naturally thread-safe; virtual threads (21) sit here too.</li>
+  <li><strong>→ application-architecture:</strong> sealed + records model your domain precisely and make illegal states unrepresentable.</li>
+  <li><strong>Same idea elsewhere:</strong> Kotlin data classes, Scala case classes, TypeScript discriminated unions — Java caught up.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — before vs after</h2>
+<p class="sources">Illustrative — these features need JDK 16/17/21; your machine runs JDK 1.8, so this is shown for contrast, not run here.
+Compile with <code>javac --release 21</code> on a modern JDK.</p>
+<pre><span class="c">// Java 8: a value object by hand — ~30 lines of constructor/equals/hashCode/toString</span>
+<span class="k">final class</span> Point { <span class="k">final</span> int x,y; <span class="c">/* + ctor + 3 overrides + getters */</span> }
+
+<span class="c">// Modern: one line, all of it generated and correct</span>
+<span class="k">record</span> Point(int x, int y) {}
+
+<span class="c">// Sealed family + switch pattern matching + record destructuring (21)</span>
+<span class="k">sealed interface</span> Shape <span class="k">permits</span> Circle, Rect {}
+<span class="k">record</span> Circle(double r) <span class="k">implements</span> Shape {}
+<span class="k">record</span> Rect(double w, double h) <span class="k">implements</span> Shape {}
+
+<span class="k">static</span> double area(Shape s) {
+    <span class="k">return switch</span> (s) {                       <span class="c">// an EXPRESSION, returns a value</span>
+        <span class="k">case</span> Circle(<span class="k">var</span> r)    -&gt; Math.PI * r * r;  <span class="c">// destructure inline</span>
+        <span class="k">case</span> Rect(<span class="k">var</span> w, <span class="k">var</span> h) -&gt; w * h;
+    };                                          <span class="c">// no default needed — sealed = compiler knows all cases</span>
+}</pre>
+<div class="ann">Notice what disappeared: the hand-written boilerplate, the <code>instanceof</code>+cast, the fall-through <code>break</code>s,
+and even the <code>default</code> branch — because <code>sealed</code> tells the compiler the case list is complete. If you later add
+a <code>Triangle</code>, the <code>switch</code> stops compiling until you handle it. That's illegal states becoming compile errors.</div>
+
+<div class="try"><strong>Predict.</strong> On the sealed <code>Shape</code> above, remove the <code>Rect</code> case from the
+<code>switch</code>. Does it compile? <em>(Hint: an exhaustive switch over a sealed type must cover every permitted subtype — the
+compiler rejects the gap.)</em></div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Overusing <code>var</code>.</strong> <code>var x = foo();</code> where the return type is unclear hurts readability. Prefer it only when the type is obvious.</div>
+<div class="pitfall"><strong>Records aren't for everything.</strong> They're shallowly immutable and can't extend a class. Not a replacement for rich entities with behaviour.</div>
+<div class="pitfall"><strong>Preview features.</strong> Some features shipped as "preview" first (needing <code>--enable-preview</code>). Check what's final in your target LTS.</div>
+<div class="pitfall"><strong>Module system friction.</strong> JPMS (9) is powerful but adopting it mid-project is disruptive; many apps stay on the classpath.</div>
+<div class="pitfall"><strong>Chasing latest.</strong> Target an <strong>LTS</strong> (17 or 21) for production stability, not the newest six-month release.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li><strong><code>var</code></strong> = inferred local types, still static typing; use when obvious.</li>
+  <li><strong>records</strong> = one-line immutable value objects with correct <code>equals</code>/<code>hashCode</code>/<code>toString</code>.</li>
+  <li><strong>sealed</strong> = a fixed, compiler-known set of subtypes; enables exhaustive checks.</li>
+  <li><strong>switch expressions + pattern matching</strong> replace <code>instanceof</code>-cast towers and fall-through.</li>
+  <li><strong>record patterns</strong> destructure data inline; <strong>text blocks</strong> handle multi-line strings.</li>
+  <li>Target an <strong>LTS</strong> (11/17/21); learn each feature as "what did it replace, and why?"</li>
+</ul>
+
+<hr/>
+<h2>Reference — feature → replaces</h2>
+<table>
+<thead><tr><th>Feature (since)</th><th>Replaces the old…</th></tr></thead>
+<tbody>
+<tr><td><code>var</code> (10)</td><td>repeating a long type on both sides</td></tr>
+<tr><td>records (16)</td><td>hand-written POJO / value class</td></tr>
+<tr><td>sealed (17)</td><td>open inheritance + runtime type checks</td></tr>
+<tr><td>switch expr (14)</td><td>fall-through statement <code>switch</code></td></tr>
+<tr><td>pattern matching (16/21)</td><td><code>instanceof</code> + explicit cast</td></tr>
+<tr><td>text blocks (15)</td><td>escaped, concatenated multi-line strings</td></tr>
+<tr><td>virtual threads (21)</td><td>heavy platform threads / async callbacks</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>var</dt><dd>Local-variable type inference; the compiler fills in the type.</dd>
+  <dt>record</dt><dd>Compact immutable data class with generated members.</dd>
+  <dt>sealed</dt><dd>A type that lists exactly which classes may extend/implement it.</dd>
+  <dt>switch expression</dt><dd>A <code>switch</code> that yields a value, arrow-style, no fall-through.</dd>
+  <dt>pattern matching</dt><dd>Test type/shape and bind a variable in one step.</dd>
+  <dt>record pattern</dt><dd>Destructure a record's components inside a pattern.</dd>
+  <dt>text block</dt><dd>A <code>"""</code>-delimited multi-line string literal.</dd>
+  <dt>LTS</dt><dd>Long-Term-Support release (11, 17, 21).</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/en/java/javase/21/language/java-language-changes.html">Oracle — Java Language Changes (SE 21)</a> (version-by-version), plus JEPs: <a href="https://openjdk.org/jeps/395">395 Records</a>, <a href="https://openjdk.org/jeps/409">409 Sealed Classes</a>, <a href="https://openjdk.org/jeps/441">441 Pattern Matching for switch</a>.</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>Java Language Changes (SE 21)</em>; OpenJDK JEPs 286, 395, 409, 440/441, 444. Code shown is illustrative (requires JDK 16+/21). Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lists, Sets &amp; Queues — Collections, Part 1 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .step{display:flex;gap:.8rem;margin:.9rem 0} .step .num{flex:0 0 2rem;height:2rem;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.95rem}
+  .step .body{flex:1} .step .body strong{display:block}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Lists, Sets &amp; Queues</h1>
+<p class="crumb">Java › collections cluster · lesson 8, <strong>part 1 of 3</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the boxes you put your data in</p>
+
+<p class="nav"><strong>Collections cluster:</strong>
+  <strong>1. Lists, sets &amp; queues</strong> ·
+  <a href="lesson-2-maps-and-hashing.html">2. Maps &amp; how hashing works</a> ·
+  <a href="lesson-3-equality-and-ordering.html">3. Equality &amp; ordering</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> A program almost always holds <em>many</em> things, not one thing. Java gives you ready-made boxes
+for that. There are three shapes of box: a <strong>List</strong> (keeps order, allows copies), a <strong>Set</strong>
+(no copies), and a <strong>Queue</strong> (things come out in a fixed order). Each shape has a few different
+<em>builds</em> — and the only real difference between them is <em>how they store the data inside</em>.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+This is the most-used library in all of Java. You will touch it in almost every file you ever write. It sits on top of
+everything you have learnt so far: it uses <a href="../05-type-system-and-oop/lesson-3-generics-and-erasure.html">generics</a>
+to say <em>what</em> it holds, it lives on the <a href="../06-memory-model-and-gc/lesson.html">heap</a>, and
+<a href="../07-java8-functional/lesson.html">streams</a> read from it.
+</p>
+<p>The subject is big, so it is split into three small lessons:</p>
+<ul>
+  <li><strong>Part 1 (this one)</strong> — the three box shapes: List, Set, Queue. What each promises, and which build to pick.</li>
+  <li><strong><a href="lesson-2-maps-and-hashing.html">Part 2</a></strong> — <code>Map</code>: pairs of key → value, and the hashing trick that makes lookups instant.</li>
+  <li><strong><a href="lesson-3-equality-and-ordering.html">Part 3</a></strong> — the two rules your own classes must follow for these boxes to work: <code>equals</code>/<code>hashCode</code>, and ordering.</li>
+</ul>
+
+<h2><span class="n">§2</span>Why it exists — the problem before the framework</h2>
+
+<h3>Start from nothing: the plain array</h3>
+<p>Without any library, Java gives you one way to hold many things — the array:</p>
+<pre>String[] names = <span class="k">new</span> String[3];
+names[0] = <span class="s">"ana"</span>;</pre>
+<p>An array is fast, but it hurts in three ways:</p>
+<ul>
+  <li><strong>Its size is fixed forever.</strong> You said 3. You cannot make it 4. To "add" a fourth name you must build a
+      bigger array by hand and copy everything across.</li>
+  <li><strong>It has almost no behaviour.</strong> There is no "remove this item", no "do you already contain ana?", no
+      "sort yourself". You write all of that by hand, in every project, again and again.</li>
+  <li><strong>It cannot promise anything.</strong> Want "no duplicates"? You must check it yourself on every single insert.</li>
+</ul>
+
+<h3>What people did instead (and why it hurt)</h3>
+<p>
+Very early Java (1.0) shipped a few helper classes — <code>Vector</code>, <code>Stack</code>, <code>Hashtable</code> — but
+they shared no common type, so you could not swap one for another. Everyone else wrote their own list class. Your
+<code>MyList</code> and my <code>FastList</code> had different method names, so our code could not talk. Java 2 fixed this
+by shipping one <strong>Collections Framework</strong> that everybody uses
+<span class="sources">(<a href="https://docs.oracle.com/javase/tutorial/collections/intro/index.html">Oracle — Collections, Introduction</a>)</span>.
+</p>
+
+<h3>The one big idea: interface vs implementation</h3>
+<p>The framework splits every box into two halves, and that split is the whole point:</p>
+<ul>
+  <li>An <strong>interface</strong> says <em>what the box promises</em>. <code>List</code> promises "I keep your order, and copies are fine."</li>
+  <li>An <strong>implementation</strong> is <em>how that promise is kept inside</em>. <code>ArrayList</code> keeps it with an array; <code>LinkedList</code> keeps it with chained nodes.</li>
+</ul>
+<p>So you write your code against the promise, and name the build only once — at creation:</p>
+<pre>List&lt;String&gt; names = <span class="k">new</span> ArrayList&lt;&gt;();   <span class="c">// promise on the left, build on the right</span></pre>
+<div class="ann">Every other line in your program only knows that <code>names</code> is a <code>List</code>. So the day you decide
+<code>LinkedList</code> suits you better, you change <em>one word</em> and nothing else breaks. That is the payoff for
+programming to the interface
+<span class="sources">(<a href="https://docs.oracle.com/javase/tutorial/collections/interfaces/index.html">Oracle — Collection Interfaces</a>)</span>.</div>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>The family tree</h3>
+<figure>
+<svg viewBox="0 0 760 300" width="100%" role="img" aria-label="Collection interface hierarchy">
+  <style>
+    .i{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}.b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}.b2{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.3;marker-end:url(#m5);fill:none}
+  </style>
+  <defs><marker id="m5" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="i" x="230" y="12" width="190" height="44" rx="6"/><text class="t" x="258" y="32">Iterable</text><text class="c" x="248" y="48">"you can loop over me"</text>
+  <rect class="i" x="230" y="82" width="190" height="44" rx="6"/><text class="t" x="252" y="102">Collection</text><text class="c" x="240" y="118">add · remove · contains · size</text>
+  <line class="a" x1="325" y1="56" x2="325" y2="80"/>
+
+  <rect class="b" x="25" y="165" width="155" height="50" rx="5"/><text class="t" x="72" y="186">List</text><text class="c" x="36" y="203">order + duplicates</text>
+  <rect class="b" x="222" y="165" width="155" height="50" rx="5"/><text class="t" x="268" y="186">Set</text><text class="c" x="248" y="203">no duplicates</text>
+  <rect class="b" x="420" y="165" width="150" height="50" rx="5"/><text class="t" x="462" y="186">Queue</text><text class="c" x="438" y="203">a waiting line</text>
+  <rect class="b" x="600" y="165" width="145" height="50" rx="5"/><text class="t" x="634" y="186">Deque</text><text class="c" x="608" y="203">a line, both ends</text>
+  <line class="a" x1="280" y1="126" x2="120" y2="163"/>
+  <line class="a" x1="312" y1="126" x2="300" y2="163"/>
+  <line class="a" x1="355" y1="126" x2="480" y2="163"/>
+  <line class="a" x1="572" y1="196" x2="598" y2="196" stroke-dasharray="4 3"/>
+
+  <rect class="b2" x="20" y="250" width="180" height="40" rx="5"/><text class="t" x="26" y="274">ArrayList · LinkedList</text>
+  <rect class="b2" x="218" y="250" width="192" height="40" rx="5"/><text class="t" x="222" y="268">HashSet · LinkedHashSet</text><text class="t" x="222" y="284">· TreeSet</text>
+  <rect class="b2" x="425" y="250" width="200" height="40" rx="5"/><text class="t" x="430" y="274">ArrayDeque · PriorityQueue</text>
+  <line class="a" x1="105" y1="215" x2="105" y2="248"/>
+  <line class="a" x1="300" y1="215" x2="300" y2="248"/>
+  <line class="a" x1="498" y1="215" x2="505" y2="248"/>
+</svg>
+<figcaption>Green = "you can loop over me" plus the shared basics. Blue = the four promises. Cream = the builds you actually
+type after <code>new</code>. <code>Deque</code> extends <code>Queue</code> — a line usable from both ends. Per Oracle's
+Collections Framework overview.</figcaption>
+</figure>
+
+<p>
+Everything above <code>List</code>/<code>Set</code>/<code>Queue</code> is shared. <code>Collection</code> is where the basic
+verbs live — <code>add</code>, <code>remove</code>, <code>contains</code>, <code>size</code>, <code>isEmpty</code>,
+<code>iterator</code> — so those work on <em>any</em> of them. Each child only adds its own promise on top.
+</p>
+
+<h3>The three promises, one at a time</h3>
+
+<div class="step"><div class="num">1</div><div class="body"><strong><code>List</code> — "I keep your order, and copies are fine."</strong>
+Every element gets a position: 0, 1, 2… You can ask for "the item at 2". You can put <code>"tea"</code> in twice and it stays
+twice. Think of a shopping list or a chat history: the order means something, and repeats are real.</div></div>
+
+<div class="step"><div class="num">2</div><div class="body"><strong><code>Set</code> — "I hold each value only once."</strong>
+Add the same value again and the set quietly ignores it. There is no "item at position 2", because a set is about
+<em>membership</em>, not position. Think of the set of user IDs that have already voted.</div></div>
+
+<div class="step"><div class="num">3</div><div class="body"><strong><code>Queue</code> / <code>Deque</code> — "I hand things back in a fixed order."</strong>
+A <code>Queue</code> is a waiting line: first in, first out. A <code>Deque</code> ("deck") is a line you can push and pull at
+<em>both</em> ends, so one class can act as a queue <em>or</em> as a stack (last in, first out). Think of jobs waiting to be
+processed, or an undo history.</div></div>
+
+<h3>Now the builds — the only difference is storage</h3>
+<p>Here is the key insight of the whole lesson. <code>ArrayList</code> and <code>LinkedList</code> answer every question
+<em>identically</em>. Same results, always. What differs is the <em>shape of the memory</em> behind them — and that shape
+decides which operations are cheap.</p>
+
+<figure>
+<svg viewBox="0 0 760 230" width="100%" role="img" aria-label="ArrayList versus LinkedList storage">
+  <style>
+    .cell{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.3}.node{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.3}
+    .t2{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.c2{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .lbl{font:12.5px Georgia,serif;fill:#2b2b28;font-weight:bold}
+    .a2{stroke:#6b675e;stroke-width:1.3;marker-end:url(#m6);fill:none}
+  </style>
+  <defs><marker id="m6" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <text class="lbl" x="20" y="22">ArrayList — one solid block, numbered slots</text>
+  <rect class="cell" x="20" y="34" width="70" height="40"/><text class="t2" x="42" y="59">tea</text>
+  <rect class="cell" x="90" y="34" width="70" height="40"/><text class="t2" x="102" y="59">coffee</text>
+  <rect class="cell" x="160" y="34" width="70" height="40"/><text class="t2" x="180" y="59">milk</text>
+  <rect class="cell" x="230" y="34" width="70" height="40" stroke-dasharray="4 3"/><text class="c2" x="248" y="59">spare</text>
+  <rect class="cell" x="300" y="34" width="70" height="40" stroke-dasharray="4 3"/><text class="c2" x="318" y="59">spare</text>
+  <text class="c2" x="48" y="89">[0]</text><text class="c2" x="118" y="89">[1]</text><text class="c2" x="188" y="89">[2]</text>
+  <text class="c2" x="390" y="50">get(2) → jump straight to slot 2. One step.</text>
+  <text class="c2" x="390" y="70">Full? build a bigger block and copy everything over.</text>
+
+  <text class="lbl" x="20" y="140">LinkedList — separate nodes, each pointing to the next</text>
+  <rect class="node" x="20" y="152" width="92" height="44" rx="4"/><text class="t2" x="46" y="179">tea</text>
+  <rect class="node" x="152" y="152" width="92" height="44" rx="4"/><text class="t2" x="166" y="179">coffee</text>
+  <rect class="node" x="284" y="152" width="92" height="44" rx="4"/><text class="t2" x="310" y="179">milk</text>
+  <line class="a2" x1="112" y1="182" x2="150" y2="182"/><line class="a2" x1="244" y1="182" x2="282" y2="182"/>
+  <line class="a2" x1="150" y1="166" x2="114" y2="166" stroke-dasharray="3 2"/><line class="a2" x1="282" y1="166" x2="246" y2="166" stroke-dasharray="3 2"/>
+  <text class="c2" x="396" y="170">get(2) → start at the front and walk. Slow.</text>
+  <text class="c2" x="396" y="190">Add at either end → re-point two arrows. One step.</text>
+</svg>
+<figcaption>The same three drinks, two very different layouts. An <code>ArrayList</code> is one numbered block, so jumping to
+a position is a single step. A <code>LinkedList</code> is a chain of separate nodes, so position <em>n</em> means walking
+<em>n</em> links <span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/api/java/util/ArrayList.html">Oracle — ArrayList</a>,
+<a href="https://docs.oracle.com/javase/8/docs/api/java/util/LinkedList.html">LinkedList</a>)</span>.</figcaption>
+</figure>
+
+<h3>How <code>ArrayList</code> grows (the bit people assume is magic)</h3>
+<p>
+An <code>ArrayList</code> is "resizable", but arrays are not. So how? It holds an array that is a little <em>bigger</em> than
+needed, plus a <code>size</code> counter. When you <code>add</code>:
+</p>
+<ol>
+  <li>Is there a spare slot? Then write into it and bump <code>size</code>. Done — one step.</li>
+  <li>Is it full? Then it creates a <strong>new, bigger array</strong> (about 1.5× in the OpenJDK code), copies everything
+      across, and uses that from then on.</li>
+</ol>
+<p>
+Step 2 is expensive, but it happens rarely, and each grow buys room for many more adds. Spread across all the adds, the
+cost per add is tiny. That is what "<strong>amortised O(1)</strong>" means — not "always cheap", but "cheap on average"
+<span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/api/java/util/ArrayList.html">Oracle — ArrayList</a>)</span>.
+</p>
+<div class="idiom"><strong>Idiom:</strong> if you already know roughly how many items are coming, say so —
+<code>new ArrayList&lt;&gt;(10000)</code>. You skip every grow-and-copy round.</div>
+
+<h3>Why <code>ArrayList</code> usually wins anyway</h3>
+<p>On paper <code>LinkedList</code> looks great for inserts. In practice <code>ArrayList</code> wins most of the time, for
+two reasons you can feel in the benchmark in §7:</p>
+<ul>
+  <li><strong>Memory locality.</strong> An array sits in one continuous block, so the CPU cache pulls in the neighbours for
+      free. Linked nodes are scattered across the <a href="../06-memory-model-and-gc/lesson.html">heap</a>, so each hop can
+      be a cache miss.</li>
+  <li><strong>Extra objects.</strong> Every <code>LinkedList</code> item needs its own node object holding two extra
+      references. More memory, and more work for the garbage collector.</li>
+</ul>
+<div class="callout"><strong>Rule of thumb:</strong> start with <code>ArrayList</code>. Reach for <code>LinkedList</code>
+only when you genuinely need fast adds/removes at the <em>ends</em> — and even then <code>ArrayDeque</code> is usually faster.</div>
+
+<h3>Sets: the same three flavours</h3>
+<p>Sets come in the exact trio you will meet again for maps in <a href="lesson-2-maps-and-hashing.html">Part 2</a>:</p>
+<table>
+<thead><tr><th>Build</th><th>Stored as</th><th>Loop order</th><th>Cost of <code>contains</code></th></tr></thead>
+<tbody>
+<tr><td><code>HashSet</code></td><td>a hash table</td><td><strong>no promise at all</strong></td><td>O(1) on average</td></tr>
+<tr><td><code>LinkedHashSet</code></td><td>hash table + a chain recording insert order</td><td>insertion order</td><td>O(1) on average</td></tr>
+<tr><td><code>TreeSet</code></td><td>a balanced (red-black) tree</td><td>sorted order</td><td>O(log n)</td></tr>
+</tbody></table>
+<p>
+How does a set know a value is already inside? It does <em>not</em> compare against every element — that would be slow. It
+uses the hashing trick. In fact <code>HashSet</code> literally wraps a <code>HashMap</code> inside and ignores the values.
+That machinery is <a href="lesson-2-maps-and-hashing.html">Part 2</a>, and the rules your class must follow for it to work
+are <a href="lesson-3-equality-and-ordering.html">Part 3</a>.
+</p>
+
+<h3>Queues and deques</h3>
+<p>
+<code>ArrayDeque</code> stores items in a <strong>ring buffer</strong> — an array with a "head" marker and a "tail" marker
+that wrap around when they reach the end. Nothing is ever shifted; only the two markers move. That makes both ends cheap,
+which is why it is the right pick for stacks <em>and</em> queues
+<span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/api/java/util/ArrayDeque.html">Oracle — ArrayDeque</a>)</span>.
+</p>
+<table>
+<thead><tr><th>You want</th><th>Use</th><th>Methods</th></tr></thead>
+<tbody>
+<tr><td>a queue (first in, first out)</td><td><code>ArrayDeque</code></td><td><code>offer</code> / <code>poll</code> / <code>peek</code></td></tr>
+<tr><td>a stack (last in, first out)</td><td><code>ArrayDeque</code></td><td><code>push</code> / <code>pop</code> / <code>peek</code></td></tr>
+<tr><td>"smallest first", not arrival order</td><td><code>PriorityQueue</code></td><td><code>offer</code> / <code>poll</code></td></tr>
+<tr><td>hand work between threads</td><td><code>LinkedBlockingQueue</code></td><td><code>put</code> / <code>take</code></td></tr>
+</tbody></table>
+<div class="callout"><strong>Two method styles.</strong> <code>add</code>/<code>remove</code>/<code>element</code> throw an
+exception when things go wrong. <code>offer</code>/<code>poll</code>/<code>peek</code> return <code>false</code> or
+<code>null</code> instead. Prefer the second set — an empty queue is normal life, not an emergency.</div>
+
+<h2><span class="n">§4</span>When to use which</h2>
+<ul>
+  <li><strong>Need positions, or duplicates that matter?</strong> → <code>List</code>, and <code>ArrayList</code> unless you have a measured reason not to.</li>
+  <li><strong>Need "have I seen this before?" or "drop the duplicates"?</strong> → <code>Set</code>. <code>HashSet</code> for speed, <code>LinkedHashSet</code> when output order must be stable (logs, reports), <code>TreeSet</code> when you need it sorted or need "the next value above X".</li>
+  <li><strong>Processing things in arrival order?</strong> → <code>ArrayDeque</code> as a queue. Jobs, events, breadth-first search.</li>
+  <li><strong>Undo history, bracket matching, depth-first search?</strong> → <code>ArrayDeque</code> as a stack. Never the old <code>Stack</code> class.</li>
+  <li><strong>"Always give me the most urgent one"?</strong> → <code>PriorityQueue</code>.</li>
+  <li><strong>Several threads sharing it?</strong> → the concurrent versions (<code>CopyOnWriteArrayList</code>, <code>ConcurrentLinkedQueue</code>) — see <a href="../11-concurrency/lesson.html">lesson 11</a>.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>Picture your bedroom. You need somewhere to put your stuff, and the <em>furniture you choose</em> changes what is easy.</p>
+<p>
+A <strong>List</strong> is a <em>numbered shelf</em>. Slot 1, slot 2, slot 3. You can keep two identical comics, and you can
+say "give me whatever is in slot 7" without looking at the rest. A <strong>Set</strong> is a <em>sticker album</em>: each
+sticker fits only once. Try to stick in a duplicate and it just will not go — which is exactly why it is perfect for "have
+I already got this one?" A <strong>Queue</strong> is the <em>lunch line</em>: whoever arrived first is served first. A
+<strong>Deque</strong> is an odd lunch line where people can join or leave at <em>both</em> ends — so you can also use it as
+a <em>stack of plates</em>, where you always take the top one.
+</p>
+<p>
+And why two kinds of shelf (<code>ArrayList</code> vs <code>LinkedList</code>)? One is a real shelf with numbered slots: you
+walk straight to slot 7. The other is a treasure hunt — each box holds a note saying where the next box is. To reach box 7
+you must open 1, 2, 3, 4, 5 and 6 first. But adding a box to the hunt is easy: write one new note. Numbered shelf = fast to
+<em>find</em>. Treasure hunt = fast to <em>add in the middle</em>. Neither is "better"; they are good at different jobs.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="../05-type-system-and-oop/lesson-3-generics-and-erasure.html">generics:</a></strong> <code>List&lt;String&gt;</code> is generics doing its job — the compiler stops you putting an <code>Integer</code> in. Because of <em>erasure</em>, at run time the list just holds <code>Object</code>s.</li>
+  <li><strong>← <a href="../06-memory-model-and-gc/lesson.html">memory:</a></strong> the collection object and every element live on the heap. A long-lived collection you never clear is the most common memory leak in Java.</li>
+  <li><strong>→ <a href="lesson-2-maps-and-hashing.html">Part 2:</a></strong> <code>HashSet</code> is a <code>HashMap</code> in disguise, so sets only fully make sense after you have seen hashing.</li>
+  <li><strong>→ <a href="lesson-3-equality-and-ordering.html">Part 3:</a></strong> "no duplicates" means nothing until you define what "the same" means — that is <code>equals</code>/<code>hashCode</code>.</li>
+  <li><strong>→ <a href="../07-java8-functional/lesson.html">streams:</a></strong> <code>list.stream()</code> starts a pipeline; <code>collect(toList())</code> lands back in a collection.</li>
+  <li><strong>Same idea elsewhere:</strong> Python has <code>list</code> / <code>set</code> / <code>deque</code>; JavaScript has <code>Array</code> / <code>Set</code>; C++ has <code>vector</code> / <code>set</code> / <code>deque</code>. Different spellings, identical shapes — learn them once and they travel.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — one file, dissected</h2>
+<p>Everything below was <strong>run on JDK 1.8</strong>; every output block is copied from a real run of
+<a href="../code/CollectionsDemo2.java">code/CollectionsDemo2.java</a>.</p>
+
+<h3>A — a list keeps order and copies; a set does not</h3>
+<pre>List&lt;String&gt; list = <span class="k">new</span> ArrayList&lt;String&gt;();
+list.add(<span class="s">"tea"</span>); list.add(<span class="s">"coffee"</span>); list.add(<span class="s">"tea"</span>);
+
+Set&lt;String&gt; hashSet   = <span class="k">new</span> HashSet&lt;String&gt;();
+Set&lt;String&gt; linkedSet = <span class="k">new</span> LinkedHashSet&lt;String&gt;();
+Set&lt;String&gt; treeSet   = <span class="k">new</span> TreeSet&lt;String&gt;();
+<span class="k">for</span> (String s : <span class="k">new</span> String[]{<span class="s">"tea"</span>, <span class="s">"coffee"</span>, <span class="s">"tea"</span>, <span class="s">"milk"</span>}) {
+    hashSet.add(s); linkedSet.add(s); treeSet.add(s);
+}</pre>
+<pre>list        = [tea, coffee, tea]
+list.get(1) = coffee
+size        = 3
+
+HashSet       = [tea, coffee, milk]
+LinkedHashSet = [tea, coffee, milk]
+TreeSet       = [coffee, milk, tea]</pre>
+<div class="ann">The list kept both teas; all three sets kept one. Notice <code>TreeSet</code> came out alphabetically — it sorted
+for you without being asked. And here is a trap worth flagging now: the <code>HashSet</code> line <em>happens</em> to match
+insertion order on this run. That is luck, not a promise, and it can change with a different JDK or different data. Only
+<code>LinkedHashSet</code> and <code>TreeSet</code> actually guarantee an order.</div>
+
+<h3>B — the cost difference you can measure</h3>
+<pre><span class="c">// 100,000 items in each, then read every one by index</span>
+<span class="k">for</span> (int i = 0; i &lt; arrayList.size(); i++) sumA += arrayList.get(i);
+<span class="k">for</span> (int i = 0; i &lt; linkedList.size(); i++) sumL += linkedList.get(i);</pre>
+<pre>same sum?                  true
+ArrayList  get(i) loop ms: 12
+LinkedList get(i) loop ms: 12952</pre>
+<div class="ann"><strong>Identical answers. About a thousand times apart in time.</strong> The <code>ArrayList</code> jumps
+straight to each slot. The <code>LinkedList</code> restarts at the front and walks for <em>every single</em>
+<code>get(i)</code> — n walks of average length n/2, so the whole loop is O(n²). This is the clearest proof that the
+interface (<code>List</code>) tells you <em>what</em>, and the build tells you <em>what it costs</em>.
+<em>(Fair-play note: looping a <code>LinkedList</code> with a for-each is fine — that walks once. It is <code>get(i)</code>
+inside a loop that kills it.)</em></div>
+
+<h3>C — one class, two jobs</h3>
+<pre>Deque&lt;String&gt; stack = <span class="k">new</span> ArrayDeque&lt;String&gt;();
+stack.push(<span class="s">"a"</span>); stack.push(<span class="s">"b"</span>); stack.push(<span class="s">"c"</span>);
+stack.pop();   <span class="c">// push added at the front, pop takes the front -&gt; "c"</span>
+
+Queue&lt;String&gt; queue = <span class="k">new</span> ArrayDeque&lt;String&gt;();
+queue.offer(<span class="s">"a"</span>); queue.offer(<span class="s">"b"</span>); queue.offer(<span class="s">"c"</span>);
+queue.poll();  <span class="c">// offer added at the back, poll takes the front -&gt; "a"</span></pre>
+<pre>stack pop order:  c, b
+queue poll order: a, b</pre>
+<div class="ann">Same class, same memory layout. The only difference is <em>which end you add to</em>. Declaring the variable as
+<code>Deque</code> or <code>Queue</code> is how you tell the next reader which of the two you meant.</div>
+
+<h3>D — the classic crash: changing a collection while looping it</h3>
+<pre>List&lt;String&gt; drinks = <span class="k">new</span> ArrayList&lt;String&gt;(Arrays.asList(<span class="s">"tea"</span>, <span class="s">"coffee"</span>, <span class="s">"milk"</span>));
+<span class="k">for</span> (String d : drinks) {
+    <span class="k">if</span> (d.equals(<span class="s">"tea"</span>)) drinks.remove(d);   <span class="c">// changing the list the loop is reading</span>
+}</pre>
+<pre>removing "tea"    -> ConcurrentModificationException
+removing "coffee" -> no exception, but only saw [tea, coffee]</pre>
+<div class="ann">
+Read those two lines carefully — the second one is the scary one.
+<br/><br/>
+A for-each loop secretly uses an <code>Iterator</code>, which remembers a <em>modification count</em> taken when the loop
+began. Change the list through the list itself and that count no longer matches, so the next <code>next()</code> throws
+<code>ConcurrentModificationException</code>. It is a <em>safety alarm</em>, not a threading problem — one single thread
+triggers it perfectly well.
+<br/><br/>
+But look at the second line. Removing the <strong>second-to-last</strong> element throws nothing at all. The size drops to
+2, the cursor is already at 2, so <code>hasNext()</code> reports "done" and the loop quietly exits early — and
+<code>"milk"</code> is never even looked at. <strong>A silent wrong answer is worse than a crash.</strong> Never rely on the
+exception to catch this for you.
+</div>
+<pre><span class="c">// the two correct ways</span>
+Iterator&lt;String&gt; it = drinks.iterator();
+<span class="k">while</span> (it.hasNext()) { <span class="k">if</span> (it.next().equals(<span class="s">"coffee"</span>)) it.remove(); }  <span class="c">// the iterator removes</span>
+
+drinks.removeIf(d -&gt; d.equals(<span class="s">"coffee"</span>));   <span class="c">// Java 8+, one line, preferred</span></pre>
+<pre>iterator.remove() -> [tea, milk]
+removeIf()        -> [tea, milk]</pre>
+<div class="ann"><code>it.remove()</code> works because the iterator updates its own expected count as it removes.
+<code>removeIf</code> does the same thing internally and reads far better.</div>
+<div class="idiom"><strong>Idiom:</strong> use <code>removeIf</code>. Drop down to a manual <code>Iterator</code> only when
+you need to do more than a simple test.</div>
+
+<h3>E — a read-only view is a promise, not a copy</h3>
+<pre>List&lt;String&gt; readOnly = Collections.unmodifiableList(drinks);
+readOnly.add(<span class="s">"water"</span>);   <span class="c">// -&gt; UnsupportedOperationException</span></pre>
+<pre>unmodifiableList.add -> UnsupportedOperationException</pre>
+<div class="ann">Useful when you return a collection from a getter and do not want callers mutating your internals. Two
+warnings: it is a <em>view</em>, so later changes to the original <code>drinks</code> still show through it, and it does not
+freeze the elements themselves. On Java 9+, <code>List.of(...)</code> gives a genuinely immutable list instead (not
+available on the JDK 8 used here).</div>
+
+<div class="try"><strong>Predict the output, then run it.</strong>
+(1) Build a list of 100,000 items and time <code>add(0, "x")</code> 10,000 times on an <code>ArrayList</code> versus a
+<code>LinkedList</code>. Which wins <em>now</em>, and why is it the opposite of benchmark B?
+(2) Replace the <code>LinkedList</code> <code>get(i)</code> loop with a for-each loop. Does the thousand-fold gap survive?
+<em>(Hint for both: ask "how far must it walk?" and "what has to shift?")</em></div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Relying on <code>HashSet</code> order.</strong> There is none. It can differ between runs, JDK
+versions and data sets. If a test depends on it, the test is wrong. Use <code>LinkedHashSet</code> or <code>TreeSet</code>.</div>
+<div class="pitfall"><strong>Changing a collection inside a for-each.</strong> Either an exception or — worse — a silently
+skipped element, as shown above. Use <code>removeIf</code> or the iterator.</div>
+<div class="pitfall"><strong><code>Arrays.asList(...)</code> is not a normal list.</strong> It is a fixed-size <em>view onto
+the array</em>, so <code>add</code> and <code>remove</code> throw <code>UnsupportedOperationException</code>. Wrap it:
+<code>new ArrayList&lt;&gt;(Arrays.asList(...))</code>.</div>
+<div class="pitfall"><strong><code>list.remove(2)</code> vs <code>list.remove(Integer.valueOf(2))</code> on a
+<code>List&lt;Integer&gt;</code>.</strong> The first removes <em>position</em> 2; the second removes the <em>value</em> 2. A
+real and nasty production bug.</div>
+<div class="pitfall"><strong>Choosing <code>LinkedList</code> because "inserts are O(1)".</strong> They are O(1) only once you
+are already <em>at</em> the spot. <code>add(i, x)</code> still walks there first, and cache misses eat the theoretical win.
+Measure before switching.</div>
+<div class="pitfall"><strong>Using the legacy <code>Vector</code> / <code>Stack</code>.</strong> They lock on every method
+call — a cost even in single-threaded code — and <code>Stack</code> iterates bottom-up, the wrong way round for a stack. Use
+<code>ArrayList</code> and <code>ArrayDeque</code>.</div>
+<div class="pitfall"><strong>Declaring the variable as the build.</strong> <code>ArrayList&lt;String&gt; x = new ArrayList&lt;&gt;()</code>
+leaks your choice into every signature. Declare <code>List&lt;String&gt;</code>.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>The framework = <strong>interfaces</strong> (the promise) × <strong>implementations</strong> (the storage). Declare the interface; choose the build once.</li>
+  <li><strong>List</strong> = order + duplicates. <strong>Set</strong> = no duplicates. <strong>Queue/Deque</strong> = a defined take-out order.</li>
+  <li><code>ArrayList</code> = one numbered block → instant <code>get(i)</code>; grows by copying into a bigger array (amortised O(1) add).</li>
+  <li><code>LinkedList</code> = chained nodes → cheap at the ends, but <code>get(i)</code> walks. Measured: ~12 ms vs ~12,952 ms for the same loop.</li>
+  <li>Set flavours mirror the map flavours: <code>HashSet</code> (no order), <code>LinkedHashSet</code> (insertion), <code>TreeSet</code> (sorted).</li>
+  <li><code>ArrayDeque</code> is both your stack and your queue. Prefer it over <code>Stack</code>/<code>Vector</code>.</li>
+  <li>Never change a collection while a for-each is reading it — use <code>removeIf</code> or <code>Iterator.remove()</code>.</li>
+  <li>Default choice when unsure: <strong><code>ArrayList</code></strong>.</li>
+</ul>
+
+<hr/>
+<h2>Reference — complexity cheat-sheet</h2>
+<table>
+<thead><tr><th>Operation</th><th><code>ArrayList</code></th><th><code>LinkedList</code></th><th><code>HashSet</code></th><th><code>TreeSet</code></th><th><code>ArrayDeque</code></th></tr></thead>
+<tbody>
+<tr><td><code>get(i)</code></td><td>O(1)</td><td>O(n)</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>add at end</td><td>O(1) amortised</td><td>O(1)</td><td>O(1) avg</td><td>O(log n)</td><td>O(1) amortised</td></tr>
+<tr><td>add/remove at front</td><td>O(n)</td><td>O(1)</td><td>—</td><td>—</td><td>O(1) amortised</td></tr>
+<tr><td><code>contains</code></td><td>O(n)</td><td>O(n)</td><td>O(1) avg</td><td>O(log n)</td><td>O(n)</td></tr>
+<tr><td>loop order</td><td>insertion</td><td>insertion</td><td><em>none</em></td><td>sorted</td><td>insertion</td></tr>
+<tr><td>allows <code>null</code></td><td>yes</td><td>yes</td><td>one</td><td>no</td><td>no</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Collection</dt><dd>Root interface for groups of single elements — <code>List</code>, <code>Set</code>, <code>Queue</code>. (<code>Map</code> is <em>not</em> one; see Part 2.)</dd>
+  <dt>Interface vs implementation</dt><dd>The promise (<code>List</code>) versus the storage that keeps it (<code>ArrayList</code>).</dd>
+  <dt>Iterator</dt><dd>The little cursor a for-each loop uses behind the scenes; it can also remove safely.</dd>
+  <dt>Amortised O(1)</dt><dd>Usually one step; occasionally expensive (a resize), but cheap averaged over all operations.</dd>
+  <dt>Ring buffer</dt><dd>An array used in a circle with head and tail markers — how <code>ArrayDeque</code> keeps both ends cheap.</dd>
+  <dt>Deque</dt><dd>"Double-ended queue"; add and remove at both ends, so it serves as both stack and queue.</dd>
+  <dt>ConcurrentModificationException</dt><dd>The alarm raised when a collection changes underneath an active iterator.</dd>
+  <dt>Fail-fast</dt><dd>The design choice of failing loudly and immediately instead of returning a wrong answer later.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/tutorial/collections/interfaces/index.html">Oracle — The Collection Interfaces</a>.
+Read just the <code>List</code>, <code>Set</code> and <code>Deque</code> pages; they are short, and they state each promise in
+the framework's own words.</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>Java Tutorials — Collections Framework</em> (Introduction,
+Interfaces, Implementations); Oracle, Java SE 8 API docs for <code>ArrayList</code>, <code>LinkedList</code>,
+<code>ArrayDeque</code>, <code>HashSet</code>, <code>TreeSet</code>; Bloch, <em>Effective Java</em> (Items 28, 64). All output
+captured by running <a href="../code/CollectionsDemo2.java">CollectionsDemo2.java</a> on JDK 1.8.0_411. Authored per
+Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

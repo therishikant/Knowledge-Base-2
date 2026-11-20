@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spring Boot &amp; Auto-configuration — Spring</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    padding:.55rem .85rem;background:#f4f0e6;border:1px solid var(--rule);border-radius:6px;margin-bottom:1.6rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{text-decoration:none;font-weight:600} .nav a:hover{text-decoration:underline}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner h3{margin:0 0 .5rem;color:var(--accent2);font-size:1.05rem}
+  .flow-steps{background:#f4f0e6;border-left:4px solid var(--accent2);padding:.8rem 1.1rem;border-radius:0 6px 6px 0;margin:1rem 0;font-size:.93rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem} .flow-steps li{margin:.3rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <a href="../06-aop-and-proxies/lesson.html">← 06 AOP &amp; Proxies</a>
+  <span><a href="../overview.html">Spring Map</a> · Lesson 7 of 18</span>
+  <a href="../08-externalized-configuration-and-profiles/lesson.html">08 Externalized Configuration &amp; Profiles →</a>
+</nav>
+
+<h1>Spring Boot &amp; Auto-configuration</h1>
+<p class="crumb"><a href="../overview.html">Spring</a> › lesson 7 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — how <code>SpringApplication.run()</code> orchestrates Boxes 1 → 2A → 2B → 3 → 4 → 5</p>
+
+<div class="tldr">
+<strong>Summary —</strong> Spring Boot does not invent a new container. It is simply a collection of ~150 pre-written <code>@Configuration</code> classes guarded by <code>@Conditional</code> annotations (Box 2B), listed inside a plain text file in <code>spring-boot-autoconfigure.jar</code>. Because Spring Boot always scans <strong>your recipes first (Box 2A)</strong> and loads <strong>its auto-config recipes second (Box 2B)</strong> with <code>@ConditionalOnMissingBean</code>, any bean you define automatically overrides Boot's default! Add Starters (curated dependency POMs), an embedded Tomcat bean (Box 5), and a fat-JAR loader, and you have all of Spring Boot.
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the Map</h2>
+<p>
+Lessons 2–6 gave you every building block: Box 2 (<code>beanDefinitionMap</code>), Box 3 (<code>singletonObjects</code>), Box 4 (<code>BeanPostProcessor</code> &amp; proxies), and <code>@Configuration</code> + <code>@Conditional</code>. This lesson zooms out to trace the entire <strong>Phase 1 (<code>SpringApplication.run()</code>) sequence</strong> across Boxes 1 → 2A → 2B → 3 → 4 → 5, and zooms into <strong>Box 2B (Auto-Configuration)</strong>.
+</p>
+
+<div class="map-banner">
+  <h3>📍 You Are Here on the 6-Box Map: Phase 1 (Full Startup Sequence: Box 1 → 2A → 2B → 3 → 4 → 5)</h3>
+  <figure style="margin:.6rem 0 .2rem">
+  <svg viewBox="0 0 780 195" width="100%" role="img" aria-label="6-Box Map showing full SpringApplication.run sequence and Box 2B Auto-Configuration">
+    <style>
+      .dim{fill:#f4f0e6;stroke:#b5afa3;stroke-width:1.2}
+      .here{fill:#fff8ee;stroke:#7a1f1f;stroke-width:2.6}
+      .step{fill:#eefaf4;stroke:#1f6b4d;stroke-width:1.8}
+      .phase{font:bold 11px Georgia,serif;fill:#6b675e;letter-spacing:.04em}
+      .bt{font:bold 11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+      .bs{font:10.5px Georgia,serif;fill:#3f3b34}
+      .arr{stroke:#6b675e;stroke-width:1.4;marker-end:url(#m7a);fill:none}
+    </style>
+    <defs><marker id="m7a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+    <text class="phase" x="12" y="16">PHASE 1: STARTUP — SpringApplication.run(BookVaultApp.class, args)</text>
+    <text class="phase" x="635" y="16">PHASE 2: REQUEST</text>
+
+    <!-- Box 1 -->
+    <rect class="step" x="10" y="26" width="102" height="94" rx="5"/>
+    <text class="bt" x="18" y="44">1. Box 1: Env</text>
+    <text class="bs" x="18" y="62">Load args +</text>
+    <text class="bs" x="18" y="76">application.yml</text>
+    <text class="bs" x="18" y="92">+ Profiles</text>
+
+    <path class="arr" d="M112,72 L128,72"/>
+
+    <!-- Box 2A & 2B (Highlighted) -->
+    <rect class="here" x="130" y="22" width="218" height="102" rx="6"/>
+    <text class="bt" x="140" y="41" style="fill:#7a1f1f">★ 2. Box 2: Recipe Book</text>
+    <text class="bs" x="140" y="59"><strong>First (2A):</strong> Scan YOUR classes</text>
+    <text class="bs" x="140" y="75" style="fill:#7a1f1f;font-weight:bold">Second (2B): Read AutoConfig</text>
+    <text class="bs" x="140" y="91" style="fill:#7a1f1f;font-weight:bold">.imports + @ConditionalOn*</text>
+    <text class="bs" x="140" y="110" style="fill:#1f6b4d;font-weight:bold">Rule 1: 2A before 2B → You win!</text>
+
+    <path class="arr" d="M348,72 L364,72"/>
+
+    <!-- Box 3 & 4 -->
+    <rect class="step" x="366" y="26" width="132" height="94" rx="5"/>
+    <text class="bt" x="374" y="44">3. Box 3 &amp; 4</text>
+    <text class="bs" x="374" y="62">Cook singletons</text>
+    <text class="bs" x="374" y="76">+ Wrap in AOP</text>
+    <text class="bs" x="374" y="92">Proxies</text>
+
+    <path class="arr" d="M498,72 L514,72"/>
+
+    <!-- Box 5 -->
+    <rect class="step" x="516" y="26" width="108" height="94" rx="5"/>
+    <text class="bt" x="524" y="44">4. Box 5</text>
+    <text class="bs" x="524" y="62">Start Embedded</text>
+    <text class="bs" x="524" y="76">Tomcat bean</text>
+    <text class="bs" x="524" y="92">on port 8080</text>
+
+    <path class="arr" d="M624,72 L640,72"/>
+
+    <!-- Box 6 -->
+    <rect class="dim" x="642" y="26" width="126" height="94" rx="5"/>
+    <text class="bt" x="650" y="44">Box 6: Ready!</text>
+    <text class="bs" x="650" y="62">DispatcherServlet</text>
+    <text class="bs" x="650" y="76">accepts HTTP</text>
+    <text class="bs" x="650" y="92">requests</text>
+
+    <text class="bs" x="12" y="144"><strong>Right before Box 2B:</strong> Box 1 prepared Environment, and Box 2A scanned all your @Component and @Configuration classes into beanDefinitionMap.</text>
+    <text class="bs" x="12" y="162"><strong>Inside Box 2B (this lesson):</strong> AutoConfigurationImportSelector loads ~150 candidate config classes and filters them using @ConditionalOnClass and @ConditionalOnMissingBean.</text>
+    <text class="bs" x="12" y="180"><strong>Right after Box 2B:</strong> Box 3 instantiates all winning recipes, Box 4 wraps proxies, and Box 5 starts the embedded Tomcat server in finishRefresh().</text>
+  </svg>
+  </figure>
+</div>
+
+<h2><span class="n">§2</span>Why it exists — what you had to write by hand before Spring Boot</h2>
+<p>
+Before Spring Boot arrived in 2014, setting up a simple REST API with a database in plain Spring required writing all of this boilerplate plumbing by hand in every single microservice:
+</p>
+<pre><span class="c">// In plain Spring (without Boot), YOU had to write all of this before writing 1 line of business code:</span>
+<span class="an">@Configuration</span>
+<span class="an">@EnableWebMvc</span>
+<span class="an">@EnableTransactionManagement</span>
+<span class="k">public class</span> ManualInfrastructureConfig {
+
+    <span class="an">@Bean</span> <span class="k">public</span> DataSource dataSource() {
+        HikariConfig c = <span class="k">new</span> HikariConfig();
+        c.setJdbcUrl(env.getProperty(<span class="s">"db.url"</span>));
+        <span class="k">return new</span> HikariDataSource(c);
+    }
+
+    <span class="an">@Bean</span> <span class="k">public</span> JdbcTemplate jdbcTemplate(DataSource ds) { <span class="k">return new</span> JdbcTemplate(ds); }
+    <span class="an">@Bean</span> <span class="k">public</span> PlatformTransactionManager txManager(DataSource ds) { <span class="k">return new</span> DataSourceTransactionManager(ds); }
+    <span class="an">@Bean</span> <span class="k">public</span> ObjectMapper objectMapper() { <span class="k">return new</span> ObjectMapper().registerModule(<span class="k">new</span> JavaTimeModule()); }
+    <span class="an">@Bean</span> <span class="k">public</span> DispatcherServlet dispatcherServlet(WebApplicationContext ctx) { <span class="k">return new</span> DispatcherServlet(ctx); }
+    <span class="c">// ...plus 200 lines of pom.xml version numbers that had to match each other</span>
+    <span class="c">// ...plus installing an external Tomcat server and deploying a .war file!</span>
+}</pre>
+<p>
+Every team copy-pasted those exact same 200 lines across 50 services. Spring Boot's insight was simple:
+<strong>If <code>hikari-cp.jar</code> is on your classpath and you haven't defined your own <code>DataSource</code> bean yet, 99% of the time you want a <code>HikariDataSource</code> configured from <code>application.yml</code>!</strong>
+</p>
+
+<h2><span class="n">§3</span>How it works (Level 1 → Level 2 Zoom)</h2>
+
+<h3>Start with Plain Java Data Structures First: How Box 2A + Box 2B Work Together</h3>
+<p>
+Why does defining your own <code>@Bean DataSource myDataSource()</code> automatically disable Spring Boot's default <code>DataSource</code> without any special "override" keyword? Look at the plain Java code running inside Box 2:
+</p>
+<pre><span class="c">// Box 2: The Recipe Book</span>
+Map&lt;String, BeanDefinition&gt; beanDefinitionMap = <span class="k">new</span> LinkedHashMap&lt;&gt;();
+
+<span class="c">// ── STEP 2A: Scan YOUR code first (@ComponentScan + your @Configuration classes) ──</span>
+<span class="c">// Suppose you wrote your own @Bean DataSource customPool() in your code:</span>
+beanDefinitionMap.put(<span class="s">"customPool"</span>, <span class="k">new</span> BeanDefinition(DataSource.class));
+
+<span class="c">// ── STEP 2B: Load Spring Boot's AutoConfiguration.imports file SECOND ──</span>
+List&lt;String&gt; bootCandidates = Files.readAllLines(
+    Path.of(<span class="s">"META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports"</span>)
+); <span class="c">// ~150 class names: DataSourceAutoConfiguration, JacksonAutoConfiguration, ...</span>
+
+<span class="k">for</span> (String candidate : bootCandidates) {
+    <span class="c">// Check 1 (@ConditionalOnClass): Is the library JAR even on the classpath?</span>
+    <span class="k">if</span> (!classpathHas(<span class="s">"javax.sql.DataSource"</span>)) <span class="k">continue</span>;
+
+    <span class="c">// Check 2 (@ConditionalOnMissingBean): Did the user ALREADY put a DataSource recipe in Box 2A?</span>
+    <span class="k">if</span> (!containsRecipeForType(beanDefinitionMap, DataSource.class)) {
+        beanDefinitionMap.put(<span class="s">"dataSource"</span>, <span class="k">new</span> BeanDefinition(HikariDataSource.class));
+    } <span class="k">else</span> {
+        <span class="c">// User already defined one in Step 2A! Back off silently!</span>
+    }
+}</pre>
+<div class="idiom"><strong>Universal Rule 1 ("Order of Steps") in action:</strong> Because <strong>Box 2A (your recipes) always runs before Box 2B (Boot's auto-config recipes)</strong>, by the time Boot checks <code>@ConditionalOnMissingBean</code>, your recipe is already sitting in <code>beanDefinitionMap</code>! That is the entire secret of how you customize Spring Boot.</div>
+
+<div class="flow-steps">
+  <strong>Full Step-by-Step Trace of <code>SpringApplication.run(BookVaultApp.class, args)</code>:</strong>
+  <ol>
+    <li><strong>Step 1 (Prepare Box 1 — <code>Environment</code>):</strong> Reads command-line <code>args</code>, OS environment variables, and <code>application.yml</code> into Box 1's <code>List&lt;PropertySource&gt;</code>, and activates profiles.</li>
+    <li><strong>Step 2 (Create Empty Context):</strong> Checks the classpath to pick the right context class (if <code>spring-webmvc</code> is present → creates <code>AnnotationConfigServletWebServerApplicationContext</code> with empty Box 2 and Box 3 maps).</li>
+    <li><strong>Step 3 (Populate Box 2A — Your Recipes):</strong> Sees <code>@SpringBootApplication</code> (which contains <code>@ComponentScan</code>). Scans your root package downward and registers all your <code>@Component</code> / <code>@Service</code> / <code>@Controller</code> / <code>@Bean</code> recipes into <code>beanDefinitionMap</code>.</li>
+    <li><strong>Step 4 (Populate Box 2B — Auto-Config Recipes):</strong> Sees <code>@EnableAutoConfiguration</code> (which imports <code>AutoConfigurationImportSelector</code>). Reads all <code>META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports</code> files across all JARs (~150 configs), filters them via <code>@ConditionalOnClass</code>, <code>@ConditionalOnProperty</code>, and <code>@ConditionalOnMissingBean</code>, and adds only the surviving recipes to <code>beanDefinitionMap</code>.</li>
+    <li><strong>Step 5 (Populate Box 3 &amp; Box 4 — Cook Beans &amp; Wrap Proxies):</strong> Loops over the final <code>beanDefinitionMap</code>, calls constructors, injects dependencies, runs <code>@PostConstruct</code>, wraps beans in Box 4 AOP proxies, and stores live singletons in Box 3 (<code>singletonObjects</code>).</li>
+    <li><strong>Step 6 (Start Box 5 — Embedded Tomcat):</strong> At the end of <code>refresh()</code> (in <code>onRefresh</code> / <code>finishRefresh</code>), starts the auto-configured <code>TomcatWebServer</code> bean, which opens <code>ServerSocket(8080)</code> and wires Box 6's <code>DispatcherServlet</code> into Tomcat.</li>
+    <li><strong>Step 7 (Runners):</strong> Invokes any <code>ApplicationRunner</code> or <code>CommandLineRunner</code> beans now that all 6 Boxes are live.</li>
+  </ol>
+</div>
+
+<figure>
+<svg viewBox="0 0 760 360" width="100%" role="img" aria-label="SpringApplication.run startup flow and the 3 conditional filters in Box 2B">
+  <style>
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.3}.g{fill:#eefaf4;stroke:#6db33f;stroke-width:1.5}
+    .y{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11.5px Georgia,serif;fill:#3f3b34}
+    .h{font:bold 12.5px Georgia,serif;fill:#2b2b28}.lb{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#ma);fill:none}
+  </style>
+  <defs><marker id="ma" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <text class="h" x="14" y="18">Left: SpringApplication.run() Timeline</text>
+
+  <rect class="b" x="14" y="28" width="230" height="44" rx="5"/>
+  <text class="t" x="26" y="47">Step 1: Box 1 (Environment)</text>
+  <text class="lb" x="26" y="63">CLI args + env vars + application.yml</text>
+
+  <rect class="y" x="14" y="84" width="230" height="48" rx="5"/>
+  <text class="t" x="26" y="103">Step 2: Box 2A (Your Code)</text>
+  <text class="lb" x="26" y="120">@ComponentScan + your @Bean methods</text>
+
+  <rect class="g" x="14" y="144" width="230" height="52" rx="5"/>
+  <text class="t" x="26" y="164" style="font-weight:bold;fill:#1f6b4d">Step 3: Box 2B (Auto-Config)</text>
+  <text class="lb" x="26" y="180">AutoConfiguration.imports (~150)</text>
+  <text class="lb" x="26" y="192">Evaluated AFTER Box 2A!</text>
+
+  <rect class="b" x="14" y="208" width="230" height="48" rx="5"/>
+  <text class="t" x="26" y="227">Step 4: Box 3 &amp; Box 4</text>
+  <text class="lb" x="26" y="243">Instantiate singletons + AOP proxies</text>
+
+  <rect class="b" x="14" y="268" width="230" height="48" rx="5"/>
+  <text class="t" x="26" y="287">Step 5: Box 5 &amp; Box 6</text>
+  <text class="lb" x="26" y="303">Start Embedded Tomcat on :8080</text>
+
+  <path class="a" d="M129,72 L129,82"/><path class="a" d="M129,132 L129,142"/>
+  <path class="a" d="M129,196 L129,206"/><path class="a" d="M129,256 L129,266"/>
+
+  <line x1="264" y1="12" x2="264" y2="345" stroke="#d9d3c7" stroke-width="1.5"/>
+
+  <text class="h" x="282" y="18">Right: Zooming Inside Step 3 (Box 2B Funnel)</text>
+
+  <rect class="b" x="282" y="28" width="464" height="42" rx="5"/>
+  <text class="c" x="296" y="47">Read <code>META-INF/spring/…AutoConfiguration.imports</code> (~150 classes)</text>
+  <text class="lb" x="296" y="62">e.g. DataSourceAutoConfiguration, JdbcTemplateAutoConfiguration, …</text>
+
+  <path class="a" d="M514,70 L514,82"/>
+  <rect class="b" x="282" y="84" width="464" height="46" rx="5"/>
+  <text class="c" x="296" y="103"><strong>Gate 1:</strong> <code>@ConditionalOnClass</code> — Is the JAR on the classpath?</text>
+  <text class="lb" x="296" y="120">Checked via ASM bytecode inspection (never loads missing classes!)</text>
+
+  <path class="a" d="M514,130 L514,142"/>
+  <rect class="b" x="282" y="144" width="464" height="42" rx="5"/>
+  <text class="c" x="296" y="163"><strong>Gate 2:</strong> <code>@ConditionalOnProperty</code> — Is it enabled in Box 1?</text>
+  <text class="lb" x="296" y="178">Checks Environment properties (e.g. spring.liquibase.enabled=true)</text>
+
+  <path class="a" d="M514,186 L514,198"/>
+  <rect class="g" x="282" y="200" width="464" height="56" rx="5"/>
+  <text class="h" x="296" y="220" style="fill:#1f6b4d">Gate 3: @ConditionalOnMissingBean ★ (The Back-Off Rule)</text>
+  <text class="c" x="296" y="238">"Is a recipe for this type ALREADY in beanDefinitionMap from Box 2A?"</text>
+  <text class="lb" x="296" y="251">If YES → skip Boot's default! If NO → register Boot's default recipe.</text>
+
+  <path class="a" d="M514,256 L514,268"/>
+  <rect class="y" x="282" y="270" width="464" height="58" rx="5"/>
+  <text class="h" x="296" y="290">Want to see every Gate decision printed at startup?</text>
+  <text class="t" x="296" y="308">java -jar app.jar --debug</text>
+  <text class="lb" x="296" y="322">Prints the CONDITIONS EVALUATION REPORT (Positive &amp; Negative matches).</text>
+</svg>
+<figcaption>Left: how <code>SpringApplication.run()</code> walks across Boxes 1 → 2A → 2B → 3/4 → 5/6. Right: the three conditional gates every auto-configuration recipe in Box 2B must pass.</figcaption>
+</figure>
+
+<h3>What is <code>@SpringBootApplication</code> really?</h3>
+<p>
+Open <code>@SpringBootApplication</code> in your IDE. It is a 3-in-1 meta-annotation combining lessons 5 and 7:
+</p>
+<pre><span class="an">@SpringBootConfiguration</span>      <span class="c">// 1. Same as @Configuration (so you can put @Bean methods in your main class)</span>
+<span class="an">@ComponentScan</span>                <span class="c">// 2. Triggers Box 2A: scan this package and subpackages for your components</span>
+<span class="an">@EnableAutoConfiguration</span>      <span class="c">// 3. Triggers Box 2B: @Import(AutoConfigurationImportSelector.class)</span>
+<span class="k">public</span> <span class="an">@interface</span> SpringBootApplication { ... }</pre>
+
+<h3>The Other Two Pillars: Starters (BOM) &amp; The Executable Fat JAR</h3>
+<ul>
+  <li><strong>Starters &amp; the BOM (Bill of Materials):</strong> A starter like <code>spring-boot-starter-web</code> contains <em>zero Java code</em>. It is just a <code>pom.xml</code> that pulls in compatible libraries (<code>spring-webmvc</code>, <code>jackson-databind</code>, <code>tomcat-embed-core</code>) whose exact versions are pinned in <code>spring-boot-dependencies</code> (the BOM). Because the JARs are now on the classpath, Box 2B's <code>@ConditionalOnClass</code> gates see them and automatically register <code>DispatcherServlet</code>, <code>ObjectMapper</code>, and <code>TomcatWebServer</code>!</li>
+  <li><strong>The Fat JAR &amp; <code>JarLauncher</code>:</strong> Standard Java cannot load a <code>.jar</code> nested inside another <code>.jar</code>. When you run <code>mvn package</code>, Spring Boot packages your code in <code>BOOT-INF/classes/</code>, puts all dependency JARs inside <code>BOOT-INF/lib/*.jar</code>, and sets <code>Main-Class: org.springframework.boot.loader.launch.JarLauncher</code>. That launcher installs a custom <code>ClassLoader</code> that knows how to read nested JARs and then invokes your <code>main()</code> method.</li>
+</ul>
+
+<h2><span class="n">§4</span>When to use — Customizing Spring Boot (Best to Worst)</h2>
+<table>
+<thead><tr><th>Goal</th><th>What to do</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Tweak a setting (port, pool size, timeout, SQL logging)</td><td><strong>1. Set a property in <code>application.yml</code></strong> (Box 1)</td><td>Every auto-configured bean reads its settings from <code>@ConfigurationProperties</code>. Zero Java code needed.</td></tr>
+<tr><td>Add a module or tweak Jackson / WebClient / Tomcat without losing Boot's defaults</td><td><strong>2. Define a <code>*Customizer</code> bean</strong> (e.g., <code>Jackson2ObjectMapperBuilderCustomizer</code>)</td><td>Boot's auto-config calls your customizer while keeping all other sensible defaults intact.</td></tr>
+<tr><td>Completely replace one default bean (e.g., custom <code>DataSource</code> or <code>SecurityFilterChain</code>)</td><td><strong>3. Declare your own <code>@Bean</code></strong> of that type in Box 2A</td><td>Boot's <code>@ConditionalOnMissingBean</code> in Box 2B sees your recipe and steps aside automatically.</td></tr>
+<tr><td>Disable an entire unwanted subsystem (e.g., JPA is on the classpath, but this service has no DB)</td><td><strong>4. <code>@SpringBootApplication(exclude = DataSourceAutoConfiguration.class)</code></strong></td><td>Last resort: removes that class from Box 2B completely.</td></tr>
+</tbody></table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine moving into a new apartment.
+</p>
+<p>
+<strong>Plain Spring</strong> is moving into an empty concrete shell: before you can sleep on night one, you have to buy and wire your own ceiling lights, bolt your own stove into the kitchen, and plumb your own sink.
+</p>
+<p>
+<strong>Spring Boot</strong> is moving into a smart furnished apartment with a helpful building manager. Look at the order the manager follows on move-in day (<strong>Rule 1</strong>):
+</p>
+<ol>
+  <li><strong>First (Box 2A):</strong> You carry your own furniture into the rooms. Maybe you brought your own favourite espresso machine, but you didn't bring a couch or a fridge.</li>
+  <li><strong>Second (Box 2B):</strong> The building manager walks through with a clipboard of 150 standard items. He checks each room: <em>"Is there a kitchen? Yes (<code>@ConditionalOnClass</code>). Did the tenant already bring an espresso machine? Yes (<code>@ConditionalOnMissingBean</code>)—okay, I won't put our standard coffee maker in here! Did they bring a fridge? No—okay, I'll roll in our default fridge!"</em></li>
+</ol>
+<p>
+And if you ever ask, <em>"Wait, why is this toaster on my counter?"</em> you just ask for the manager's clipboard printout (<code>--debug</code>), and it says: <em>"Installed standard toaster because you have a kitchen and didn't bring your own."</em>
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← Lesson 05 (Configuration &amp; Component Model):</strong> Auto-configuration is not a new mechanism—every class in Box 2B is just a <code>@Configuration(proxyBeanMethods = false)</code> class using <code>@Conditional</code> annotations from Lesson 5.</li>
+  <li><strong>← Lesson 04 (Bean Lifecycle):</strong> Why does Embedded Tomcat start only <em>after</em> all your controllers and services are ready? Because <code>TomcatWebServer</code> is started by a <code>SmartLifecycle</code> hook in <code>finishRefresh()</code> after Box 3 finishes instantiating singletons!</li>
+  <li><strong>← <a href="../../java/02-jvm-class-loader/lesson.html">java/02-jvm-class-loader</a>:</strong> Both ASM-based <code>@ConditionalOnClass</code> checks (which avoid <code>NoClassDefFoundError</code>) and fat-JAR loading (<code>JarLauncher</code>) come straight from JVM class loading mechanics.</li>
+  <li><strong>→ Lesson 08 (Externalized Configuration):</strong> Next we zoom into Box 1 (<code>Environment</code>) to see how properties feed into every auto-configured bean.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Code Dissection &amp; Interview Derivation</h2>
+
+<h3>Code Dissection: Inside a Real Spring Boot Auto-Configuration Class</h3>
+<pre><span class="c">// Inside spring-boot-autoconfigure.jar (loaded in Box 2B):</span>
+<span class="an">@AutoConfiguration</span>(after = DataSourceAutoConfiguration.class)     <span class="c">// ① Lite mode + explicit Box 2B order</span>
+<span class="an">@ConditionalOnClass</span>({ DataSource.class, JdbcTemplate.class })     <span class="c">// ② Gate 1: Is spring-jdbc.jar present?</span>
+<span class="an">@ConditionalOnSingleCandidate</span>(DataSource.class)                   <span class="c">// ③ Gate 2: Is a DataSource recipe in Box 2?</span>
+<span class="an">@EnableConfigurationProperties</span>(JdbcProperties.class)              <span class="c">// ④ Bind spring.jdbc.* from Box 1</span>
+<span class="k">public class</span> JdbcTemplateAutoConfiguration {
+
+    <span class="an">@Bean</span>
+    <span class="an">@Primary</span>
+    <span class="an">@ConditionalOnMissingBean</span>(JdbcOperations.class)               <span class="c">// ⑤ Gate 3: Back off if user defined one in 2A!</span>
+    <span class="k">public</span> JdbcTemplate jdbcTemplate(DataSource dataSource, JdbcProperties properties) {
+        JdbcTemplate template = <span class="k">new</span> JdbcTemplate(dataSource);
+        JdbcProperties.Template t = properties.getTemplate();
+        template.setFetchSize(t.getFetchSize());                  <span class="c">// ⑥ Apply Box 1 property defaults</span>
+        template.setMaxRows(t.getMaxRows());
+        <span class="k">return</span> template;
+    }
+}</pre>
+<div class="ann"><strong>Chunk-by-chunk dissection:</strong>
+<strong>①</strong> <code>@AutoConfiguration</code> sets <code>proxyBeanMethods = false</code> (Lite mode) so Spring Boot doesn't waste startup time generating CGLIB proxies for 150 auto-config classes, and <code>after = DataSourceAutoConfiguration.class</code> guarantees the <code>DataSource</code> recipe is evaluated before <code>JdbcTemplate</code>.
+<strong>②</strong> <code>@ConditionalOnClass</code> inspects bytecode on disk using ASM. Even if <code>JdbcTemplate.class</code> is completely absent from your <code>pom.xml</code>, the JVM never throws <code>ClassNotFoundException</code>!
+<strong>⑤</strong> <code>@ConditionalOnMissingBean(JdbcOperations.class)</code> checks Box 2 (<code>beanDefinitionMap</code>). If you defined a <code>@Bean JdbcTemplate</code> in Box 2A, this condition returns <code>false</code> and Boot skips its method.</div>
+
+<h3>Reading the <code>--debug</code> Condition Evaluation Report</h3>
+<pre>$ java -jar bookvault.jar --debug
+
+============================
+CONDITIONS EVALUATION REPORT
+============================
+Positive matches:
+-----------------
+   DataSourceAutoConfiguration#dataSource matched:
+      - @ConditionalOnMissingBean (types: javax.sql.DataSource) did not find any beans (OnBeanCondition)
+
+Negative matches:
+-----------------
+   MongoAutoConfiguration:
+      Did not match:
+         - @ConditionalOnClass did not find required class 'com.mongodb.client.MongoClient' (OnClassCondition)</pre>
+
+<div class="try"><strong>Try this / Predict the output:</strong>
+Suppose you add <code>spring-boot-starter-data-jpa</code> to your <code>pom.xml</code>, do NOT configure <code>spring.datasource.url</code> in <code>application.yml</code>, and do NOT have H2/HSQL/Derby on the classpath. What happens at startup and why?
+<br/><em>Answer:</em> Box 2B's <code>DataSourceAutoConfiguration</code> passes Gate 1 (<code>@ConditionalOnClass(DataSource.class)</code> is true because <code>starter-data-jpa</code> brought <code>spring-jdbc</code>). It passes Gate 3 (<code>@ConditionalOnMissingBean</code> is true because you didn't define a <code>DataSource</code>). Then when Box 3 tries to instantiate the <code>DataSource</code> bean, it has no URL and no embedded DB driver, so startup halts and Boot's <code>DataSourceBeanCreationFailureAnalyzer</code> prints a friendly report telling you to either set <code>spring.datasource.url</code> or add an embedded database JAR!</div>
+
+<h3>How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead><tr><th>Classic Interview Question</th><th>Which Box / Rule to Check</th><th>10-Second Derived Answer</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>"How does Spring Boot Auto-Configuration work under the hood?"</strong></td>
+  <td><strong>Box 2A → Box 2B</strong></td>
+  <td><code>@SpringBootApplication</code> includes <code>@EnableAutoConfiguration</code>, which imports <code>AutoConfigurationImportSelector</code>. After Box 2A scans your code, Box 2B reads ~150 config classes from <code>META-INF/spring/...AutoConfiguration.imports</code>, filters them via <code>@ConditionalOnClass</code> and <code>@ConditionalOnMissingBean</code>, and registers matching recipes in <code>beanDefinitionMap</code>.</td>
+</tr>
+<tr>
+  <td><strong>"Why does my custom <code>@Bean</code> override Spring Boot's default bean without any conflict?"</strong></td>
+  <td><strong>Rule 1 (Order: Box 2A before Box 2B)</strong></td>
+  <td>Spring always scans user configuration (Box 2A) *before* evaluating auto-configuration (Box 2B). Boot's <code>@Bean</code> methods are annotated with <code>@ConditionalOnMissingBean</code>, so when Box 2B checks <code>beanDefinitionMap</code>, it sees your recipe from Box 2A and backs off.</td>
+</tr>
+<tr>
+  <td><strong>"Why doesn't <code>@ConditionalOnClass(SomeMissingClass.class)</code> throw <code>NoClassDefFoundError</code> when that JAR isn't in <code>pom.xml</code>?"</strong></td>
+  <td><strong>Box 2B (ASM Bytecode Reader)</strong></td>
+  <td>Before asking the JVM <code>ClassLoader</code> to load an auto-config class, Spring reads the <code>.class</code> file's raw bytes from the JAR using ASM and checks if the string <code>"com/foo/SomeMissingClass"</code> exists as a <code>.class</code> resource on the classpath.</td>
+</tr>
+<tr>
+  <td><strong>"How does an executable Spring Boot fat JAR run <code>java -jar app.jar</code> when Java doesn't support nested JARs?"</strong></td>
+  <td><strong>Startup (Before Box 1)</strong></td>
+  <td>The JAR's <code>MANIFEST.MF</code> sets <code>Main-Class</code> to Boot's <code>JarLauncher</code>. <code>JarLauncher</code> creates a custom <code>LaunchedClassLoader</code> that can stream bytecode directly from uncompressed nested JARs inside <code>BOOT-INF/lib/</code>, and then invokes your <code>Start-Class</code> <code>main()</code> method.</td>
+</tr>
+<tr>
+  <td><strong>"How do you debug why an auto-configured bean was or wasn't created?"</strong></td>
+  <td><strong>Box 2B Report</strong></td>
+  <td>Start the app with <code>--debug</code> (or <code>debug: true</code> in <code>application.yml</code>, or check <code>/actuator/conditions</code>). It prints the <code>CONDITIONS EVALUATION REPORT</code> showing every Positive and Negative match in Box 2B and the exact <code>@Conditional</code> that passed or failed.</td>
+</tr>
+</tbody></table>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Replacing a complex bean (like <code>ObjectMapper</code> or <code>WebMvcConfigurationSupport</code>) when you only wanted to tweak one setting.</strong> If you define <code>@Bean ObjectMapper</code> or put <code>@EnableWebMvc</code> on a class, Boot's <code>@ConditionalOnMissingBean</code> backs off completely—wiping out all of Boot's date formatting, Kotlin/JavaTime modules, and resource handlers! Fix: register a <code>Jackson2ObjectMapperBuilderCustomizer</code> or implement <code>WebMvcConfigurer</code> (without <code>@EnableWebMvc</code>).</div>
+<div class="pitfall"><strong>Hardcoding library versions in <code>pom.xml</code> for dependencies managed by Boot's BOM.</strong> Specifying a manual <code>&lt;version&gt;</code> for Jackson, Hibernate, or Netty overrides Boot's tested Bill of Materials and leads to <code>NoSuchMethodError</code> crashes at runtime.</div>
+<div class="pitfall"><strong>Looking for <code>spring.factories</code> in Spring Boot 3.x.</strong> Prior to Spring Boot 2.7, auto-configurations were listed in <code>META-INF/spring.factories</code>. In Spring Boot 3.x, <code>spring.factories</code> is no longer supported for auto-configurations; they live in <code>META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports</code>.</div>
+<div class="pitfall"><strong>Putting your main <code>@SpringBootApplication</code> class in a deep subpackage.</strong> Both <code>@ComponentScan</code> (Box 2A) and <code>@AutoConfigurationPackage</code> (which tells JPA/Hibernate where to scan for <code>@Entity</code> classes) use the main class's package as their root.</div>
+
+<h2><span class="n">§9</span>Recap, Reference &amp; Glossary</h2>
+<ul class="recap">
+  <li><strong><code>SpringApplication.run()</code> executes Phase 1 in strict order:</strong> Box 1 (<code>Environment</code>) → Box 2A (your recipes) → Box 2B (Boot auto-config recipes) → Box 3 &amp; 4 (instantiate singletons &amp; wrap proxies) → Box 5 (start Embedded Tomcat).</li>
+  <li><strong><code>@SpringBootApplication</code> = <code>@SpringBootConfiguration</code> + <code>@ComponentScan</code> (Box 2A) + <code>@EnableAutoConfiguration</code> (Box 2B).</strong></li>
+  <li><strong>Box 2B reads <code>META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports</code></strong> (~150 classes) and filters them via <code>@ConditionalOnClass</code>, <code>@ConditionalOnProperty</code>, and <code>@ConditionalOnMissingBean</code>.</li>
+  <li><strong>Universal Rule 1:</strong> Because Box 2A runs before Box 2B, any bean you declare causes Boot's <code>@ConditionalOnMissingBean</code> to back off automatically.</li>
+  <li><strong>Starters + BOM</strong> solve dependency version alignment; <strong><code>JarLauncher</code></strong> + <code>BOOT-INF/lib/</code> solve single-file deployment.</li>
+  <li><strong>Run with <code>--debug</code></strong> to read the Conditions Evaluation Report whenever you want to know why a bean was or wasn't registered.</li>
+</ul>
+
+<h2>Reference — Quick Cheat-Sheet</h2>
+<table>
+<thead><tr><th>You want to…</th><th>Do this</th><th>Which Box is affected</th></tr></thead>
+<tbody>
+<tr><td>Inspect why auto-config beans matched or skipped</td><td>Run with <code>--debug</code> or inspect <code>/actuator/conditions</code></td><td>Box 2B (Condition Evaluation Report)</td></tr>
+<tr><td>Customize an auto-configured bean safely</td><td>Define a <code>*Customizer</code> bean (e.g., <code>RestClientCustomizer</code>)</td><td>Box 3 (applied to Boot's bean)</td></tr>
+<tr><td>Replace an auto-configured bean completely</td><td>Define your own <code>@Bean</code> of that interface type</td><td>Box 2A beats Box 2B via <code>@ConditionalOnMissingBean</code></td></tr>
+<tr><td>Disable a specific auto-configuration class</td><td><code>@SpringBootApplication(exclude = XxxAutoConfiguration.class)</code></td><td>Box 2B skips loading that class</td></tr>
+<tr><td>Run a non-web CLI or batch worker</td><td>Set <code>spring.main.web-application-type=none</code></td><td>Skips Box 5 (no Tomcat port opened)</td></tr>
+<tr><td>Run startup logic after all 6 Boxes are ready</td><td>Implement <code>ApplicationRunner</code> as a <code>@Component</code></td><td>Runs at the very end of Phase 1</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Auto-configuration (Box 2B)</dt><dd>Conditional <code>@Configuration</code> classes shipped inside JARs and listed in <code>AutoConfiguration.imports</code> that register default recipes in <code>beanDefinitionMap</code> after user recipes are scanned.</dd>
+  <dt>AutoConfigurationImportSelector</dt><dd>The <code>ImportSelector</code> triggered by <code>@EnableAutoConfiguration</code> that reads <code>AutoConfiguration.imports</code> and filters candidates in Box 2B.</dd>
+  <dt>@ConditionalOnMissingBean</dt><dd>The condition on Boot's <code>@Bean</code> methods that skips registering Boot's default recipe if a recipe of that type is already in <code>beanDefinitionMap</code> (from Box 2A).</dd>
+  <dt>@ConditionalOnClass</dt><dd>The condition that checks via ASM bytecode inspection whether a library class is present on the classpath before registering a recipe.</dd>
+  <dt>Starter</dt><dd>An empty Maven/Gradle POM (like <code>spring-boot-starter-web</code>) that transitively pulls a curated set of libraries for a capability.</dd>
+  <dt>BOM (Bill of Materials)</dt><dd><code>spring-boot-dependencies</code>, the master POM that pins compatible versions for ~1,000 libraries.</dd>
+  <dt>Fat JAR (Executable JAR)</dt><dd>A single archive containing your classes (<code>BOOT-INF/classes/</code>), nested dependency JARs (<code>BOOT-INF/lib/</code>), and Boot's <code>JarLauncher</code>.</dd>
+  <dt>Condition Evaluation Report</dt><dd>The diagnostic report printed by <code>--debug</code> listing every Positive and Negative match in Box 2B.</dd>
+</dl>
+
+<h2>Official Documentation &amp; Primary Sources</h2>
+<p>
+Read <a href="https://docs.spring.io/spring-boot/reference/using/auto-configuration.html">Spring Boot Reference — Auto-configuration</a> and <a href="https://docs.spring.io/spring-boot/reference/features/developing-auto-configuration.html">Creating Your Own Auto-configuration</a>.
+</p>
+<p class="sources" style="margin-top:2rem">Sources: <a href="https://docs.spring.io/spring-boot/reference/using/auto-configuration.html">Spring Boot Reference — Auto-configuration</a>; <a href="https://docs.spring.io/spring-boot/reference/features/developing-auto-configuration.html">Developing Auto-configuration &amp; Condition Annotations</a>; <a href="https://docs.spring.io/spring-boot/specification/executable-jar/index.html">The Executable Jar Format</a>. Targeting Spring Framework 6.x / Spring Boot 3.x. Authored per Knowledge-Base-2 <code>rules/03-teaching.md</code> and <code>rules/topic-styles/framework.md</code>.</p>
+
+</body>
+</html>

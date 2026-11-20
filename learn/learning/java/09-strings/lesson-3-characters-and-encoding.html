@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Characters, Bytes &amp; Encoding — Strings, Part 3 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .step{display:flex;gap:.8rem;margin:.9rem 0} .step .num{flex:0 0 2rem;height:2rem;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.95rem}
+  .step .body{flex:1} .step .body strong{display:block}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Characters, Bytes &amp; Encoding</h1>
+<p class="crumb">Java › strings cluster · lesson 9, <strong>part 3 of 3</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — what a "letter" really is underneath</p>
+
+<p class="nav"><strong>Strings cluster:</strong>
+  <a href="lesson.html">1. What a String really is</a> ·
+  <a href="lesson-2-building-text.html">2. Building text</a> ·
+  <strong>3. Characters, bytes &amp; encoding</strong>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> A computer stores only numbers, so text needs a <em>rulebook</em> that says which
+number means which letter. Java holds text as 16-bit <code>char</code> units internally, which means
+<code>length()</code> counts <em>storage slots</em>, not the letters you see — an emoji takes two. And the moment
+text leaves Java (a file, a socket, a database) it must be turned into bytes, which requires you to name the
+rulebook. Name it. Always. <code>UTF-8</code>.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+<a href="lesson.html">Part 1</a> said a string holds "letters". <a href="lesson-2-building-text.html">Part 2</a>
+showed how to assemble them. Both were polite lies: Java does not store letters, it stores <em>numbers</em>. This
+lesson opens that box.
+</p>
+<p>
+It matters more than it sounds. The bug where a name arrives as <code>caf&Atilde;&copy;</code> instead of
+<code>caf&eacute;</code>, the bug where a password check fails only in Turkey, the bug where cutting a string in half
+splits an emoji into two broken halves — all three are in this lesson, and all three are ordinary production bugs,
+not trivia.
+</p>
+
+<h2><span class="n">§2</span>Why it exists — numbers pretending to be letters</h2>
+
+<h3>The first rulebook: ASCII</h3>
+<p>
+Memory holds numbers. To store the letter <code>A</code> you must agree on a number for it. In 1963 everyone
+agreed on <strong>ASCII</strong>: <code>A</code> = 65, <code>a</code> = 97, <code>0</code> = 48. 128 values,
+fitting in 7 bits. Enough for English. Not enough for é, ü, ß, ñ, α, 日 or 😀.
+</p>
+
+<h3>The dark age: one byte, many rulebooks</h3>
+<p>
+The 1980s answer was to use the spare 128 values of a byte for "the rest" — but every region chose a different
+"rest". Western Europe used ISO-8859-1, Cyrillic used ISO-8859-5, Windows used its own code pages. The same byte
+<code>0xE9</code> meant <code>é</code> in one rulebook and something else entirely in another. A document was only
+readable if you already knew which rulebook made it — and that information was never stored <em>in</em> the file.
+This is where the word <strong>mojibake</strong> (text turned to garbage) comes from.
+</p>
+
+<h3>The fix: Unicode</h3>
+<p>
+<strong>Unicode</strong> gives every character in every writing system one permanent number, called a
+<strong>code point</strong>, written <code>U+0041</code> (A), <code>U+00E9</code> (é), <code>U+1F600</code> (😀).
+One global rulebook, with room for about 1.1 million characters.
+</p>
+<p>
+But Unicode only assigns the numbers. It does not say how to <em>store</em> them. That second job is an
+<strong>encoding</strong>, and there are several: UTF-8, UTF-16, UTF-32. This is the distinction people trip over,
+so hold on to it:
+</p>
+<div class="idiom"><strong>Unicode = which number means which character. Encoding = how that number is written as
+bytes.</strong> They are two different decisions.</div>
+
+<h3>Java's choice, and the accident of history</h3>
+<p>
+Java was designed in the early 1990s, when Unicode still fit in 16 bits. So Java made <code>char</code> 16 bits
+and declared the problem solved. Then Unicode grew past 65,536 characters — and Java was stuck. Changing
+<code>char</code> would have broken every Java program on earth.
+</p>
+<p>
+So Java kept <code>char</code> at 16 bits and adopted <strong>UTF-16</strong>: characters that fit in 16 bits use
+one <code>char</code>; everything beyond uses <em>two</em> <code>char</code>s together, called a
+<strong>surrogate pair</strong>
+<span class="sources">(Oracle, <a href="https://docs.oracle.com/javase/8/docs/api/java/lang/Character.html#unicode">Character API — Unicode Character Representations</a>)</span>.
+That compromise is the direct cause of the "emoji has length 2" surprise below.
+</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>3.1 Three layers, and three different counts</h3>
+<p>Whenever text confuses you, it is nearly always because you mixed up two of these layers:</p>
+
+<figure>
+<svg viewBox="0 0 760 290" width="100%" role="img" aria-label="Three layers: what you see, code points, code units, bytes">
+  <style>
+    .l1{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.3}
+    .l2{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.3}
+    .l3{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.3}
+    .l4{fill:#f4f0e6;stroke:#6b675e;stroke-width:1.3}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .h{font:12px Georgia,serif;fill:#2b2b28;font-weight:bold}
+    .a{stroke:#6b675e;stroke-width:1.2;marker-end:url(#md);fill:none}
+  </style>
+  <defs><marker id="md" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <text class="h" x="20" y="20">what a human sees</text>
+  <rect class="l1" x="20" y="28" width="60" height="38" rx="4"/><text class="t" x="44" y="52">A</text>
+  <rect class="l1" x="90" y="28" width="90" height="38" rx="4"/><text class="t" x="110" y="52">grin</text>
+  <text class="c" x="205" y="52">2 characters</text>
+
+  <text class="h" x="20" y="100">Unicode code points — the permanent numbers</text>
+  <rect class="l2" x="20" y="108" width="100" height="38" rx="4"/><text class="t" x="30" y="132">U+0041</text>
+  <rect class="l2" x="130" y="108" width="110" height="38" rx="4"/><text class="t" x="140" y="132">U+1F600</text>
+  <text class="c" x="260" y="132">2 code points — codePointCount() = 2</text>
+
+  <text class="h" x="20" y="180">Java char units — UTF-16, what String actually stores</text>
+  <rect class="l3" x="20" y="188" width="90" height="38" rx="4"/><text class="t" x="38" y="212">0x0041</text>
+  <rect class="l3" x="120" y="188" width="90" height="38" rx="4"/><text class="t" x="134" y="212">0xD83D</text>
+  <rect class="l3" x="214" y="188" width="90" height="38" rx="4"/><text class="t" x="228" y="212">0xDE00</text>
+  <text class="c" x="320" y="206">3 chars — length() = 3</text>
+  <text class="c" x="320" y="222">the last two are ONE surrogate pair</text>
+  <line class="a" x1="165" y1="232" x2="235" y2="232" style="marker-start:url(#md)"/>
+
+  <text class="h" x="20" y="262">bytes on disk / on the wire — depends on the encoding you choose</text>
+  <rect class="l4" x="20" y="268" width="36" height="20" rx="3"/><text class="t" x="28" y="283">41</text>
+  <rect class="l4" x="60" y="268" width="36" height="20" rx="3"/><text class="t" x="66" y="283">F0</text>
+  <rect class="l4" x="100" y="268" width="36" height="20" rx="3"/><text class="t" x="106" y="283">9F</text>
+  <rect class="l4" x="140" y="268" width="36" height="20" rx="3"/><text class="t" x="146" y="283">98</text>
+  <rect class="l4" x="180" y="268" width="36" height="20" rx="3"/><text class="t" x="188" y="283">80</text>
+  <text class="c" x="230" y="283">5 bytes in UTF-8 (1 + 4)</text>
+</svg>
+<figcaption>Four layers, four different counts for the same two characters. Most "weird text" bugs are a confusion
+between two neighbouring rows (Unicode Standard; Oracle, <em>Character</em> API).</figcaption>
+</figure>
+
+<p>Java gives you a different method for each count, and they do not always agree:</p>
+<table>
+<thead><tr><th>Question</th><th>Method</th><th>For <code>"A"</code> + 😀</th></tr></thead>
+<tbody>
+<tr><td>How many storage slots?</td><td><code>length()</code></td><td><strong>3</strong></td></tr>
+<tr><td>How many real characters?</td><td><code>codePointCount(0, length())</code></td><td><strong>2</strong></td></tr>
+<tr><td>How many bytes in a file?</td><td><code>getBytes(UTF_8).length</code></td><td><strong>5</strong></td></tr>
+</tbody></table>
+<p>All three numbers are verified output in §7. None of them is "wrong" — they answer different questions.</p>
+
+<h3>3.2 Surrogate pairs — why half a character exists</h3>
+<p>
+Unicode permanently reserved the range <code>U+D800</code>–<code>U+DFFF</code> for this trick. Those values are
+not characters; they only ever appear in pairs. A <em>high</em> surrogate (<code>D800–DBFF</code>) followed by a
+<em>low</em> surrogate (<code>DC00–DFFF</code>) together encode one code point above <code>U+FFFF</code>.
+</p>
+<p>
+In §7 you will see <code>charAt(1)</code> return <strong>55357</strong>, which is <code>0xD83D</code> — a high
+surrogate. On its own it is meaningless: it is half a character. But <code>codePointAt(1)</code> returns
+<strong>128512</strong> = <code>U+1F600</code>, because it reads <em>both</em> slots and reassembles them.
+</p>
+<div class="pitfall"><strong>This is why naive string surgery breaks.</strong> <code>substring(0, 2)</code> on
+text ending mid-pair, <code>charAt</code> in a <code>for</code> loop, <code>reverse()</code> on a builder, or
+truncating a tweet to 140 <code>char</code>s — each can slice a pair in half and produce a broken character.
+Characters outside the 16-bit range include emoji, many Chinese characters, musical symbols and most historic
+scripts, so this is no longer an exotic case.</div>
+<div class="idiom"><strong>Safe ways to walk text:</strong> use <code>for (int cp : s.codePoints().toArray())</code>
+(Java 8+), or <code>s.offsetByCodePoints(i, 1)</code> to step an index, or
+<code>java.text.BreakIterator</code> when you need what a <em>user</em> would call a character (which can be
+several code points — think flag emoji or an accent written as letter + combining mark).</div>
+
+<h3>3.3 Encoding: the only moment bytes appear</h3>
+<p>
+Inside the JVM you never see bytes. They appear at exactly two moments: when text <strong>leaves</strong> (file,
+socket, database, console) and when it <strong>arrives</strong>. Those two moments are
+<em>encoding</em> and <em>decoding</em>, and both need a named charset.
+</p>
+
+<figure>
+<svg viewBox="0 0 760 215" width="100%" role="img" aria-label="Encoding and decoding, and what happens with a mismatched charset">
+  <style>
+    .s1{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.3}
+    .s2{fill:#f4f0e6;stroke:#6b675e;stroke-width:1.3}
+    .bad{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.3}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#1f6b4d;stroke-width:1.5;marker-end:url(#me);fill:none}
+    .ab{stroke:#7a1f1f;stroke-width:1.5;marker-end:url(#mf);fill:none}
+  </style>
+  <defs>
+    <marker id="me" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1f6b4d"/></marker>
+    <marker id="mf" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker>
+  </defs>
+
+  <rect class="s1" x="20" y="60" width="170" height="52" rx="6"/>
+  <text class="t" x="38" y="83">String "caf&eacute;"</text><text class="c" x="38" y="102">4 chars in the JVM</text>
+
+  <rect class="s2" x="300" y="60" width="180" height="52" rx="6"/>
+  <text class="t" x="314" y="83">63 61 66 C3 A9</text><text class="c" x="314" y="102">5 bytes — written as UTF-8</text>
+
+  <line class="a" x1="190" y1="86" x2="298" y2="86"/>
+  <text class="c" x="196" y="52">getBytes(UTF_8)</text>
+  <text class="c" x="210" y="40" style="font-weight:bold;font-style:normal">ENCODE</text>
+
+  <rect class="s1" x="585" y="20" width="155" height="52" rx="6"/>
+  <text class="t" x="600" y="43">"caf&eacute;"</text><text class="c" x="600" y="62">4 chars — correct</text>
+  <rect class="bad" x="585" y="120" width="155" height="52" rx="6"/>
+  <text class="t" x="600" y="143">"caf&Atilde;&copy;"</text><text class="c" x="600" y="162">5 chars — mojibake</text>
+
+  <line class="a" x1="480" y1="76" x2="583" y2="48"/>
+  <line class="ab" x1="480" y1="100" x2="583" y2="140"/>
+  <text class="c" x="486" y="20">decode with UTF-8  (same rulebook)</text>
+  <text class="c" x="486" y="196">decode with ISO-8859-1  (wrong rulebook — 2 bytes read as 2 letters)</text>
+</svg>
+<figcaption>The bytes are identical in both cases. Only the rulebook used to read them differs — and that alone
+turns 4 characters into 5 garbage ones. Lengths verified in §7.</figcaption>
+</figure>
+
+<p>Look at the measured byte counts for <code>caf&eacute;</code>:</p>
+<table>
+<thead><tr><th>Charset</th><th>Bytes</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>UTF-8</td><td><code>63 61 66 C3 A9</code> — <strong>5</strong></td><td>ASCII stays 1 byte; é needs 2. The web standard.</td></tr>
+<tr><td>ISO-8859-1</td><td><code>63 61 66 E9</code> — <strong>4</strong></td><td>Fits only 256 characters; cannot hold 😀 at all.</td></tr>
+</tbody></table>
+<p>
+UTF-8 is variable width: 1 byte for ASCII, 2 for most European and Middle Eastern letters, 3 for most CJK, 4 for
+emoji. That is why it won — English text costs nothing extra, yet everything is representable.
+</p>
+
+<h3>3.4 The platform default charset is a trap</h3>
+<p>
+Every byte/text method has an overload that takes no charset: <code>s.getBytes()</code>,
+<code>new String(bytes)</code>, <code>new FileWriter(f)</code>, <code>new InputStreamReader(in)</code>. They do not
+skip the charset — they silently use the <strong>platform default</strong>.
+</p>
+<p>
+On the machine this lesson was run, that default is <strong>windows-1252</strong>. On your colleague's Linux CI
+box it is <strong>UTF-8</strong>. So the same code writes different bytes on different machines, and the bug only
+appears once a non-ASCII character shows up — usually in production, usually in a customer's name.
+</p>
+<div class="idiom"><strong>Rule:</strong> never call a charset-less overload. Write
+<code>StandardCharsets.UTF_8</code> every time. It is a constant, not a string name, so it cannot be misspelled and
+throws no checked exception
+<span class="sources">(Oracle, <a href="https://docs.oracle.com/javase/8/docs/api/java/nio/charset/StandardCharsets.html">StandardCharsets</a>)</span>.</div>
+<pre><span class="c">// fragile — depends on the machine</span>
+<span class="k">byte</span>[] b = s.getBytes();
+String t = <span class="k">new</span> String(b);
+
+<span class="c">// correct — says what it means, everywhere</span>
+<span class="k">byte</span>[] b = s.getBytes(StandardCharsets.UTF_8);
+String t = <span class="k">new</span> String(b, StandardCharsets.UTF_8);</pre>
+<div class="callout"><strong>Java 18 finally fixed the default.</strong> Since Java 18 the default charset for
+file and stream APIs is UTF-8 everywhere, regardless of the operating system
+<span class="sources">(<a href="https://openjdk.org/jeps/400">JEP 400 — UTF-8 by Default</a>)</span>. Keep writing
+the charset explicitly anyway: it still documents intent, and most real code bases are not on 18+ yet.</div>
+
+<h3>3.5 Case conversion depends on language</h3>
+<p>
+<code>toUpperCase()</code> with no argument uses the machine's default <strong>locale</strong>. In Turkish, lower
+<code>i</code> upper-cases to <code>İ</code> (dotted capital I, <code>U+0130</code>), not <code>I</code>. Measured
+in §7: <code>"i".toUpperCase(new Locale("tr"))</code> gives character <strong>304</strong>, while
+<code>Locale.ROOT</code> gives <strong>73</strong>.
+</p>
+<p>
+This is the legendary "Turkish i" bug. Code like
+<code>if (header.toUpperCase().equals("CONTENT-TYPE"))</code> silently fails on a machine with a Turkish locale —
+and only there.
+</p>
+<div class="idiom"><strong>Rule:</strong> for machine-facing text (protocol headers, file extensions, enum names,
+commands) always pass <code>Locale.ROOT</code>. Use the user's locale <em>only</em> for text shown to that user.
+And for case-insensitive comparison, prefer <code>equalsIgnoreCase</code> over converting both sides.</div>
+
+<h3>3.6 Secrets do not belong in a String</h3>
+<p>Pulling together three facts you already know:</p>
+<ol>
+  <li>A string cannot be changed, so you cannot overwrite it.</li>
+  <li>It lives until the GC decides to collect it — you cannot force that.</li>
+  <li>A literal password would even be <em>pooled</em>, so it lives as long as the program does.</li>
+</ol>
+<p>
+Result: a password in a <code>String</code> sits in memory for an unknown length of time and will appear in any
+heap dump taken in between. That is why <code>JPasswordField.getPassword()</code> returns a <code>char[]</code>
+and the JCA guide recommends arrays for secrets: you can overwrite an array the instant you are done
+<span class="sources">(Oracle, <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/security/crypto/CryptoSpec.html">JCA Reference Guide</a>)</span>.
+</p>
+<pre><span class="k">char</span>[] password = readPassword();
+<span class="k">try</span> {
+    login(password);
+} <span class="k">finally</span> {
+    Arrays.fill(password, <span class="s">'\0'</span>);   <span class="c">// the secret is gone from memory now</span>
+}</pre>
+
+<h3>3.7 What newer Java versions added</h3>
+<table>
+<thead><tr><th>Version</th><th>Feature</th><th>Why it matters here</th></tr></thead>
+<tbody>
+<tr><td>Java 8</td><td><code>chars()</code>, <code>codePoints()</code>, <code>String.join</code></td><td>Stream over code points safely</td></tr>
+<tr><td>Java 9</td><td>Compact strings (<a href="https://openjdk.org/jeps/254">JEP 254</a>)</td><td>1 byte per char for Latin-1 text; big memory saving, no API change</td></tr>
+<tr><td>Java 11</td><td><code>strip</code>, <code>isBlank</code>, <code>repeat</code>, <code>lines</code></td><td><code>strip</code> is Unicode-aware; <code>trim</code> only removes chars ≤ U+0020</td></tr>
+<tr><td>Java 15</td><td>Text blocks (<a href="https://openjdk.org/jeps/378">JEP 378</a>)</td><td><code>"""…"""</code> for multi-line JSON/SQL/HTML without escape soup</td></tr>
+<tr><td>Java 18</td><td>UTF-8 by default (<a href="https://openjdk.org/jeps/400">JEP 400</a>)</td><td>Removes the platform-default trap</td></tr>
+</tbody></table>
+<p class="sources">The demos in §7 run on JDK 1.8, so the Java 11+ methods above are listed, not demonstrated.
+They are covered in <a href="../12-modern-java-9-to-21/lesson.html">lesson 12</a>.</p>
+
+<h2><span class="n">§4</span>When to use what</h2>
+<table>
+<thead><tr><th>Situation</th><th>Do this</th></tr></thead>
+<tbody>
+<tr><td>Text → bytes, or bytes → text</td><td>Always pass <code>StandardCharsets.UTF_8</code></td></tr>
+<tr><td>Reading or writing a file</td><td><code>Files.readAllLines(path, UTF_8)</code> / <code>Files.write(path, lines, UTF_8)</code></td></tr>
+<tr><td>Counting characters for a UI limit</td><td><code>codePointCount</code>, not <code>length</code></td></tr>
+<tr><td>Looping over characters, possibly emoji</td><td><code>s.codePoints()</code> or <code>offsetByCodePoints</code></td></tr>
+<tr><td>Upper/lower-casing a protocol value</td><td><code>toUpperCase(Locale.ROOT)</code></td></tr>
+<tr><td>Comparing, ignoring case</td><td><code>equalsIgnoreCase</code></td></tr>
+<tr><td>Sorting names for a human to read</td><td><code>java.text.Collator</code> for their locale — not <code>compareTo</code></td></tr>
+<tr><td>Holding a password or key</td><td><code>char[]</code> or <code>byte[]</code>, wiped in a <code>finally</code></td></tr>
+<tr><td>Writing non-ASCII in source code</td><td>Prefer <code>\uXXXX</code> escapes, or compile with <code>-encoding UTF-8</code></td></tr>
+</tbody></table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Computers can only remember numbers. So long ago people made a <strong>codebook</strong>: 65 means A, 66 means B.
+That worked fine until the rest of the world wanted to write too — and every country wrote its own codebook. The
+number 233 meant "é" in France's book and something completely different in Russia's. If you opened a French file
+using the Russian book, you got gibberish. Nobody wrote on the file which book they had used.
+</p>
+<p>
+<strong>Unicode</strong> is the world finally agreeing on one codebook with a number for every character on Earth,
+including emoji. But there is still a second question: <em>how do you write those numbers down as bytes?</em>
+That is the <strong>encoding</strong>, and <strong>UTF-8</strong> is the one everyone uses now. It is clever —
+plain English letters still take one byte, and only unusual characters take more.
+</p>
+<p>
+Java has one quirk. It was built when people thought every character would fit in a two-byte box. Then emoji
+arrived and did not fit. Rather than change every box, Java splits a big character across <em>two</em> boxes. So
+if you ask Java "how long is 😀?" it answers "2" — it is counting <em>boxes</em>, not characters. And if you cut
+the text between those two boxes, you get half an emoji, which is nonsense.
+</p>
+<p>
+<em>"So why can't Java just count properly?"</em> It can — you have to ask with the right method
+(<code>codePointCount</code> instead of <code>length</code>). The old answer has to stay for the sake of every
+program written in the last thirty years.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson.html">part 1</a>:</strong> <code>char[]</code> (JDK 8) or <code>byte[]</code> + coder (JDK 9+) is the storage this lesson decodes.</li>
+  <li><strong>← <a href="lesson-2-building-text.html">part 2</a>:</strong> <code>substring</code>, <code>reverse</code> and index arithmetic are exactly the operations that break on surrogate pairs.</li>
+  <li><strong>← <a href="../05-type-system-and-oop/lesson.html">type system</a>:</strong> <code>char</code> is a 16-bit <em>unsigned</em> primitive — the only unsigned type in Java. <code>(int) c</code> gives you its number.</li>
+  <li><strong>→ <a href="../10-exceptions-and-error-design/lesson.html">exceptions</a>:</strong> strict decoding can throw <code>CharacterCodingException</code>; the <code>String</code> constructors instead replace bad bytes with <code>U+FFFD</code> and stay silent — a design trade-off worth noticing.</li>
+  <li><strong>→ <a href="../12-modern-java-9-to-21/lesson.html">modern Java</a>:</strong> text blocks, <code>strip</code>, <code>repeat</code>, and UTF-8 by default.</li>
+  <li><strong>→ <a href="../14-tooling-and-ecosystem/lesson.html">tooling</a>:</strong> set <code>-encoding UTF-8</code> on <code>javac</code> and <code>project.build.sourceEncoding</code> in Maven, or your build is machine-dependent too.</li>
+  <li><strong>Same idea elsewhere:</strong> Python 3 strings are sequences of code points (so <code>len("😀")</code> is 1) and bytes are a separate type; JavaScript made the same UTF-16 choice as Java, so <code>"😀".length</code> is 2 there as well; Go strings are UTF-8 bytes, and <code>range</code> walks code points. The layers are universal — only the default answer changes.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — one file, dissected</h2>
+<p>Full source: <a href="../code/StringDemo3.java">code/StringDemo3.java</a>, compiled and run on JDK 1.8.0_411.
+Non-ASCII is written with <code>\u</code> escapes and results are printed as <em>numbers</em>, so the console's own
+encoding cannot distort the evidence.</p>
+
+<pre>String accented = <span class="s">"caf\u00e9"</span>;       <span class="c">// c a f e-acute</span>
+String emoji    = <span class="s">"A\uD83D\uDE00"</span>;      <span class="c">// 'A' + grinning face</span></pre>
+<div class="ann">Two test subjects. <code>é</code> is <code>U+00E9</code> — inside the 16-bit range, so it is one
+<code>char</code>. 😀 is <code>U+1F600</code> — outside it, so it is written as the surrogate pair
+<code>D83D DE00</code>: two <code>char</code>s for one character.</div>
+
+<pre>accented.length()                          <span class="c">// 4</span>
+emoji.length()                             <span class="c">// 3   &lt;- not 2!</span>
+emoji.codePointCount(0, emoji.length())    <span class="c">// 2   &lt;- the real answer</span>
+(<span class="k">int</span>) emoji.charAt(1)                    <span class="c">// 55357 = 0xD83D, half a character</span>
+emoji.codePointAt(1)                       <span class="c">// 128512 = U+1F600, both halves read together</span></pre>
+<div class="ann">The core lesson, in five lines. <code>length()</code> counts storage slots.
+<code>codePointCount</code> counts characters. <code>charAt</code> can hand you a meaningless half;
+<code>codePointAt</code> never does. If a method name says "char", assume it means "16-bit slot".</div>
+
+<pre><span class="k">byte</span>[] utf8   = accented.getBytes(<span class="s">"UTF-8"</span>);        <span class="c">// 5 bytes: 99 97 102 -61 -87</span>
+<span class="k">byte</span>[] latin1 = accented.getBytes(<span class="s">"ISO-8859-1"</span>);   <span class="c">// 4 bytes: 99 97 102 -23</span></pre>
+<div class="ann">Same text, two rulebooks, two different byte strings. In UTF-8 the <code>é</code> became two bytes
+(<code>-61 -87</code> is <code>0xC3 0xA9</code> — Java bytes are signed, which is why they print negative). In
+ISO-8859-1 it fits in one byte (<code>-23</code> = <code>0xE9</code>). ASCII letters are identical in both — that
+is UTF-8's whole design.</div>
+
+<pre><span class="k">new</span> String(utf8, <span class="s">"ISO-8859-1"</span>).length()   <span class="c">// 5 — mojibake, the pair read as 2 letters</span>
+<span class="k">new</span> String(utf8, <span class="s">"UTF-8"</span>).length()        <span class="c">// 4 — correct</span>
+<span class="k">new</span> String(utf8, <span class="s">"UTF-8"</span>).equals(accented) <span class="c">// true — a perfect round trip</span></pre>
+<div class="ann">The mojibake bug, reproduced in three lines. The bytes were never corrupted. They were simply read
+with the wrong rulebook, and 4 characters became 5. <strong>Encode and decode must agree.</strong></div>
+
+<pre>Charset.defaultCharset()   <span class="c">// windows-1252 on this machine</span></pre>
+<div class="ann">And there is the trap from §3.4, live. Any charset-less call on this machine silently writes
+windows-1252 — which cannot even represent 😀.</div>
+
+<pre>(<span class="k">int</span>) <span class="s">"i"</span>.toUpperCase(<span class="k">new</span> Locale(<span class="s">"tr"</span>)).charAt(0)   <span class="c">// 304 = 'I-with-dot'</span>
+(<span class="k">int</span>) <span class="s">"i"</span>.toUpperCase(Locale.ROOT).charAt(0)        <span class="c">// 73  = plain 'I'</span></pre>
+<div class="ann">The Turkish-i bug in two lines. The same method, the same input, two different answers — chosen by
+a machine setting you do not control. Pass <code>Locale.ROOT</code> for anything a machine will read.</div>
+
+<pre><span class="k">char</span>[] password = {<span class="s">'s'</span>,<span class="s">'3'</span>,<span class="s">'c'</span>,<span class="s">'r'</span>,<span class="s">'e'</span>,<span class="s">'t'</span>};
+Arrays.fill(password, <span class="s">'\0'</span>);   <span class="c">// prints [, , , , , ] — the secret is gone</span></pre>
+<div class="ann">The thing a <code>String</code> can never do. The printed output shows six empty slots: the
+characters really were overwritten in place. With a <code>String</code> the old letters would still be sitting in
+the heap, waiting for a GC that may not come for minutes.</div>
+
+<h3>Real output <span class="sources">(JDK 1.8.0_411, Windows)</span></h3>
+<pre>accented.length()     : 4
+emoji.length()        : 3
+emoji code points     : 2
+emoji.charAt(1) value : 55357 (half a character)
+emoji.codePointAt(1)  : 128512
+UTF-8 byte count      : 5 [99, 97, 102, -61, -87]
+ISO-8859-1 byte count : 4 [99, 97, 102, -23]
+wrong decode length   : 5
+right decode length   : 4
+right decode matches  : true
+platform default      : windows-1252
+equals ignoring case  : true
+'i' upper in Turkish  : 304
+'i' upper with ROOT   : 73
+wiped password        : [, , , , , ]</pre>
+
+<div class="try"><strong>Predict, then run.</strong>
+<ol>
+  <li><code>emoji.substring(0, 2)</code> — what is its length, and what does <code>codePointCount</code> say about it? Is the result valid text?</li>
+  <li><code>new StringBuilder("A\uD83D\uDE00").reverse().toString()</code> — is the emoji still intact? (<code>reverse</code> is specified to keep surrogate pairs together; verify that it really does.)</li>
+  <li><code>"\uD83D\uDE00".getBytes("ISO-8859-1")</code> — ISO-8859-1 has no emoji. What bytes come out, and is the damage recoverable?</li>
+  <li>Print <code>Integer.toHexString(55357)</code> and check it against the range <code>D800–DBFF</code>. Is it a high or a low surrogate?</li>
+</ol></div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+
+<div class="pitfall"><strong>1. Any charset-less call.</strong> <code>getBytes()</code>,
+<code>new String(bytes)</code>, <code>FileWriter</code>, <code>FileReader</code>,
+<code>InputStreamReader</code>, <code>PrintWriter</code>. All silently platform-dependent before Java 18. Pass
+<code>UTF_8</code>.</div>
+
+<div class="pitfall"><strong>2. Treating <code>length()</code> as a character count.</strong> Wrong for every
+emoji and many scripts. Use <code>codePointCount</code> for limits, and remember a user-visible "character" may
+still be several code points.</div>
+
+<div class="pitfall"><strong>3. Cutting text at an arbitrary index.</strong> Truncating a message to N
+<code>char</code>s can split a surrogate pair and produce a broken character. Use
+<code>offsetByCodePoints</code>, or <code>BreakIterator</code> for user-facing text.</div>
+
+<div class="pitfall"><strong>4. <code>toUpperCase()</code> / <code>toLowerCase()</code> with no locale.</strong>
+The Turkish-i bug. Pass <code>Locale.ROOT</code> for machine-facing text.</div>
+
+<div class="pitfall"><strong>5. Double-encoding.</strong> Taking bytes that are already UTF-8, decoding them as
+ISO-8859-1, then re-encoding as UTF-8. You get <code>&Atilde;&copy;</code> where <code>&eacute;</code> should be, and it is a pain to
+unpick. Fix it at the one layer that is wrong, not by adding another conversion.</div>
+
+<div class="pitfall"><strong>6. Forgetting the <em>other</em> charsets in the stack.</strong> The database column
+and connection, the HTTP <code>Content-Type</code> header, the HTML <code>&lt;meta charset&gt;</code>, the terminal,
+and the compiler's <code>-encoding</code> flag each have their own setting. One mismatch anywhere produces
+mojibake. Set them all to UTF-8.</div>
+
+<div class="pitfall"><strong>7. Secrets in a <code>String</code>.</strong> Unwipeable and possibly pooled. Use
+<code>char[]</code> and clear it in a <code>finally</code>.</div>
+
+<div class="pitfall"><strong>8. Assuming <code>trim()</code> removes all whitespace.</strong> <code>trim</code>
+only removes characters ≤ <code>U+0020</code>, so a non-breaking space survives it. Java 11's <code>strip</code>
+is the Unicode-aware version.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>Computers store numbers. <strong>Unicode</strong> says which number is which character; an <strong>encoding</strong> says how that number becomes bytes. Two separate things.</li>
+  <li>Java stores text as <strong>UTF-16</strong>: one <code>char</code> for most characters, a <strong>surrogate pair</strong> (two <code>char</code>s) for anything above <code>U+FFFF</code>.</li>
+  <li><code>length()</code> counts <code>char</code> slots. <code>codePointCount()</code> counts real characters. For <code>"A"</code>+😀 they are 3 and 2.</li>
+  <li><code>charAt</code> can return half a character; <code>codePointAt</code> cannot. Walk text with <code>codePoints()</code>.</li>
+  <li>Bytes appear only at the boundary. <strong>Always name the charset</strong> — <code>StandardCharsets.UTF_8</code>. The platform default differs per machine (windows-1252 here) until Java 18.</li>
+  <li>Encoding and decoding must use the <strong>same</strong> rulebook, or you get mojibake. The bytes are never corrupted — only misread.</li>
+  <li>Case conversion is <strong>locale-sensitive</strong>. Use <code>Locale.ROOT</code> for machine-facing text; that is the Turkish-i bug.</li>
+  <li>Never keep a secret in a <code>String</code>. Use a <code>char[]</code> you can wipe.</li>
+</ul>
+
+<hr/>
+<h2>Reference — cheat sheet</h2>
+<table>
+<thead><tr><th>Goal</th><th>Code</th></tr></thead>
+<tbody>
+<tr><td>Text → bytes</td><td><code>s.getBytes(StandardCharsets.UTF_8)</code></td></tr>
+<tr><td>Bytes → text</td><td><code>new String(b, StandardCharsets.UTF_8)</code></td></tr>
+<tr><td>Read a file</td><td><code>Files.readAllLines(path, StandardCharsets.UTF_8)</code></td></tr>
+<tr><td>Write a file</td><td><code>Files.write(path, lines, StandardCharsets.UTF_8)</code></td></tr>
+<tr><td>Real character count</td><td><code>s.codePointCount(0, s.length())</code></td></tr>
+<tr><td>Loop over characters</td><td><code>s.codePoints().forEach(cp -&gt; ...)</code></td></tr>
+<tr><td>Safe index step</td><td><code>s.offsetByCodePoints(i, 1)</code></td></tr>
+<tr><td>Is this a surrogate half?</td><td><code>Character.isHighSurrogate(c)</code> / <code>isLowSurrogate(c)</code></td></tr>
+<tr><td>Code point → string</td><td><code>new String(Character.toChars(cp))</code></td></tr>
+<tr><td>Machine-safe upper case</td><td><code>s.toUpperCase(Locale.ROOT)</code></td></tr>
+<tr><td>Which default am I on?</td><td><code>Charset.defaultCharset()</code></td></tr>
+<tr><td>Compile with UTF-8 source</td><td><code>javac -encoding UTF-8 ...</code></td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Character set (charset)</dt><dd>A named rulebook mapping characters to bytes, e.g. UTF-8, ISO-8859-1.</dd>
+  <dt>Unicode</dt><dd>The standard assigning a unique number (code point) to every character.</dd>
+  <dt>Code point</dt><dd>One Unicode number, e.g. <code>U+1F600</code>. What a human calls "a character".</dd>
+  <dt>Code unit</dt><dd>One storage slot of the encoding. In Java that is a 16-bit <code>char</code>.</dd>
+  <dt>UTF-16</dt><dd>Java's in-memory encoding: 1 or 2 code units per code point.</dd>
+  <dt>UTF-8</dt><dd>Variable-width byte encoding, 1–4 bytes per code point. The web default.</dd>
+  <dt>Surrogate pair</dt><dd>Two <code>char</code>s in the range <code>D800–DFFF</code> that together encode one code point above <code>U+FFFF</code>.</dd>
+  <dt>BMP</dt><dd>Basic Multilingual Plane — code points <code>U+0000</code>–<code>U+FFFF</code>, the ones that fit in a single <code>char</code>.</dd>
+  <dt>Mojibake</dt><dd>Garbled text caused by decoding bytes with the wrong charset.</dd>
+  <dt>Locale</dt><dd>Language and region settings that change case conversion, sorting and formatting.</dd>
+  <dt>Encode / decode</dt><dd>Text → bytes / bytes → text.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p>
+<a href="https://docs.oracle.com/javase/8/docs/api/java/lang/Character.html#unicode">Oracle —
+<code>java.lang.Character</code>, "Unicode Character Representations"</a>: three short paragraphs that define
+code point, code unit and surrogate pair in the JDK's own words. Then
+<a href="https://docs.oracle.com/javase/8/docs/api/java/nio/charset/StandardCharsets.html">StandardCharsets</a>,
+which is the only charset list you ever need to remember.
+</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>Character</em>, <em>String</em>,
+<em>Charset</em> and <em>StandardCharsets</em> API docs (Java SE 8); Oracle,
+<em>JCA Reference Guide</em> (secrets in <code>char[]</code>); OpenJDK
+<a href="https://openjdk.org/jeps/254">JEP 254</a>, <a href="https://openjdk.org/jeps/378">JEP 378</a>,
+<a href="https://openjdk.org/jeps/400">JEP 400</a>. Code compiled and run on JDK 1.8.0_411 (Windows, default
+charset windows-1252). Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+<p class="nav" style="margin-top:2rem">
+  <a href="lesson.html">← Part 1 — What a String really is</a> ·
+  <a href="lesson-2-building-text.html">← Part 2 — Building text</a> ·
+  Next topic: <a href="../10-exceptions-and-error-design/lesson.html"><strong>10 — Exceptions &amp; error design</strong></a>
+</p>
+
+</body>
+</html>

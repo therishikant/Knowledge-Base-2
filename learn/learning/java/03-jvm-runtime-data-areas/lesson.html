@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Runtime Data Areas & Frames — JVM</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<h1>Runtime Data Areas &amp; Frames</h1>
+<p class="crumb">Java › JVM cluster · lesson 3 of 4 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — where state lives, and the anatomy of a stack frame</p>
+
+<div class="tldr">
+<strong>In one line —</strong> To run your code, the JVM needs memory. It splits that memory into parts. Some parts are
+<strong>shared</strong> by every thread (the Heap and the Method Area). Some parts are <strong>private to one thread</strong>
+(the PC, the JVM Stack, and the Native stack). The JVM Stack is a pile of <strong>frames</strong> — one frame per method call.
+Each frame holds the method's values and its little work area. Frames are where method running really happens.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+This opens up step 6 of the <a href="../01-jvm-bytecode-pipeline/lesson.html">bytecode pipeline</a>. Once a class is loaded
+(lesson 2), running it means using memory, and making a frame for every method call. Understanding this is what lets you
+see <em>why</em> <code>StackOverflowError</code> and <code>OutOfMemoryError</code> are different, how deep recursion can go,
+why each thread costs memory, and (later) why threads need careful rules to share data safely.
+</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+<p>
+A running program has two very different kinds of data. First, <strong>long-lived objects</strong> that many parts of the
+program share. Second, <strong>short-lived scratch data</strong> for one method call — its inputs, its local variables, its
+in-between results — which should be private to one thread and thrown away when the call ends. The JVM gives each kind its
+own home: a shared <strong>heap</strong> for objects, and a private <strong>pile of frames</strong> for calls
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html">JVM Spec SE 21, §2.5</a>)</span>.
+Splitting memory this way is what lets many threads run at once without stepping on each other.
+</p>
+
+<h2><span class="n">§3</span>How it works — the five areas</h2>
+
+<figure>
+<svg viewBox="0 0 760 300" width="100%" role="img" aria-label="Shared vs per-thread runtime data areas">
+  <style>
+    .sh{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.4}.th{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11px Georgia,serif;fill:#4a4640}
+  </style>
+  <rect class="sh" x="10" y="20" width="350" height="260" rx="8"/>
+  <text class="t" x="30" y="43" style="font-weight:bold">SHARED (all threads)</text>
+  <rect class="sh" x="30" y="55" width="310" height="95" rx="5"/>
+  <text class="t" x="45" y="77">Heap</text>
+  <text class="c" x="45" y="97">every object &amp; array</text><text class="c" x="45" y="115">the GC's territory</text>
+  <text class="c" x="45" y="133">→ OutOfMemoryError: heap space</text>
+  <rect class="sh" x="30" y="160" width="310" height="105" rx="5"/>
+  <text class="t" x="45" y="182">Method Area (Metaspace)</text>
+  <text class="c" x="45" y="202">class metadata, method bytecode,</text>
+  <text class="c" x="45" y="220">run-time constant pool</text>
+  <text class="c" x="45" y="238">native memory since Java 8</text>
+
+  <rect class="th" x="390" y="20" width="360" height="260" rx="8"/>
+  <text class="t" x="410" y="43" style="font-weight:bold">PER-THREAD (private)</text>
+  <rect class="th" x="410" y="55" width="320" height="150" rx="5"/>
+  <text class="t" x="425" y="77">JVM Stack — a stack of frames</text>
+  <rect class="th" x="425" y="88" width="290" height="34" rx="4"/><text class="c" x="438" y="109">frame: main()  ← bottom</text>
+  <rect class="th" x="425" y="126" width="290" height="34" rx="4"/><text class="c" x="438" y="147">frame: add()   ← current (top)</text>
+  <text class="c" x="425" y="182">grows on call, shrinks on return</text>
+  <text class="c" x="425" y="199">→ StackOverflowError when too deep</text>
+  <rect class="th" x="410" y="215" width="155" height="52" rx="5"/><text class="t" x="422" y="236">PC register</text><text class="c" x="422" y="255">current instr addr</text>
+  <rect class="th" x="575" y="215" width="155" height="52" rx="5"/><text class="t" x="587" y="236">Native stack</text><text class="c" x="587" y="255">for JNI calls</text>
+</svg>
+<figcaption>Shared vs per-thread areas. Each thread owns a JVM stack of frames; all threads share one heap (JVM Spec §2.5).</figcaption>
+</figure>
+
+<p><strong>Shared</strong> (made when the JVM starts, gone when it stops):</p>
+<ul>
+  <li><strong>Heap</strong> — holds every object and array. This is the only part the garbage collector cleans. Full → <code>OutOfMemoryError: Java heap space</code> <span class="sources">(§2.5.3)</span>.</li>
+  <li><strong>Method Area</strong> — holds facts about each class: its fields, its methods, its method bytecode, and its list of names (the <strong>constant pool</strong>) <span class="sources">(§2.5.5)</span>. Today this is called <strong>Metaspace</strong>, which Java 8 moved out into normal system memory (the end of the old "PermGen") <span class="sources">(§2.5.4)</span>.</li>
+</ul>
+<p><strong>Private to each thread</strong> (made with the thread, gone with it):</p>
+<ul>
+  <li><strong>PC</strong> — remembers which instruction the thread is running right now <span class="sources">(§2.5.1)</span>.</li>
+  <li><strong>JVM Stack</strong> — the pile of <strong>frames</strong>. Too many → <code>StackOverflowError</code> <span class="sources">(§2.5.2)</span>.</li>
+  <li><strong>Native stack</strong> — used when Java calls code written in C (JNI) <span class="sources">(§2.5.6)</span>.</li>
+</ul>
+
+<h2><span class="n">§4</span>Frames — up close</h2>
+<p>
+This is the part you asked to see. Think of a frame as <strong>one sheet of scratch paper for one method call</strong>. The
+spec says a frame is used "to store data and partial results, as well as to perform dynamic linking, return values for
+methods, and dispatch exceptions"
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html">JVM Spec §2.6</a>)</span>.
+</p>
+
+<h3>The rules of a frame</h3>
+<ul>
+  <li><strong>One frame per method call.</strong> A new frame is made <em>every time</em> you call a method, and thrown away when that call ends — whether it returns a value or throws an error <span class="sources">(§2.6)</span>.</li>
+  <li><strong>Frames sit on the thread's stack.</strong> A frame belongs to one thread only. No other thread can touch it.</li>
+  <li><strong>Only the top frame is "live."</strong> That is the method running right now. When it calls another method, a new frame goes on top and becomes the live one. When that method returns, the frame below wakes up again <span class="sources">(§2.6)</span>.</li>
+  <li><strong>The size is known before it runs.</strong> The compiler already wrote down how many value-slots and how much work space each method needs, so the frame's size is set before it is even made <span class="sources">(§2.6, §4.7.3)</span>.</li>
+</ul>
+
+<h3>What's inside a frame</h3>
+<p>Three things <span class="sources">(§2.6.1–§2.6.3)</span>:</p>
+<table>
+<thead><tr><th>Part</th><th>What it is</th><th>Key facts</th></tr></thead>
+<tbody>
+<tr><td><strong>Value slots (local variables)</strong></td><td>Numbered boxes for the method's inputs and local variables.</td>
+<td>For an instance method, box <code>0</code> holds <code>this</code>, then the inputs follow. For a <code>static</code> method the inputs start at box <code>0</code>. A <code>long</code> or <code>double</code> uses <strong>two</strong> boxes <span class="sources">(§2.6.1)</span>.</td></tr>
+<tr><td><strong>Work pile (operand stack)</strong></td><td>A small pile where the method does its math.</td>
+<td>Empty when the frame is made. Steps put values on top and take them off. <code>iadd</code> takes two ints off and puts their sum back. It also holds the inputs when calling another method, and catches the result <span class="sources">(§2.6.2)</span>.</td></tr>
+<tr><td><strong>Link to the name list</strong></td><td>A pointer to this class's constant pool.</td>
+<td>Lets the JVM turn a name (<code>#2</code>) into a real method or field the first time it is used <span class="sources">(§2.6.3)</span>.</td></tr>
+</tbody>
+</table>
+
+<h3>A frame's whole life, step by step</h3>
+<p>Watch our <code>Hello</code> program. <code>main</code> calls <code>add(2, 3)</code>. Here is the stack at three moments:</p>
+
+<figure>
+<svg viewBox="0 0 760 360" width="100%" role="img" aria-label="Frame lifecycle across a method call">
+  <style>
+    .fr{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.3}.frm{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.3}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:10.5px Georgia,serif;fill:#4a4640}
+    .h{font:12px Georgia,serif;fill:#6b675e;font-style:italic;font-weight:bold}
+    .a{stroke:#6b675e;stroke-width:1.3;marker-end:url(#mm);fill:none}
+  </style>
+  <defs><marker id="mm" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <text class="h" x="20" y="20">① main() running</text>
+  <rect class="frm" x="20" y="30" width="210" height="100" rx="5"/>
+  <text class="t" x="32" y="50">frame: main</text>
+  <text class="c" x="32" y="70">locals[0]=args</text>
+  <text class="c" x="32" y="88">operand stack: [2, 3]</text>
+  <text class="c" x="32" y="112">about to call add(2,3)</text>
+
+  <text class="h" x="275" y="20">② add() pushed (current)</text>
+  <rect class="frm" x="275" y="70" width="210" height="60" rx="5"/>
+  <text class="t" x="287" y="90">frame: main (paused)</text>
+  <text class="c" x="287" y="110">waiting for result</text>
+  <rect class="fr" x="275" y="30" width="210" height="38" rx="5"/>
+  <text class="t" x="287" y="53">frame: add  ← current</text>
+
+  <rect class="fr" x="500" y="30" width="245" height="130" rx="5"/>
+  <text class="t" x="512" y="50">inside add's frame</text>
+  <text class="c" x="512" y="72">locals[0]=a=2  locals[1]=b=3</text>
+  <text class="c" x="512" y="92">operand stack builds:</text>
+  <text class="c" x="512" y="110">iload_0 → [2]</text>
+  <text class="c" x="512" y="126">iload_1 → [2,3]</text>
+  <text class="c" x="512" y="142">iadd    → [5]  → ireturn</text>
+  <line class="a" x1="485" y1="49" x2="498" y2="49"/>
+
+  <text class="h" x="20" y="200">③ add() returns, frame popped</text>
+  <rect class="frm" x="20" y="210" width="210" height="100" rx="5"/>
+  <text class="t" x="32" y="230">frame: main (current again)</text>
+  <text class="c" x="32" y="252">add's frame destroyed</text>
+  <text class="c" x="32" y="272">its result 5 pushed here:</text>
+  <text class="c" x="32" y="292">operand stack: [5] → istore sum</text>
+
+  <text class="c" x="275" y="230" style="font-style:italic">On normal return (§2.6.4): the returned</text>
+  <text class="c" x="275" y="248" style="font-style:italic">value is pushed onto the invoker's operand</text>
+  <text class="c" x="275" y="266" style="font-style:italic">stack, the PC is advanced past the call,</text>
+  <text class="c" x="275" y="284" style="font-style:italic">and add's frame is discarded.</text>
+  <text class="c" x="275" y="308" style="font-style:italic">On a thrown exception (§2.6.5): the frame</text>
+  <text class="c" x="275" y="326" style="font-style:italic">is popped with NO value returned.</text>
+</svg>
+<figcaption>The frame lifecycle: pushed on call, it computes on its own operand stack, then on return hands its result to the caller's operand stack and is destroyed (JVM Spec §2.6.1–§2.6.5).</figcaption>
+</figure>
+
+<div class="callout">
+<strong>Why recursion has a limit.</strong> Each time a method calls itself, another frame goes on the stack. The stack has a
+fixed size, so enough calls fill it up → <code>StackOverflowError</code>. This is <em>not</em> about the heap — the objects
+might be tiny. It is the <em>frames</em> piling up. You can make the stack bigger with <code>-Xss</code>, but the real fix is
+usually to stop calling so deep.
+</div>
+
+<h2><span class="n">§5</span>When this matters</h2>
+<ul>
+  <li><strong>Fixing a <code>StackOverflowError</code></strong> — read the stack trace. The same method repeating means runaway recursion.</li>
+  <li><strong>Thread cost</strong> — every thread needs its own stack. Thousands of threads means a lot of stack memory. (This is a big reason <em>virtual threads</em> were added later.)</li>
+  <li><strong>Reading a debugger</strong> — the "call stack" panel <em>is</em> this pile of frames. The "locals" are the value slots.</li>
+</ul>
+
+<h2><span class="n">§6</span>Explain it to a 12-year-old</h2>
+<p>
+Every time you start a task, you grab a fresh sheet of scratch paper (a <em>frame</em>). On it you write the numbers you were
+given (the value slots) and do your rough working in a little column (the work pile). If your task needs a smaller task, you
+grab <em>another</em> sheet and put it on top — you can only work on the top sheet. When the smaller task is done, you copy its
+one answer onto the sheet below, then throw the finished sheet away. Stack up too many sheets and you run out of desk — that
+is a stack overflow.
+</p>
+
+<h2><span class="n">§7</span>Connections</h2>
+<ul>
+  <li><strong>← jvm-bytecode-pipeline:</strong> this is the memory part of step 6, up close.</li>
+  <li><strong>→ jvm-execution-engine (lesson 4):</strong> the engine is what puts values on and off these work piles.</li>
+  <li><strong>→ memory-model-and-gc:</strong> the shared heap here is that whole lesson. Private stacks + one shared heap is why threads need careful sharing rules.</li>
+  <li><strong>→ concurrency:</strong> "each frame belongs to one thread" is the first seed of thread safety.</li>
+</ul>
+
+<h2><span class="n">§8</span>In practice — see the frame sizes</h2>
+<p><code>javap -v</code> prints each method's pre-computed frame limits. Real output for <code>add</code>:</p>
+<pre>  static int add(int, int);
+    Code:
+      <span class="k">stack=2</span>, <span class="k">locals=2</span>, args_size=2   <span class="c">// max operand depth 2, 2 local slots</span>
+       0: iload_0
+       1: iload_1
+       2: iadd
+       3: ireturn</pre>
+<div class="ann"><code>stack=2</code> means the work pile never holds more than two values (we put <code>a</code> and <code>b</code>
+on it). <code>locals=2</code> means two value slots (<code>a</code> and <code>b</code>). The JVM reads these numbers to size the
+frame <em>before</em> running a single step — it never has to grow it <span class="sources">(§4.7.3)</span>.</div>
+
+<div class="try">
+<strong>Guess, then check:</strong> add a third input <code>int c</code> and return <code>a+b+c</code>. Before you run
+<code>javap -v</code>, guess the new <code>stack=</code> and <code>locals=</code> numbers. <em>(Hint: three slots now; but the
+work pile still only holds two values at once, because <code>iadd</code> keeps folding pairs into one.)</em>
+</div>
+
+<h2><span class="n">§9</span>Watch out for</h2>
+<div class="pitfall"><strong>Mixing up the two stacks.</strong> The <em>JVM stack</em> is the pile of frames. The <em>work pile</em> is a tiny area <em>inside one</em> frame. Different things.</div>
+<div class="pitfall"><strong>Thinking locals live on the heap.</strong> A number and an object <em>pointer</em> live in the frame's value slots (private to the thread). The object it points to lives on the shared heap.</div>
+<div class="pitfall"><strong>Blaming the heap for a <code>StackOverflowError</code>.</strong> Deep recursion fills the thread's <em>stack</em>, not the heap.</div>
+<div class="pitfall"><strong>Thinking a <code>long</code> uses one slot.</strong> <code>long</code> and <code>double</code> each use two.</div>
+
+<h2><span class="n">§10</span>Recap</h2>
+<ul class="recap">
+  <li>Memory splits into <strong>shared</strong> (Heap, Method Area) and <strong>private to each thread</strong> (PC, JVM Stack, Native stack).</li>
+  <li>A <strong>frame</strong> is made for each <em>method call</em>, sits on the thread's stack, and is thrown away on return or error.</li>
+  <li>A frame holds <strong>value slots</strong>, a <strong>work pile</strong>, and a <strong>link to the name list</strong>.</li>
+  <li>Slot 0 = <code>this</code> (for instance methods). A <code>long</code>/<code>double</code> uses two slots.</li>
+  <li>On return, the answer is placed on the <em>caller's</em> work pile. On error, no answer is returned.</li>
+  <li><code>StackOverflowError</code> = too many frames. <code>OutOfMemoryError</code> = heap full. Different parts.</li>
+</ul>
+
+<hr/>
+<h2>Reference — area → error map</h2>
+<table>
+<thead><tr><th>Area</th><th>Shared / per-thread</th><th>Typical failure</th></tr></thead>
+<tbody>
+<tr><td>Heap</td><td>Shared</td><td><code>OutOfMemoryError: Java heap space</code></td></tr>
+<tr><td>Method Area (Metaspace)</td><td>Shared</td><td><code>OutOfMemoryError: Metaspace</code></td></tr>
+<tr><td>JVM Stack (frames)</td><td>Per-thread</td><td><code>StackOverflowError</code></td></tr>
+<tr><td>PC register</td><td>Per-thread</td><td>— (internal)</td></tr>
+<tr><td>Native stack</td><td>Per-thread</td><td><code>StackOverflowError</code> (native)</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Frame</dt><dd>Per-method-call record on the JVM stack: locals + operand stack + constant-pool link.</dd>
+  <dt>Local variable array</dt><dd>Indexed slots holding arguments and locals; slot 0 is <code>this</code> for instance methods.</dd>
+  <dt>Operand stack</dt><dd>LIFO work area inside a frame where bytecode computes.</dd>
+  <dt>Current frame</dt><dd>The frame of the method currently executing in a thread.</dd>
+  <dt>Dynamic linking</dt><dd>Resolving a frame's symbolic references to concrete ones as they're first used.</dd>
+  <dt>Metaspace</dt><dd>Native-memory method area holding class metadata (replaced PermGen in Java 8).</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html">JVM Spec SE 21 — §2.5 Run-Time Data Areas</a> and <strong>§2.6 Frames</strong> (with §2.6.1 Local Variables, §2.6.2 Operand Stacks).</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>The Java® Virtual Machine Specification, Java SE 21</em> (§2.5–§2.6, §4.7.3); frame limits captured live via <code>javap -v</code> on <code>javac 1.8.0_411</code>. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

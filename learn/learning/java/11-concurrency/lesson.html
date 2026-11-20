@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Threads — Concurrency, Part 1 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .step{display:flex;gap:.8rem;margin:.9rem 0} .step .num{flex:0 0 2rem;height:2rem;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.95rem}
+  .step .body{flex:1} .step .body strong{display:block}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Threads</h1>
+<p class="crumb">Java › concurrency cluster · lesson 11, <strong>part 1 of 4</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — how a program does two things at the same time</p>
+
+<p class="nav"><strong>Concurrency cluster:</strong>
+  <strong>1. Threads</strong> ·
+  <a href="lesson-2-sharing-data-safely.html">2. Sharing data safely</a> ·
+  <a href="lesson-3-thread-pools-and-futures.html">3. Thread pools &amp; futures</a> ·
+  <a href="lesson-4-virtual-threads.html">4. Virtual threads</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> Normally your program reads your code one line at a time, top to bottom. That single line of
+reading is called a <strong>thread</strong>. Java lets you start <em>more</em> threads, so several lines of your code can be
+read at the same time. This part answers only three questions: <em>what is a thread</em>, <em>how do I start one</em>,
+and <em>what does it do while it is alive</em>. The trouble — what happens when two threads touch the same data — is
+part 2.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+Everything you have learnt so far assumed <strong>one</strong> reader walking through your code. One call stack, one
+<code>main</code>, one thing happening at a time. That assumption is about to break, and almost every rule you know
+quietly depends on it.
+</p>
+<p>This topic is the biggest one in Java, so it is split into four small lessons:</p>
+<ul>
+  <li><strong>Part 1 (this one)</strong> — what a thread is, how to start one, what it does while it lives, and what it costs.</li>
+  <li><strong><a href="lesson-2-sharing-data-safely.html">Part 2</a></strong> — the hard bit: two threads touching the same data, and the three tools that fix it (<code>synchronized</code>, <code>volatile</code>, atomics).</li>
+  <li><strong><a href="lesson-3-thread-pools-and-futures.html">Part 3</a></strong> — how real programs actually do it: thread pools, <code>Future</code>, <code>CompletableFuture</code>, and the ready-made safe collections.</li>
+  <li><strong><a href="lesson-4-virtual-threads.html">Part 4</a></strong> — the modern answer: virtual threads in Java 21, and why they change the advice.</li>
+</ul>
+<p>
+It leans on three earlier lessons. From <a href="../03-jvm-runtime-data-areas/lesson.html">lesson 3</a>: every thread gets
+its own <strong>stack</strong>. From <a href="../06-memory-model-and-gc/lesson.html">lesson 6</a>: all threads share one
+<strong>heap</strong>. From <a href="../07-java8-functional/lesson.html">lesson 7</a>: a lambda is just a small block of
+work you can hand to someone else — which is exactly what you hand to a thread.
+</p>
+
+<h2><span class="n">§2</span>Why it exists — the problem before threads</h2>
+
+<h3>Problem 1: your program spends most of its life waiting</h3>
+<p>
+Think about what a normal web server does for one request: read the request, ask the database, wait, call another
+service, wait, write the answer back. Measured honestly, the CPU does work for maybe a millisecond and then <em>waits</em>
+for fifty. During that wait a single-threaded program can do nothing at all. If a second user arrives, they simply queue
+behind the first one. Ten slow users and your program looks dead.
+</p>
+<p>
+Waiting is not rare — it is the normal state of software. Disk, network, database, user input: all of them are
+thousands of times slower than the CPU. A thread that is waiting costs you almost nothing to <em>have</em>; what costs
+you is having nothing else ready to run.
+</p>
+
+<h3>Problem 2: you bought eight cores and are using one</h3>
+<p>
+A single CPU core really can only run one instruction stream at a time. Modern machines have many cores. A program with
+one thread can physically only ever use one of them, no matter how big the machine is. Everything else sits idle.
+</p>
+
+<h3>The fix: more than one line of execution</h3>
+<p>
+A <strong>thread</strong> is one independent path through your code — one "reader" with its own place in the program and
+its own scratch space. Give your program two threads and two things can be in flight at once: while thread A waits for
+the database, thread B serves another user; on a multi-core machine they can even run at the same instant on different
+cores
+<span class="sources">(<a href="https://docs.oracle.com/javase/tutorial/essential/concurrency/procthread.html">Oracle — Processes and Threads</a>)</span>.
+</p>
+
+<div class="callout"><strong>Two words people mix up.</strong><br>
+<strong>Concurrency</strong> = your program is <em>dealing with</em> several tasks in the same period of time. This can
+happen on a single core, by switching quickly between them. It is about <em>structure</em>.<br>
+<strong>Parallelism</strong> = several tasks are <em>literally running in the same instant</em>, on different cores. It is
+about <em>execution</em>.<br>
+You write concurrency. The hardware decides how much of it becomes parallelism. A one-core machine runs your
+concurrent program correctly — just not faster.</div>
+
+<figure>
+<svg viewBox="0 0 760 250" width="100%" role="img" aria-label="Timeline comparing one thread, concurrency on one core, and parallelism on two cores">
+  <style>
+    .lbl{font:12px Georgia,serif;fill:#2b2b28} .sm{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .work{fill:#1f4d7a} .wait{fill:#e6dfd0;stroke:#c9c0ad} .work2{fill:#7a1f1f}
+    .axis{stroke:#6b675e;stroke-width:1}
+  </style>
+  <text class="lbl" x="10" y="20" style="font-weight:bold">1. One thread — most of the time is spent waiting</text>
+  <rect class="work" x="120" y="30" width="40" height="20"/>
+  <rect class="wait" x="160" y="30" width="170" height="20"/>
+  <rect class="work" x="330" y="30" width="40" height="20"/>
+  <rect class="wait" x="370" y="30" width="170" height="20"/>
+  <rect class="work" x="540" y="30" width="40" height="20"/>
+  <text class="sm" x="10" y="45">request A</text>
+  <text class="sm" x="600" y="45">B waits in the queue</text>
+
+  <text class="lbl" x="10" y="95" style="font-weight:bold">2. Concurrency on ONE core — the gaps get filled</text>
+  <rect class="work" x="120" y="105" width="40" height="20"/>
+  <rect class="wait" x="160" y="105" width="170" height="20"/>
+  <rect class="work" x="330" y="105" width="40" height="20"/>
+  <text class="sm" x="40" y="120">thread A</text>
+  <rect class="work2" x="160" y="130" width="40" height="20"/>
+  <rect class="wait" x="200" y="130" width="130" height="20"/>
+  <rect class="work2" x="370" y="130" width="40" height="20"/>
+  <text class="sm" x="40" y="145">thread B</text>
+  <text class="sm" x="430" y="145">B runs while A is blocked — same core, no overlap of real work</text>
+
+  <text class="lbl" x="10" y="195" style="font-weight:bold">3. Parallelism on TWO cores — real work overlaps</text>
+  <rect class="work" x="120" y="205" width="90" height="20"/>
+  <text class="sm" x="40" y="220">core 1</text>
+  <rect class="work2" x="120" y="228" width="90" height="20"/>
+  <text class="sm" x="40" y="243">core 2</text>
+  <text class="sm" x="230" y="243">the blue and red blocks share the same instant in time</text>
+  <line class="axis" x1="115" y1="20" x2="115" y2="250"/>
+</svg>
+<figcaption>Blue/red = CPU actually working. Pale = blocked, waiting for disk or network. Concurrency fills the pale gaps;
+parallelism needs extra cores.</figcaption>
+</figure>
+
+<h3>Why not just use more processes?</h3>
+<p>
+A <strong>process</strong> is a whole running program with its own private memory — your JVM is one process. You
+<em>could</em> start ten JVMs instead of ten threads. Two reasons people don't: a process is expensive (its own memory
+space, its own JVM warm-up), and processes cannot see each other's objects, so passing data between them means
+serialising it across a pipe or a socket. Threads live <em>inside</em> one process and share its memory, so passing data
+is just passing a reference.
+</p>
+<p>That same sharing is the gift and the curse. It makes threads cheap to talk to, and it is the entire reason part 2 exists.</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>What a thread owns, and what it shares</h3>
+<p>
+This single diagram explains most of concurrency. Each thread gets its own <strong>stack</strong> and its own
+<strong>program counter</strong> (the bookmark saying which instruction is next). Everything else — the heap with all your
+objects, the loaded classes, static fields — is <em>shared by all of them</em>.
+</p>
+
+<figure>
+<svg viewBox="0 0 760 330" width="100%" role="img" aria-label="Inside one JVM process: per-thread stacks versus the shared heap">
+  <style>
+    .proc{fill:none;stroke:#6b675e;stroke-width:1.5;stroke-dasharray:5 4}
+    .priv{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .shar{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28} .c{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .h{font:12px Georgia,serif;fill:#2b2b28;font-weight:bold}
+    .a{stroke:#7a1f1f;stroke-width:1.2;marker-end:url(#mz);fill:none}
+  </style>
+  <defs><marker id="mz" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker></defs>
+
+  <rect class="proc" x="10" y="10" width="740" height="310" rx="10"/>
+  <text class="h" x="22" y="30">ONE JVM PROCESS</text>
+
+  <text class="h" x="30" y="60">PRIVATE — one per thread</text>
+  <rect class="priv" x="30" y="70" width="150" height="110" rx="6"/>
+  <text class="t" x="52" y="92">main</text>
+  <text class="c" x="45" y="110">stack (frames)</text>
+  <text class="c" x="45" y="126">program counter</text>
+  <text class="c" x="45" y="142">local variables</text>
+  <text class="c" x="45" y="158">thread name/state</text>
+
+  <rect class="priv" x="200" y="70" width="150" height="110" rx="6"/>
+  <text class="t" x="222" y="92">worker-1</text>
+  <text class="c" x="215" y="110">its own stack</text>
+  <text class="c" x="215" y="126">its own counter</text>
+  <text class="c" x="215" y="142">its own locals</text>
+
+  <rect class="priv" x="370" y="70" width="150" height="110" rx="6"/>
+  <text class="t" x="392" y="92">worker-2</text>
+  <text class="c" x="385" y="110">its own stack</text>
+  <text class="c" x="385" y="126">its own counter</text>
+  <text class="c" x="385" y="142">its own locals</text>
+
+  <text class="h" x="30" y="222">SHARED — one for the whole process</text>
+  <rect class="shar" x="30" y="232" width="330" height="72" rx="6"/>
+  <text class="t" x="60" y="256">HEAP</text>
+  <text class="c" x="60" y="274">every object any thread creates</text>
+  <text class="c" x="60" y="290">every array, every field inside them</text>
+
+  <rect class="shar" x="390" y="232" width="330" height="72" rx="6"/>
+  <text class="t" x="420" y="256">METASPACE / class data</text>
+  <text class="c" x="420" y="274">loaded classes · static fields</text>
+  <text class="c" x="420" y="290">string pool · code cache</text>
+
+  <line class="a" x1="100" y1="180" x2="140" y2="230"/>
+  <line class="a" x1="270" y1="180" x2="200" y2="230"/>
+  <line class="a" x1="440" y1="180" x2="250" y2="230"/>
+  <text class="c" x="545" y="200">all three can reach the SAME object</text>
+</svg>
+<figcaption>Local variables are safe by nature — they live on one thread's private stack. Objects and static fields are
+shared. Three arrows pointing at one object is the whole danger, in one picture
+(<a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html#jvms-2.5">JVM Spec SE 21 §2.5</a>).</figcaption>
+</figure>
+
+<div class="idiom"><strong>Carry this rule with you:</strong> a local variable (or a method parameter) is
+<em>automatically</em> thread-safe, because each thread has its own copy on its own stack. A field of a shared object, or
+any <code>static</code> field, is <em>automatically</em> at risk. Almost every concurrency bug you will ever write is a
+shared field pretending to be a local.</div>
+
+<h3>Starting a thread</h3>
+<p>Two steps, always: (1) describe the work, (2) hand it to a thread and press <code>start()</code>.</p>
+<pre><span class="c">// 1. the work, as a Runnable: "something to run, returning nothing"</span>
+Runnable job = () -&gt; System.out.println(<span class="s">"hello from "</span> + Thread.currentThread().getName());
+
+<span class="c">// 2. the thread, and the button that actually makes it a thread</span>
+Thread t = <span class="k">new</span> Thread(job, <span class="s">"worker-1"</span>);
+t.start();</pre>
+<div class="ann">Naming the thread (<code>"worker-1"</code>) costs nothing and will save you an hour one day, because the name is
+what you see in every stack trace and every thread dump. Always name your threads.</div>
+
+<div class="pitfall"><strong>The classic beginner trap: <code>t.run()</code> instead of <code>t.start()</code>.</strong>
+<code>run()</code> is an ordinary method. Calling it just executes the body <em>on your current thread</em> — no new thread
+is created, and nothing is concurrent. Only <code>start()</code> asks the JVM for a new thread. The compiler will never
+warn you, because both are perfectly legal calls. You will see this proved in §7.</div>
+
+<p>You may also see the older style, <code>class MyTask extends Thread</code>. Prefer <code>Runnable</code>: your task is
+a <em>job</em>, not a <em>kind of thread</em>, and extending <code>Thread</code> burns your one superclass slot for no
+benefit. The <code>Runnable</code> form is also what thread pools take (part 3).</p>
+
+<h3>The life of a thread</h3>
+<p>
+A thread moves through a small set of states, listed in <code>Thread.State</code>. Learn these six — they are what you
+read in a thread dump when production is stuck
+<span class="sources">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Thread.State.html">Javadoc — <code>Thread.State</code></a>)</span>.
+</p>
+
+<figure>
+<svg viewBox="0 0 770 260" width="100%" role="img" aria-label="Thread state machine">
+  <style>
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}.b2{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:10px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.3;marker-end:url(#m8);fill:none}
+  </style>
+  <defs><marker id="m8" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="b" x="15" y="100" width="100" height="44" rx="6"/><text class="t" x="42" y="120">NEW</text><text class="c" x="24" y="136">object made</text>
+  <rect class="b" x="185" y="100" width="130" height="44" rx="6"/><text class="t" x="208" y="120">RUNNABLE</text><text class="c" x="196" y="136">running or ready</text>
+
+  <rect class="b2" x="390" y="10" width="150" height="44" rx="6"/><text class="t" x="415" y="30">BLOCKED</text><text class="c" x="400" y="46">waiting for a lock</text>
+  <rect class="b2" x="390" y="100" width="150" height="44" rx="6"/><text class="t" x="415" y="120">WAITING</text><text class="c" x="398" y="136">wait() / join()</text>
+  <rect class="b2" x="390" y="190" width="150" height="44" rx="6"/><text class="t" x="400" y="210">TIMED_WAITING</text><text class="c" x="400" y="226">sleep(ms), wait(ms)</text>
+
+  <rect class="b" x="615" y="100" width="140" height="44" rx="6"/><text class="t" x="638" y="120">TERMINATED</text><text class="c" x="630" y="136">run() finished</text>
+
+  <line class="a" x1="115" y1="122" x2="183" y2="122"/><text class="c" x="120" y="114">start()</text>
+  <line class="a" x1="315" y1="112" x2="388" y2="40"/><text class="c" x="318" y="72">lock busy</text>
+  <line class="a" x1="315" y1="122" x2="388" y2="122"/>
+  <line class="a" x1="315" y1="132" x2="388" y2="205"/><text class="c" x="318" y="180">sleep(n)</text>
+  <line class="a" x1="388" y1="50" x2="318" y2="104"/>
+  <line class="a" x1="388" y1="132" x2="318" y2="132"/><text class="c" x="330" y="150">notify()</text>
+  <line class="a" x1="388" y1="198" x2="318" y2="142"/>
+  <line class="a" x1="315" y1="122" x2="613" y2="122" stroke-dasharray="4 3"/><text class="c" x="470" y="90">run() returns or throws</text>
+</svg>
+<figcaption>Only <code>start()</code> moves a thread out of NEW, and only once — calling <code>start()</code> twice throws
+<code>IllegalThreadStateException</code>. TERMINATED is final: a thread cannot be restarted.</figcaption>
+</figure>
+
+<table>
+<thead><tr><th>State</th><th>In plain words</th><th>How it got there</th></tr></thead>
+<tbody>
+<tr><td><code>NEW</code></td><td>object exists, not started</td><td><code>new Thread(...)</code></td></tr>
+<tr><td><code>RUNNABLE</code></td><td>running right now, <em>or</em> queued waiting for a free CPU core</td><td><code>start()</code></td></tr>
+<tr><td><code>BLOCKED</code></td><td>stuck at the door of a <code>synchronized</code> block someone else is inside</td><td>lock contention</td></tr>
+<tr><td><code>WAITING</code></td><td>parked until someone wakes it, with no deadline</td><td><code>wait()</code>, <code>join()</code>, <code>park()</code></td></tr>
+<tr><td><code>TIMED_WAITING</code></td><td>same, but with a deadline</td><td><code>sleep(ms)</code>, <code>wait(ms)</code>, <code>join(ms)</code></td></tr>
+<tr><td><code>TERMINATED</code></td><td>finished, for good</td><td><code>run()</code> returned or threw</td></tr>
+</tbody>
+</table>
+
+<div class="callout"><strong>RUNNABLE does not mean "running".</strong> Java merges "on a core" and "ready, waiting for a
+core" into one state, because the JVM does not control the OS scheduler. If you have 200 RUNNABLE threads on 8 cores, 192
+of them are doing nothing at this instant — they are just in the queue.</div>
+
+<h3>Who decides which thread runs? The scheduler</h3>
+<p>
+Not you. The operating system's <strong>scheduler</strong> hands each RUNNABLE thread a small slice of core time
+(typically a few milliseconds), then saves its registers, loads another thread's, and lets that one run. That save/load
+is a <strong>context switch</strong>, and it is not free — it costs microseconds and throws away the CPU's caches. This is
+why "just add more threads" eventually makes a program <em>slower</em>: past a point you are paying for switching instead
+of working.
+</p>
+<p>
+Two consequences you must accept emotionally, not just intellectually:
+</p>
+<ul>
+  <li><strong>The order of events between threads is not defined.</strong> Run the same program twice and you can get two different outputs. You will see this in §7.</li>
+  <li><strong>A thread can be paused anywhere</strong> — even halfway through <code>count++</code>. That one fact is the root of every race condition in part 2.</li>
+</ul>
+<p><code>Thread.setPriority()</code> exists but is only a hint, and different operating systems treat it differently.
+Never build correctness on priorities.</p>
+
+<h3>The four controls you actually use</h3>
+<table>
+<thead><tr><th>Call</th><th>What it does</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td><code>t.start()</code></td><td>asks the JVM for a new thread and runs <code>run()</code> in it</td><td>once per object, ever</td></tr>
+<tr><td><code>t.join()</code></td><td>the <em>calling</em> thread waits until <code>t</code> finishes</td><td>how you collect results before pools</td></tr>
+<tr><td><code>Thread.sleep(ms)</code></td><td>pauses the <em>current</em> thread for a time</td><td>keeps any locks it holds — it does not release them</td></tr>
+<tr><td><code>t.interrupt()</code></td><td>politely asks <code>t</code> to stop</td><td>a request, not a kill</td></tr>
+</tbody>
+</table>
+
+<h3>Interruption: how you stop a thread (and why you can't force it)</h3>
+<p>
+Java has no "kill this thread" button. <code>Thread.stop()</code> existed and was deprecated decades ago because killing a
+thread mid-update leaves shared objects half-written and broken forever
+<span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/technotes/guides/concurrency/threadPrimitiveDeprecation.html">Oracle — Why <code>Thread.stop</code> is deprecated</a>)</span>.
+</p>
+<p>Instead there is <strong>interruption</strong>, which is a cooperative signal:</p>
+<ul>
+  <li><code>t.interrupt()</code> sets a boolean flag on <code>t</code> — that is all it does.</li>
+  <li>If <code>t</code> is sleeping or waiting, that call also wakes it by throwing <code>InterruptedException</code> inside it (and <em>clears</em> the flag).</li>
+  <li>If <code>t</code> is busy computing, nothing happens unless <code>t</code> chooses to check <code>Thread.currentThread().isInterrupted()</code>.</li>
+</ul>
+<div class="idiom"><strong>The rule for catching <code>InterruptedException</code>:</strong> either stop the work and
+return, or re-set the flag with <code>Thread.currentThread().interrupt()</code> so your caller can see it. Never write
+<code>catch (InterruptedException e) {}</code> — that silently throws away a shutdown request and is one of the most
+common causes of a service that will not stop.</div>
+
+<h3>Daemon threads, and when the JVM is allowed to exit</h3>
+<p>
+The JVM shuts down when the last <strong>non-daemon</strong> thread finishes — not when <code>main</code> finishes. So a
+forgotten background thread keeps your whole process alive. Mark a thread as a <em>daemon</em>
+(<code>t.setDaemon(true)</code>, before <code>start()</code>) to say "this one does not count; kill it on exit". Use it for
+background helpers such as metric tickers; never for work that must complete, because a daemon is stopped abruptly with
+no chance to finish.
+</p>
+
+<h3>What a thread costs</h3>
+<p>
+A normal Java thread (now called a <strong>platform thread</strong>) is a thin wrapper around a real operating-system
+thread. Creating it is a system call, and each one reserves a stack — commonly around 1&nbsp;MB of address space
+(tunable with <code>-Xss</code>). So:
+</p>
+<ul>
+  <li>Creating a thread per task is wasteful if tasks are small — the setup can cost more than the work. → <strong>thread pools, part 3</strong>.</li>
+  <li>You cannot have a million of them; a few thousand is the practical ceiling. → <strong>virtual threads, part 4</strong>.</li>
+</ul>
+
+<h2><span class="n">§4</span>When to use it</h2>
+<ul>
+  <li><strong>Keep something responsive.</strong> A UI or a server must not freeze while a slow job runs. Move the slow job to another thread.</li>
+  <li><strong>Overlap waiting.</strong> Three independent HTTP calls take max(a,b,c) instead of a+b+c.</li>
+  <li><strong>Use all the cores.</strong> Split a genuinely CPU-heavy job (image processing, big sort) across cores.</li>
+  <li><strong>Background upkeep.</strong> Flushing logs, refreshing a cache, sending metrics — classic daemon work.</li>
+</ul>
+<div class="callout"><strong>When <em>not</em> to.</strong> If the task is short and already fast, threads only add
+overhead and bugs. If the work is one unbroken chain where each step needs the previous step's answer, there is nothing to
+overlap. The correct first question is always "is there real waiting, or real parallel work, to win here?"</div>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine cooking dinner alone. You put rice on to boil, and then you just <em>stand there</em> staring at the pot for twenty
+minutes before starting the curry. That is a one-thread program: most of the time is spent waiting while doing nothing.
+</p>
+<p>
+A smarter cook starts the rice, and <em>while it boils</em> chops the onions. Same single pair of hands, same kitchen —
+but the waiting gaps are now filled. That is <strong>concurrency</strong>.
+</p>
+<p>
+Now a friend joins you. Two pairs of hands, two chopping boards, genuinely doing two things in the same second. That is
+<strong>parallelism</strong>.
+</p>
+<p>
+Each cook keeps their own chopping board and their own knife — nobody else can touch them. That is the thread's
+<strong>stack</strong>, and it is why local variables are safe. But the fridge and the spice rack are <em>shared</em>. That
+is the <strong>heap</strong>. And the moment you both reach for the last onion at the same time, you have discovered part
+2 of this lesson.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="../03-jvm-runtime-data-areas/lesson.html">jvm-runtime-data-areas</a>:</strong> "one stack per thread" stops being trivia and becomes the reason locals are safe.</li>
+  <li><strong>← <a href="../06-memory-model-and-gc/lesson.html">memory-model-and-gc</a>:</strong> one shared heap is exactly why writes from one thread need rules to become visible to another.</li>
+  <li><strong>← <a href="../07-java8-functional/lesson.html">java8-functional</a>:</strong> <code>Runnable</code> is a functional interface, so a lambda <em>is</em> a unit of work you can hand to a thread.</li>
+  <li><strong>← <a href="../10-exceptions-and-error-design/lesson.html">exceptions</a>:</strong> an exception thrown in a thread does not reach <code>main</code>'s <code>try</code> — it only kills that thread. Catch inside the task, or set an <code>UncaughtExceptionHandler</code>.</li>
+  <li><strong>→ <a href="lesson-2-sharing-data-safely.html">part 2</a>:</strong> what goes wrong when two of these touch one object.</li>
+  <li><strong>Same idea elsewhere:</strong> Python has <code>threading</code> (with a global lock that limits real parallelism), Go has goroutines, C# has <code>Task</code>, and JavaScript deliberately has <em>one</em> thread plus an event loop. Every language answers the same waiting problem differently.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — five experiments, with real output</h2>
+<p>Run on JDK 1.8 — <a href="../code/ConcurrencyDemo2.java">code/ConcurrencyDemo2.java</a>. Every line below is actual output.</p>
+
+<h3>A. Everything already runs on a thread</h3>
+<pre><span class="k">static void</span> log(String msg) {
+    System.out.println(<span class="s">"["</span> + Thread.currentThread().getName() + <span class="s">"] "</span> + msg);
+}</pre>
+<pre>[main] main is running</pre>
+<div class="ann">You never <em>opted in</em> to threads. The JVM already started one for you and called it <code>main</code>. Every
+program you have written so far was a one-thread concurrent program.</div>
+
+<h3>B. <code>run()</code> versus <code>start()</code> — the proof</h3>
+<pre>Thread t1 = <span class="k">new</span> Thread(job, <span class="s">"worker-1"</span>);
+System.out.println(<span class="s">"state before start = "</span> + t1.getState());
+t1.run();    <span class="c">// plain method call: NO new thread</span>
+t1.start();  <span class="c">// real new thread</span>
+t1.join();   <span class="c">// wait for worker-1 to finish</span>
+System.out.println(<span class="s">"state after join   = "</span> + t1.getState());</pre>
+<pre>state before start = NEW
+[main] doing the work
+[worker-1] doing the work
+state after join   = TERMINATED</pre>
+<div class="ann">Identical code, two different thread names. <code>run()</code> printed <code>[main]</code> — the work happened on
+the caller. <code>start()</code> printed <code>[worker-1]</code>. If you ever "add threads" and the program gets no faster
+at all, check this first. Note also the states: NEW before, TERMINATED after — and <code>join()</code> is what guarantees
+we are looking <em>after</em> it finished.</div>
+
+<h3>C. Order between threads is not yours to decide</h3>
+<pre>Thread a = <span class="k">new</span> Thread(() -&gt; { <span class="k">for</span> (int i=1;i&lt;=3;i++) log(<span class="s">"tick "</span>+i); }, <span class="s">"A"</span>);
+Thread b = <span class="k">new</span> Thread(() -&gt; { <span class="k">for</span> (int i=1;i&lt;=3;i++) log(<span class="s">"tock "</span>+i); }, <span class="s">"B"</span>);
+a.start(); b.start();
+a.join();  b.join();</pre>
+<pre>[A] tick 1
+[A] tick 2
+[B] tock 1
+[B] tock 2
+[B] tock 3
+[A] tick 3
+[main] both finished</pre>
+<div class="ann">A got two ticks in, B ran all three of its lines, then A finished. Run it again and you will very likely get a
+different order — this is the scheduler, not a bug. What <em>is</em> guaranteed: within one thread, order is kept
+(<code>tick 1</code> always precedes <code>tick 2</code>), and after both <code>join()</code> calls, both threads are
+definitely done.</div>
+
+<h3>D. Sleep, states, and a polite interruption</h3>
+<pre>Thread sleeper = <span class="k">new</span> Thread(() -&gt; {
+    <span class="k">try</span> { Thread.sleep(5000); log(<span class="s">"woke up normally after 5s"</span>); }
+    <span class="k">catch</span> (InterruptedException e) { log(<span class="s">"interrupted -&gt; stopping early"</span>); }
+}, <span class="s">"sleeper"</span>);
+sleeper.start();
+Thread.sleep(100);
+System.out.println(<span class="s">"sleeper state = "</span> + sleeper.getState());
+sleeper.interrupt();</pre>
+<pre>sleeper state while sleeping = TIMED_WAITING
+[sleeper] interrupted -&gt; stopping early (flag now = false)
+sleeper state after join     = TERMINATED</pre>
+<div class="ann">Three things worth stopping on. (1) A 5-second sleep ended after ~100ms — <code>interrupt()</code> woke it by
+throwing <em>inside</em> it. (2) The state while sleeping was <code>TIMED_WAITING</code>, exactly as the table predicted.
+(3) Look at <code>flag now = false</code>: throwing <code>InterruptedException</code> <strong>clears</strong> the interrupt
+flag. That is the subtle part — if you catch it and keep going, the information that someone asked you to stop is simply
+gone unless you call <code>interrupt()</code> again yourself.</div>
+
+<h3>E. A daemon does not hold the JVM open</h3>
+<pre>Thread d = <span class="k">new</span> Thread(ticker, <span class="s">"background-ticker"</span>);
+d.setDaemon(<span class="k">true</span>);   <span class="c">// must be set BEFORE start()</span>
+d.start();</pre>
+<pre>[main] daemon started, isDaemon=true
+[main] main ends - JVM exits anyway because only daemons are left</pre>
+<div class="ann">The ticker loops forever, yet the program ended. Delete the <code>setDaemon(true)</code> line and this program
+never exits — which is precisely how a hung service happens in production.</div>
+
+<div class="try"><strong>Predict, then run.</strong>
+(1) Call <code>t1.start()</code> twice. What exception, and why does the state machine make it unavoidable?
+(2) Remove both <code>join()</code> calls in experiment C — can <code>"both finished"</code> now print <em>before</em>
+<code>tick 3</code>? (3) Remove <code>setDaemon(true)</code> in E and time how long the program takes to exit.</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Calling <code>run()</code> instead of <code>start()</code>.</strong> Compiles, runs, and is
+completely sequential. The only clue is the thread name in your logs.</div>
+<div class="pitfall"><strong>Expecting an order between threads.</strong> "It printed in the right order on my machine" is
+not a guarantee — it is luck that will change under load, on a different CPU, or after the JIT warms up.</div>
+<div class="pitfall"><strong>Swallowing <code>InterruptedException</code>.</strong> An empty catch block destroys the only
+shutdown signal Java has. Stop, or re-interrupt.</div>
+<div class="pitfall"><strong>Using <code>Thread.stop()</code> / <code>suspend()</code>.</strong> Deprecated for good reason:
+they can leave shared data permanently half-updated.</div>
+<div class="pitfall"><strong>Forgetting an exception kills only that thread.</strong> A <code>try/catch</code> around
+<code>t.start()</code> catches nothing from inside the thread. The task dies quietly and your program carries on as if
+everything is fine.</div>
+<div class="pitfall"><strong><code>sleep()</code> as a synchronisation tool.</strong> "Sleep 100ms so the other thread
+finishes first" works on your laptop and fails in production. Use <code>join()</code>, a latch, or a future.</div>
+<div class="pitfall"><strong>One thread per request.</strong> At 10,000 users that is 10,000 OS threads and ~10&nbsp;GB of
+stack. Use a pool (part 3) or virtual threads (part 4).</div>
+<div class="pitfall"><strong><code>setDaemon(true)</code> after <code>start()</code>.</strong> Throws
+<code>IllegalThreadStateException</code>. The flag must be set while the thread is still NEW.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>A <strong>thread</strong> is one independent path through your code. Your program already has one: <code>main</code>.</li>
+  <li><strong>Concurrency</strong> = handling several tasks in the same period (structure). <strong>Parallelism</strong> = running them in the same instant (needs cores).</li>
+  <li>Threads exist for two reasons: fill the time your program spends <strong>waiting</strong>, and use all the <strong>cores</strong>.</li>
+  <li>Each thread owns its <strong>stack</strong> (so locals are safe); all threads share the <strong>heap</strong> and <strong>statics</strong> (so fields are not).</li>
+  <li><code>start()</code> creates a thread; <code>run()</code> is just a method call on the current one.</li>
+  <li>States: NEW → RUNNABLE → (BLOCKED / WAITING / TIMED_WAITING) → TERMINATED, and TERMINATED is final.</li>
+  <li>The <strong>OS scheduler</strong> decides the order, and can pause a thread anywhere — even mid-statement.</li>
+  <li>You cannot kill a thread; you <strong>interrupt</strong> it, and it must cooperate. Never swallow <code>InterruptedException</code>.</li>
+  <li>The JVM exits when the last <strong>non-daemon</strong> thread ends.</li>
+  <li>A platform thread is an OS thread: ~1&nbsp;MB of stack, real creation cost. That is why pools and virtual threads exist.</li>
+</ul>
+
+<hr/>
+<h2>Reference — the Thread API you actually use</h2>
+<table>
+<thead><tr><th>Call</th><th>Meaning</th><th>Watch out</th></tr></thead>
+<tbody>
+<tr><td><code>new Thread(runnable, "name")</code></td><td>create, still NEW</td><td>always pass a name</td></tr>
+<tr><td><code>start()</code></td><td>become a real thread</td><td>second call throws</td></tr>
+<tr><td><code>join()</code> / <code>join(ms)</code></td><td>wait for it to end</td><td>the <em>caller</em> waits, not the thread</td></tr>
+<tr><td><code>Thread.sleep(ms)</code></td><td>pause the current thread</td><td>does <strong>not</strong> release locks</td></tr>
+<tr><td><code>Thread.currentThread()</code></td><td>who am I</td><td>great for logging</td></tr>
+<tr><td><code>interrupt()</code> / <code>isInterrupted()</code></td><td>request stop / check flag</td><td>catching the exception clears the flag</td></tr>
+<tr><td><code>setDaemon(true)</code></td><td>don't hold the JVM open</td><td>before <code>start()</code> only</td></tr>
+<tr><td><code>getState()</code></td><td>current state</td><td>for diagnosis, never for logic</td></tr>
+<tr><td><code>setUncaughtExceptionHandler(h)</code></td><td>catch what the thread throws</td><td>otherwise it dies silently</td></tr>
+</tbody>
+</table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Process</dt><dd>A running program with its own private memory. One JVM = one process.</dd>
+  <dt>Thread</dt><dd>One path of execution inside a process, with its own stack and program counter.</dd>
+  <dt>Platform thread</dt><dd>A normal Java thread, backed 1:1 by an OS thread. Costly (~1&nbsp;MB stack).</dd>
+  <dt>Concurrency</dt><dd>Structuring a program so several tasks are in progress in the same period.</dd>
+  <dt>Parallelism</dt><dd>Several tasks literally executing in the same instant, on different cores.</dd>
+  <dt>Scheduler</dt><dd>The OS component that decides which RUNNABLE thread gets a core next.</dd>
+  <dt>Context switch</dt><dd>Saving one thread's CPU state and loading another's. Cheap but not free.</dd>
+  <dt>Runnable</dt><dd>A functional interface describing work that takes nothing and returns nothing.</dd>
+  <dt>Daemon thread</dt><dd>A background thread the JVM will not wait for at shutdown.</dd>
+  <dt>Interruption</dt><dd>A cooperative "please stop" flag; the only safe way to end a thread.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p>
+<a href="https://docs.oracle.com/javase/tutorial/essential/concurrency/procthread.html">Oracle Java Tutorials — Processes and Threads</a>,
+then the short <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Thread.State.html">Javadoc for <code>Thread.State</code></a>.
+Chapter 7 of <em>Java Concurrency in Practice</em> (Goetz) is the definitive treatment of cancellation and shutdown.
+</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>Java Tutorials</em> (Processes and Threads); Oracle, <em>Java SE 21 API</em> (<code>Thread</code>, <code>Thread.State</code>); Oracle, <em>JVM Spec SE 21</em> §2.5; Oracle, <em>Why <code>Thread.stop</code> is deprecated</em>; Goetz, <em>Java Concurrency in Practice</em>. Demo run on JDK 1.8. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

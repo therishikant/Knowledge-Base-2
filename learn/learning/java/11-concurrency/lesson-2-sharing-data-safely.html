@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sharing Data Safely — Concurrency, Part 2 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .step{display:flex;gap:.8rem;margin:.9rem 0} .step .num{flex:0 0 2rem;height:2rem;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.95rem}
+  .step .body{flex:1} .step .body strong{display:block}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Sharing Data Safely</h1>
+<p class="crumb">Java › concurrency cluster · lesson 11, <strong>part 2 of 4</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — what breaks when two threads touch one thing</p>
+
+<p class="nav"><strong>Concurrency cluster:</strong>
+  <a href="lesson.html">1. Threads</a> ·
+  <strong>2. Sharing data safely</strong> ·
+  <a href="lesson-3-thread-pools-and-futures.html">3. Thread pools &amp; futures</a> ·
+  <a href="lesson-4-virtual-threads.html">4. Virtual threads</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> Starting threads is easy; the hard part is that they share the heap. When two threads touch
+the same data you hit <em>three</em> separate problems: updates get <strong>lost</strong> (atomicity), one thread never
+<strong>sees</strong> the other's change (visibility), and the code may not even run in the order you wrote it
+(ordering). Java gives you three tools — <code>synchronized</code>, <code>volatile</code>, and <strong>atomics</strong> —
+and one rulebook, the <strong>happens-before</strong> relation, that says exactly when your data is safe.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+<a href="lesson.html">Part 1</a> ended on a cliff: every thread has its own stack, but they all share one heap. This part
+is the fall. It is the single most important lesson in the cluster — everything in
+<a href="lesson-3-thread-pools-and-futures.html">part 3</a> (pools, futures, concurrent collections) is really just
+<em>pre-packaged</em> versions of what you learn here, and <a href="lesson-4-virtual-threads.html">part 4</a>'s virtual
+threads change none of it.
+</p>
+<p>
+It is also where interviews live. "What does <code>volatile</code> do?", "is <code>i++</code> atomic?", "explain
+happens-before", "how do you avoid deadlock" — all of them are this one page.
+</p>
+
+<h2><span class="n">§2</span>Why it exists — one innocent line, three different bugs</h2>
+
+<p>Here is the entire problem, in one statement:</p>
+<pre>count++;</pre>
+<p>
+It looks like one step. It is three. The CPU must <strong>read</strong> <code>count</code> from memory into a register,
+<strong>add</strong> one, then <strong>write</strong> the result back. In bytecode that is literally
+<code>getstatic</code>, <code>iconst_1</code>, <code>iadd</code>, <code>putstatic</code>. And from part 1 you know the
+scheduler may pause a thread <em>anywhere</em> — including between those steps.
+</p>
+
+<h3>Bug 1 — Atomicity: the lost update</h3>
+<figure>
+<svg viewBox="0 0 760 250" width="100%" role="img" aria-label="Two threads interleaving a read-modify-write, losing an update">
+  <style>
+    .col{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .hd{font:12px Georgia,serif;fill:#2b2b28;font-weight:bold}
+    .c{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .boxA{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.3}
+    .boxB{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.3}
+    .mem{fill:#f1ece0;stroke:#6b675e;stroke-width:1.3}
+    .a{stroke:#6b675e;stroke-width:1.1;marker-end:url(#mq);fill:none}
+  </style>
+  <defs><marker id="mq" markerWidth="8" markerHeight="8" refX="6" refY="2.6" orient="auto"><path d="M0,0 L6,2.6 L0,5.2 Z" fill="#6b675e"/></marker></defs>
+  <text class="hd" x="20" y="18">time →</text>
+  <text class="hd" x="90" y="40">Thread A</text>
+  <text class="hd" x="300" y="40">Thread B</text>
+  <text class="hd" x="560" y="40">count in memory</text>
+
+  <rect class="boxA" x="70" y="55" width="170" height="26" rx="4"/><text class="col" x="80" y="73">read count  → 7</text>
+  <rect class="boxB" x="280" y="90" width="170" height="26" rx="4"/><text class="col" x="290" y="108">read count  → 7</text>
+  <rect class="boxB" x="280" y="125" width="170" height="26" rx="4"/><text class="col" x="290" y="143">add 1       → 8</text>
+  <rect class="boxB" x="280" y="160" width="170" height="26" rx="4"/><text class="col" x="290" y="178">write 8</text>
+  <rect class="boxA" x="70" y="195" width="170" height="26" rx="4"/><text class="col" x="80" y="213">write 8  (stale!)</text>
+
+  <rect class="mem" x="540" y="55" width="190" height="26" rx="4"/><text class="col" x="612" y="73">7</text>
+  <rect class="mem" x="540" y="160" width="190" height="26" rx="4"/><text class="col" x="612" y="178">8</text>
+  <rect class="mem" x="540" y="195" width="190" height="26" rx="4"/><text class="col" x="612" y="213">8</text>
+  <line class="a" x1="240" y1="68" x2="538" y2="68"/>
+  <line class="a" x1="450" y1="173" x2="538" y2="173"/>
+  <line class="a" x1="240" y1="208" x2="538" y2="208"/>
+  <text class="c" x="250" y="238">Two increments happened. The value went 7 → 8. One update vanished.</text>
+</svg>
+<figcaption>A paused thread holds a <em>stale</em> value in its register. When it finally writes, it overwrites work it
+never saw. This is a <strong>race condition</strong>: the answer depends on timing.</figcaption>
+</figure>
+
+<p>
+The section of code that must not be interleaved — read, modify, write — is called a <strong>critical section</strong>.
+The property it needs is <strong>atomicity</strong>: all of it happens, or none of it, with nobody else interleaving
+<span class="sources">(<a href="https://docs.oracle.com/javase/tutorial/essential/concurrency/sync.html">Oracle — Synchronization</a>)</span>.
+</p>
+
+<h3>Bug 2 — Visibility: the change that never arrives</h3>
+<p>Now a different program, with no increment at all:</p>
+<pre><span class="k">static boolean</span> running = <span class="k">true</span>;
+
+<span class="c">// thread 1</span>
+<span class="k">while</span> (running) { doWork(); }     <span class="c">// may loop forever</span>
+
+<span class="c">// thread 2</span>
+running = <span class="k">false</span>;                   <span class="c">// "please stop"</span></pre>
+<p>
+There is no lost update here — only one thread writes. Yet thread 1 may spin forever. Why? Because
+<strong>"memory" is a lie you have been told for simplicity.</strong> Between the CPU core and RAM sit several layers of
+cache, and each core has its own. Thread 2's write may sit in core 2's cache for a while. Worse, the JIT compiler sees
+that thread 1 never modifies <code>running</code> inside the loop, so it is entitled to hoist the read out:
+</p>
+<pre><span class="k">if</span> (running) { <span class="k">while</span> (<span class="k">true</span>) doWork(); }   <span class="c">// a legal optimisation!</span></pre>
+<div class="ann">That transformation is perfectly valid <em>for a single thread</em> — and single-thread correctness is the
+only thing the compiler promises you by default. Both the hardware and the compiler are allowed to assume nobody else is
+looking, unless you tell them otherwise.</div>
+
+<h3>Bug 3 — Ordering: your lines did not run in your order</h3>
+<p>Compilers and CPUs reorder independent instructions for speed. Within one thread you can never tell, because the result
+is identical. Across threads you absolutely can:</p>
+<pre><span class="c">// thread 1</span>              <span class="c">// thread 2</span>
+config = loadConfig();    <span class="k">if</span> (ready) use(config);   <span class="c">// config might still be null!</span>
+ready = <span class="k">true</span>;</pre>
+<div class="ann">Thread 1's two writes are independent of each other, so they may reach memory in the other order. Thread 2
+then sees <code>ready == true</code> while <code>config</code> is still <code>null</code>. This is not theoretical — it is
+the classic broken double-checked-locking bug.</div>
+
+<div class="callout"><strong>Hold these three apart; they are genuinely different.</strong><br>
+<strong>Atomicity</strong> — "did my whole update survive?" → fixed by locks or atomics.<br>
+<strong>Visibility</strong> — "can the other thread see my write at all?" → fixed by <code>volatile</code> or locks.<br>
+<strong>Ordering</strong> — "did my writes land in the order I wrote them?" → fixed by <code>volatile</code> or locks.<br>
+Notice that locks fix all three; <code>volatile</code> fixes only the last two. That one sentence answers most
+<code>volatile</code> interview questions.</div>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>The rulebook: happens-before</h3>
+<p>
+Rather than describe caches (which differ per CPU), Java defines a portable rule called the <strong>Java Memory
+Model</strong>. Its core idea is a relation named <strong>happens-before</strong>: <em>if action X happens-before action
+Y, then everything X did is guaranteed visible to Y</em>. If no happens-before link exists between two actions on shared
+data, you have a <strong>data race</strong> and the result is undefined
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html#jls-17.4.5">JLS SE 21 §17.4.5</a>)</span>.
+</p>
+
+<figure>
+<svg viewBox="0 0 740 220" width="100%" role="img" aria-label="Happens-before edge created by unlocking and locking the same monitor">
+  <style>
+    .lane{stroke:#c9c0ad;stroke-width:1.2}
+    .boxA{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.3}
+    .boxB{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.3}
+    .col{font:11px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .hd{font:12px Georgia,serif;fill:#2b2b28;font-weight:bold}
+    .c{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .edge{stroke:#1f6b4d;stroke-width:2;marker-end:url(#mg);fill:none}
+  </style>
+  <defs><marker id="mg" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1f6b4d"/></marker></defs>
+  <text class="hd" x="60" y="20">Thread A</text>
+  <text class="hd" x="470" y="20">Thread B</text>
+  <line class="lane" x1="150" y1="28" x2="150" y2="200"/>
+  <line class="lane" x1="560" y1="28" x2="560" y2="200"/>
+
+  <rect class="boxA" x="30" y="35" width="240" height="26" rx="4"/><text class="col" x="40" y="53">lock(M)</text>
+  <rect class="boxA" x="30" y="68" width="240" height="26" rx="4"/><text class="col" x="40" y="86">name = "ana";  age = 31;</text>
+  <rect class="boxA" x="30" y="101" width="240" height="26" rx="4"/><text class="col" x="40" y="119">unlock(M)</text>
+
+  <rect class="boxB" x="440" y="120" width="250" height="26" rx="4"/><text class="col" x="450" y="138">lock(M)</text>
+  <rect class="boxB" x="440" y="153" width="250" height="26" rx="4"/><text class="col" x="450" y="171">read name → "ana", age → 31</text>
+
+  <path class="edge" d="M270 114 C 360 114, 370 133, 437 133"/>
+  <text class="c" x="285" y="105">happens-before edge</text>
+  <text class="c" x="30" y="205">Everything A did before unlocking is visible to B after it locks the same monitor M.</text>
+</svg>
+<figcaption>A lock is not only a "one at a time" gate. Releasing it <em>publishes</em> your writes; acquiring it
+<em>imports</em> them. That second job is the one people forget.</figcaption>
+</figure>
+
+<p>You do not need to memorise the whole model. These six rules cover real code:</p>
+<table>
+<thead><tr><th>#</th><th>Rule</th><th>In plain words</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Program order</td><td>Within <em>one</em> thread, things appear to happen in source order.</td></tr>
+<tr><td>2</td><td>Monitor lock</td><td>Unlocking a monitor happens-before any later lock of <em>that same</em> monitor.</td></tr>
+<tr><td>3</td><td>Volatile</td><td>A write to a <code>volatile</code> field happens-before every later read of it.</td></tr>
+<tr><td>4</td><td>Thread start</td><td><code>t.start()</code> happens-before anything inside <code>t</code>.</td></tr>
+<tr><td>5</td><td>Thread join</td><td>Everything inside <code>t</code> happens-before <code>t.join()</code> returns.</td></tr>
+<tr><td>6</td><td><code>final</code> fields</td><td>Values assigned to <code>final</code> fields in a constructor are visible to any thread that later sees the object (if <code>this</code> did not escape).</td></tr>
+</tbody>
+</table>
+<p>And it is <strong>transitive</strong>: if A happens-before B and B happens-before C, then A happens-before C. That is
+how a chain of handovers keeps data safe across many threads.</p>
+
+<h3>Tool 1 — <code>synchronized</code>: the big hammer</h3>
+<p>
+Every Java object carries a hidden lock called its <strong>monitor</strong> (or intrinsic lock). <code>synchronized</code>
+acquires it on entry and releases it on exit — <em>including</em> when you exit by throwing.
+</p>
+<pre><span class="k">private final</span> Object lock = <span class="k">new</span> Object();
+<span class="k">private int</span> count;
+
+<span class="k">void</span> bump() {
+    <span class="k">synchronized</span> (lock) {     <span class="c">// acquire -> import others' writes</span>
+        count++;               <span class="c">// now genuinely atomic</span>
+    }                          <span class="c">// release -> publish my writes</span>
+}</pre>
+<p>Two shorthands mean exactly the same thing as a block, and it matters which object they lock:</p>
+<table>
+<thead><tr><th>You write</th><th>It really locks</th><th>Risk</th></tr></thead>
+<tbody>
+<tr><td><code>synchronized void m()</code></td><td><code>this</code></td><td>any outside code holding your object can block you</td></tr>
+<tr><td><code>static synchronized void m()</code></td><td><code>YourClass.class</code></td><td>one lock for the whole class, shared app-wide</td></tr>
+<tr><td><code>synchronized (lock) { }</code></td><td>whatever you named</td><td>none — you control it. <strong>Preferred.</strong></td></tr>
+</tbody>
+</table>
+<div class="idiom"><strong>Idiom: lock a private final object you own.</strong> <code>private final Object lock = new
+Object();</code>. Locking on <code>this</code> leaks your lock into the public API: any caller can write
+<code>synchronized (yourObject)</code> and freeze your class from the outside, and you will never find out why.</div>
+
+<p>Three more facts that come up constantly:</p>
+<ul>
+  <li><strong>Reentrant.</strong> A thread that already holds a monitor can enter another <code>synchronized</code> block on the same object without deadlocking itself. The JVM keeps a hold count.</li>
+  <li><strong>The lock is on the object, not the code.</strong> Two threads using two <em>different</em> instances do not block each other at all. If your state is <code>static</code>, your lock must be too.</li>
+  <li><strong><code>sleep()</code> inside a lock keeps the lock.</strong> Only <code>wait()</code> releases it.</li>
+</ul>
+
+<div class="pitfall"><strong>Lock granularity is a real trade-off.</strong> Too wide (<code>synchronized</code> on a method
+doing network I/O) and you have serialised your whole program — you have written a single-threaded app with extra steps.
+Too narrow and you break the invariant you were protecting. Rule of thumb: hold the lock for exactly the statements that
+must be all-or-nothing, and never do I/O or call unknown code while holding one.</div>
+
+<h3>Tool 2 — <code>volatile</code>: visibility only, and it is cheap</h3>
+<p>Marking a field <code>volatile</code> tells the JVM: never cache this in a register, always read and write real memory,
+and do not reorder around it.</p>
+<pre><span class="k">private volatile boolean</span> running = <span class="k">true</span>;   <span class="c">// now the stop-flag works</span></pre>
+<p>What you get, and what you do not:</p>
+<table>
+<thead><tr><th></th><th><code>volatile</code></th><th><code>synchronized</code> / <code>Lock</code></th><th>Atomics</th></tr></thead>
+<tbody>
+<tr><td>Visibility</td><td>yes</td><td>yes</td><td>yes</td></tr>
+<tr><td>Prevents reordering</td><td>yes</td><td>yes</td><td>yes</td></tr>
+<tr><td>Atomic read-modify-write</td><td><strong>no</strong></td><td>yes</td><td>yes (single variable)</td></tr>
+<tr><td>Can a thread block?</td><td>never</td><td>yes</td><td>never (it retries)</td></tr>
+<tr><td>Cost</td><td>very low</td><td>moderate</td><td>low</td></tr>
+</tbody>
+</table>
+<p>So <code>volatile</code> is right for exactly one shape: <strong>a flag or a reference that one thread writes and others
+read</strong>, where the new value does not depend on the old one. The moment you write <code>volatileCount++</code> you
+are back to the lost update — proved with real numbers in §7.</p>
+
+<h3>Tool 3 — Atomics and CAS: locking without a lock</h3>
+<p>
+<code>AtomicInteger</code>, <code>AtomicLong</code>, <code>AtomicReference</code> and friends give you atomic
+read-modify-write on a single variable with no lock at all. They sit on a hardware instruction called
+<strong>compare-and-swap</strong> (CAS): <em>"set this to 8, but only if it is still 7; otherwise tell me you failed."</em>
+</p>
+<pre>counter.incrementAndGet();            <span class="c">// atomic, no lock</span>
+ref.compareAndSet(expected, updated); <span class="c">// true if it swapped</span>
+max.updateAndGet(v -&gt; Math.max(v, x));<span class="c">// retry loop, written for you</span></pre>
+<p>Underneath, <code>incrementAndGet</code> is a tiny loop: read the value, compute the new one, try to swap; if someone
+beat you to it, start again. Nobody ever sleeps, so there is no context switch — this is <strong>lock-free</strong> code,
+and under moderate contention it beats a lock comfortably.</p>
+<div class="callout"><strong>When atomics stop being enough.</strong> They protect <em>one</em> variable. If your invariant
+spans two fields — "<code>from.balance</code> down by 50 <em>and</em> <code>to.balance</code> up by 50" — no single CAS can
+express it, and you need a lock. Also note <code>LongAdder</code> (Java 8): under very heavy contention it spreads a
+counter over several cells and sums them on read, beating <code>AtomicLong</code> for write-heavy statistics.</div>
+
+<h3>Tool 4 — <code>ReentrantLock</code>: <code>synchronized</code> with extra controls</h3>
+<p>Same semantics, explicit syntax, and three things <code>synchronized</code> cannot do.</p>
+<pre>ReentrantLock lock = <span class="k">new</span> ReentrantLock();
+lock.lock();
+<span class="k">try</span> {
+    <span class="c">// critical section</span>
+} <span class="k">finally</span> {
+    lock.unlock();      <span class="c">// MUST be in finally - this is not automatic</span>
+}</pre>
+<table>
+<thead><tr><th>Extra ability</th><th>Why it matters</th></tr></thead>
+<tbody>
+<tr><td><code>tryLock()</code> / <code>tryLock(t, unit)</code></td><td>give up instead of waiting forever — the standard deadlock escape</td></tr>
+<tr><td><code>lockInterruptibly()</code></td><td>a thread waiting for the lock can still be cancelled</td></tr>
+<tr><td><code>new ReentrantLock(true)</code></td><td>fair ordering (FIFO), preventing starvation — at a real throughput cost</td></tr>
+<tr><td><code>newCondition()</code></td><td>several independent wait-sets on one lock (e.g. "not full" and "not empty")</td></tr>
+</tbody>
+</table>
+<p>Related: <code>ReentrantReadWriteLock</code> lets many readers in at once but only one writer — a big win when reads
+vastly outnumber writes. <code>StampedLock</code> (Java 8) adds an even faster optimistic read mode.</p>
+<div class="idiom"><strong>Default to <code>synchronized</code>.</strong> It is shorter, cannot leak a lock, and the JVM
+optimises it well. Reach for <code>ReentrantLock</code> only when you need one of the four abilities above.</div>
+
+<h3>The classic failure: deadlock</h3>
+<figure>
+<svg viewBox="0 0 700 200" width="100%" role="img" aria-label="Deadlock cycle between two threads and two locks">
+  <style>
+    .th{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}.lk{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .holds{stroke:#1f6b4d;stroke-width:1.6;marker-end:url(#mh);fill:none}
+    .wants{stroke:#7a1f1f;stroke-width:1.6;stroke-dasharray:5 4;marker-end:url(#mw);fill:none}
+  </style>
+  <defs>
+    <marker id="mh" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1f6b4d"/></marker>
+    <marker id="mw" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker>
+  </defs>
+  <rect class="th" x="40" y="30" width="130" height="40" rx="6"/><text class="t" x="85" y="55">Thread 1</text>
+  <rect class="th" x="40" y="130" width="130" height="40" rx="6"/><text class="t" x="85" y="155">Thread 2</text>
+  <rect class="lk" x="420" y="30" width="130" height="40" rx="6"/><text class="t" x="470" y="55">Lock A</text>
+  <rect class="lk" x="420" y="130" width="130" height="40" rx="6"/><text class="t" x="470" y="155">Lock B</text>
+
+  <line class="holds" x1="172" y1="48" x2="418" y2="48"/><text class="c" x="250" y="40">holds</text>
+  <line class="holds" x1="172" y1="152" x2="418" y2="152"/><text class="c" x="250" y="144">holds</text>
+  <line class="wants" x1="172" y1="60" x2="418" y2="140"/><text class="c" x="250" y="100">waits for B</text>
+  <line class="wants" x1="172" y1="140" x2="418" y2="62"/><text class="c" x="300" y="118">waits for A</text>
+  <text class="c" x="190" y="192">Neither will ever let go. Both threads sit in BLOCKED forever; the JVM will not rescue them.</text>
+</svg>
+<figcaption>A cycle in the "who waits for whom" graph. Deadlock needs no bug in either thread individually — each one is
+perfectly reasonable on its own.</figcaption>
+</figure>
+<p>Three practical cures, in order of preference:</p>
+<ol>
+  <li><strong>Hold one lock at a time.</strong> By far the best fix. Most deadlocks come from nesting you did not need.</li>
+  <li><strong>Global lock ordering.</strong> If you must take two, every thread takes them in the same agreed order (e.g. by account id). The cycle becomes impossible.</li>
+  <li><strong><code>tryLock</code> with a timeout.</strong> Take what you can, release everything and retry if you cannot. Demonstrated in §7.</li>
+</ol>
+<p>Two cousins worth naming: <strong>livelock</strong> (threads keep politely backing off and retrying forever — busy but
+making no progress) and <strong>starvation</strong> (one thread never gets the lock because others keep taking it; fair
+locks fix this).</p>
+
+<h3>The best tool of all: don't share</h3>
+<p>Every technique above manages shared mutable state. The strongest move is to remove one of those words:</p>
+<ul>
+  <li><strong>Remove "shared" — confinement.</strong> Keep data in locals, or hand each thread its own copy. A local variable can never race. (<code>ThreadLocal</code> is the explicit form.)</li>
+  <li><strong>Remove "mutable" — immutability.</strong> An object whose fields are all <code>final</code> and set once in the constructor is safe for every thread, forever, with no synchronisation at all (JMM rule 6). This is why <code>String</code> and the Java 21 <code>record</code> are such good concurrent citizens.</li>
+  <li><strong>Remove "state" — stateless services.</strong> A class with no fields is automatically thread-safe. This is why a Spring <code>@Service</code> with only method parameters needs no locking.</li>
+</ul>
+<div class="idiom"><strong>Safe publication.</strong> Even an immutable object must be <em>handed over</em> correctly. Publish
+shared references through a <code>volatile</code> field, a <code>final</code> field, an <code>AtomicReference</code>, a
+lock, or a concurrent collection — never by a plain write to a plain field.</div>
+
+<h2><span class="n">§4</span>When to use what</h2>
+<table>
+<thead><tr><th>Your situation</th><th>Reach for</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>a stop/ready flag, one writer</td><td><code>volatile boolean</code></td><td>visibility is all you need; never blocks</td></tr>
+<tr><td>a shared counter</td><td><code>AtomicInteger</code> / <code>LongAdder</code></td><td>atomic without a lock</td></tr>
+<tr><td>two fields that must change together</td><td><code>synchronized</code></td><td>only a lock covers multi-variable invariants</td></tr>
+<tr><td>swap a whole config object at runtime</td><td><code>volatile</code> reference to an immutable object</td><td>one atomic write, readers never block</td></tr>
+<tr><td>need a timeout or cancellation on the lock</td><td><code>ReentrantLock</code></td><td><code>tryLock</code> / <code>lockInterruptibly</code></td></tr>
+<tr><td>many readers, rare writer</td><td><code>ReentrantReadWriteLock</code></td><td>readers run concurrently</td></tr>
+<tr><td>a shared map or queue</td><td><code>ConcurrentHashMap</code>, <code>BlockingQueue</code> (<a href="lesson-3-thread-pools-and-futures.html">part 3</a>)</td><td>already solved, faster than your version</td></tr>
+<tr><td>data that need not be shared</td><td>a local variable</td><td>free, and impossible to get wrong</td></tr>
+</tbody>
+</table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+You and your sister share a jar of sweets and a notebook on the fridge saying how many are left. It says 7.
+</p>
+<p>
+You read "7", take one, and get distracted by the TV before you write "6". Meanwhile your sister reads "7", takes one, and
+writes "6". You come back and write "6". Two sweets are gone but the notebook says six. Nobody lied — you both just
+<em>read before the other had written</em>. That is a <strong>lost update</strong>.
+</p>
+<p>
+A <strong>lock</strong> is a rule: you must be holding the kitchen key to touch the jar <em>and</em> the notebook, and you
+put the key back when you are done. Only one of you can be at the fridge at a time, so the count is always right.
+</p>
+<p>
+<strong>Visibility</strong> is a different problem. Suppose your sister writes on her own little notepad in her room
+instead of the fridge. She did update the number — but you cannot see it. <code>volatile</code> means "always write it on
+the fridge where everyone can see", and that is <em>all</em> it means. It does not stop both of you writing at once.
+</p>
+<p>
+<strong>Deadlock</strong> is when you are holding the kitchen key waiting for the fridge key, and she is holding the fridge
+key waiting for the kitchen key. Both of you wait politely, forever. The fix is a house rule: <em>always take the kitchen
+key first</em>.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson.html">part 1</a>:</strong> "the scheduler can pause a thread anywhere" is the premise of every bug on this page.</li>
+  <li><strong>← <a href="../06-memory-model-and-gc/lesson.html">memory-model-and-gc</a>:</strong> the shared heap is the thing being raced on; caches are why visibility needs rules.</li>
+  <li><strong>← <a href="../08-collections-and-equality/lesson-2-maps-and-hashing.html">collections — maps</a>:</strong> a plain <code>HashMap</code> written by two threads can corrupt its own buckets; that is why <code>ConcurrentHashMap</code> exists.</li>
+  <li><strong>← <a href="../09-strings/lesson.html">strings</a>:</strong> <code>String</code> is immutable, which is exactly why it is thread-safe for free — and why <code>StringBuilder</code> is not.</li>
+  <li><strong>→ <a href="lesson-3-thread-pools-and-futures.html">part 3</a>:</strong> concurrent collections and futures are these tools, already applied correctly.</li>
+  <li><strong>→ <a href="../13-application-architecture/lesson.html">application-architecture</a>:</strong> "stateless services, immutable values" is this lesson turned into a design rule.</li>
+  <li><strong>Same idea elsewhere:</strong> C++ has <code>std::atomic</code> with explicit memory orderings; Go says "share memory by communicating" (channels); Rust makes the compiler reject data races outright with ownership. All three are answers to the three bugs in §2.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — measuring the damage</h2>
+<p>Run on JDK 1.8 — <a href="../code/ConcurrencyDemo3.java">code/ConcurrencyDemo3.java</a> and
+<a href="../code/ConcurrencyDemo.java">code/ConcurrencyDemo.java</a>. All output below is real.</p>
+
+<h3>A. Visibility — and why this bug is so nasty</h3>
+<pre><span class="k">static boolean</span> plainFlag = <span class="k">false</span>;
+<span class="k">static volatile boolean</span> volatileFlag = <span class="k">false</span>;
+<span class="c">// a reader thread spins until the flag flips (or 2s pass); main flips it after 100ms</span></pre>
+<pre>plain    reader saw the flag? true  (spins=308671200)
+volatile reader saw the flag? true</pre>
+<div class="ann">Read that carefully: the <em>unsafe</em> version worked. On this JVM, this run, the write did become visible —
+which is exactly what makes visibility bugs so dangerous. They pass your tests. Change the JIT's mind (a longer-running
+loop, a different machine, a server VM) and the same code spins forever. The volatile version is not "luckier" — it is
+<em>guaranteed</em>. Also note the spin count: 308 million useless loop iterations in 100ms, which is why busy-waiting is
+itself a bad idea.</div>
+
+<h3>B. Atomicity — four threads, 100,000 increments each</h3>
+<pre><span class="k">for</span> (int i = 0; i &lt; 100_000; i++) {
+    volatileCounter++;                        <span class="c">// visible, but NOT atomic</span>
+    <span class="k">synchronized</span> (LOCK) { guardedCounter++; } <span class="c">// atomic + visible</span>
+    atomicCounter.incrementAndGet();          <span class="c">// atomic + visible, lock-free</span>
+}</pre>
+<pre>expected              = 400000
+volatile counter      = 394790
+synchronized counter  = 400000
+atomic counter        = 400000</pre>
+<div class="ann">This is the single most important output in the cluster. The <code>volatile</code> counter lost 5,210 updates
+— <strong>proof that <code>volatile</code> does not make <code>++</code> atomic</strong>. It is also proof of how sneaky
+the bug is: it was 98.7% correct. A test asserting "roughly 400,000" would pass. Run it again and you will get a different
+number; that non-determinism is the signature of a data race.</div>
+
+<h3>C. The retry loop hiding inside every atomic</h3>
+<pre><span class="k">int</span> current;
+<span class="k">do</span> {
+    current = max.get();                 <span class="c">// 1. read what's there</span>
+    <span class="k">if</span> (s &lt;= current) <span class="k">break</span>;          <span class="c">// 2. decide</span>
+} <span class="k">while</span> (!max.compareAndSet(current, s)); <span class="c">// 3. swap ONLY if unchanged; else retry</span></pre>
+<pre>running max = 11</pre>
+<div class="ann">If another thread changed <code>max</code> between steps 1 and 3, <code>compareAndSet</code> returns
+<code>false</code> and the loop simply runs again with fresh data. Nothing blocks, nothing sleeps. This is the shape of
+every lock-free algorithm, and <code>incrementAndGet</code> is just this loop with the body filled in.</div>
+
+<h3>D. Escaping a deadlock with <code>tryLock</code></h3>
+<pre><span class="k">if</span> (first.tryLock(50, TimeUnit.MILLISECONDS)) {
+    <span class="k">try</span> {
+        <span class="k">if</span> (second.tryLock(50, TimeUnit.MILLISECONDS)) { <span class="c">/* work */</span> }
+    } <span class="k">finally</span> { first.unlock(); }   <span class="c">// release even if the second grab failed</span>
+}</pre>
+<pre>T1 got both locks (left-&gt;right) on attempt 3
+T2 got both locks (right-&gt;left) on attempt 3
+both threads finished - no deadlock</pre>
+<div class="ann">The two threads deliberately take the locks in <em>opposite</em> order — the textbook deadlock setup. With
+<code>synchronized</code> this program would hang forever. Here, both needed three attempts (so they really did collide
+twice) and then both completed. The crucial detail is the <code>finally</code>: if you grab the first lock and fail to
+get the second, you <em>must</em> let go of the first, or you have built a deadlock with extra steps.</div>
+
+<h3>E. The original race, side by side</h3>
+<pre>expected      = 400000
+unsafe (race) = 316089
+safe (atomic) = 400000</pre>
+<div class="ann">The same experiment run through a thread pool. Note the unsafe number is wildly different from §7B's — same
+code, same machine, different day. That is the point.</div>
+
+<div class="try"><strong>Predict, then run.</strong>
+(1) Replace <code>synchronized (LOCK)</code> with <code>synchronized (new Object())</code>. Is the counter still correct?
+<em>(Why is locking a fresh object every time exactly equivalent to no lock at all?)</em>
+(2) Swap <code>atomicCounter.incrementAndGet()</code> for <code>atomicCounter.set(atomicCounter.get() + 1)</code> —
+every operation is still atomic, so is the total still 400,000?
+(3) Change the <code>tryLock</code> demo to plain <code>lock()</code> and watch the program hang; then take a thread dump
+with <code>jstack</code> and find the words "Found one Java-level deadlock".</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Thinking <code>volatile</code> makes operations atomic.</strong> It does not. §7B lost 5,210
+updates on a <code>volatile</code> field.</div>
+<div class="pitfall"><strong>Thinking <code>synchronized</code> is only about mutual exclusion.</strong> Half its value is
+the happens-before edge. Reading a field without the lock is broken even if only one thread writes it.</div>
+<div class="pitfall"><strong>Locking on a different object than the one you are protecting</strong> — or on a
+non-<code>final</code> field you later reassign. The lock silently stops working.</div>
+<div class="pitfall"><strong>Locking on <code>this</code>, a <code>String</code> literal, or a boxed <code>Integer</code>.</strong>
+These are shared globally through the string/Integer caches, so unrelated code can block you.</div>
+<div class="pitfall"><strong>Check-then-act on a thread-safe object.</strong> <code>if (!map.containsKey(k)) map.put(k, v);</code>
+is a race even on a <code>ConcurrentHashMap</code>: each call is atomic, the pair is not. Use <code>putIfAbsent</code> /
+<code>computeIfAbsent</code> / <code>merge</code>.</div>
+<div class="pitfall"><strong>Forgetting <code>unlock()</code> in a <code>finally</code>.</strong> One exception and the lock
+is held for the life of the process.</div>
+<div class="pitfall"><strong>Calling unknown code while holding a lock</strong> — a listener, a callback, an override. You
+have no idea what locks it takes, so you cannot reason about deadlock.</div>
+<div class="pitfall"><strong>Double-checked locking without <code>volatile</code>.</strong> The classic lazy-singleton bug:
+without <code>volatile</code> on the field, another thread can see a non-null reference to a half-constructed object
+(bug 3, ordering).</div>
+<div class="pitfall"><strong>"It works on my machine."</strong> A race that never fires on a 4-core laptop fires in the
+first minute on a 64-core server. Correctness here is proved by reasoning, not by testing.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>Shared mutable state creates <strong>three</strong> problems: <strong>atomicity</strong>, <strong>visibility</strong>, <strong>ordering</strong>.</li>
+  <li><code>count++</code> is read-modify-write — three steps, interruptible between any of them.</li>
+  <li><strong>happens-before</strong> is the rulebook: no happens-before edge between two accesses to shared data = a data race = undefined behaviour.</li>
+  <li>The edges you will actually use: <strong>unlock→lock</strong>, <strong>volatile write→read</strong>, <strong>start()</strong>, <strong>join()</strong>, and <strong>final fields</strong>. It is transitive.</li>
+  <li><code>synchronized</code> gives exclusion <em>and</em> visibility, is reentrant, locks an <em>object</em>, and always releases on exit.</li>
+  <li><code>volatile</code> gives visibility and ordering but <strong>never</strong> atomicity — perfect for a one-writer flag.</li>
+  <li><strong>Atomics</strong> give lock-free atomic updates to <em>one</em> variable via CAS retry loops; <code>LongAdder</code> wins under heavy contention.</li>
+  <li><code>ReentrantLock</code> = <code>synchronized</code> + <code>tryLock</code>, timeouts, interruptibility, fairness, multiple conditions — at the cost of a mandatory <code>finally</code>.</li>
+  <li><strong>Deadlock</strong> = a cycle of waiting. Prevent it by holding one lock at a time, or by a global lock order.</li>
+  <li>The strongest fix is to delete the problem: <strong>confinement</strong>, <strong>immutability</strong>, <strong>statelessness</strong>.</li>
+</ul>
+
+<hr/>
+<h2>Reference — one-line answers to the usual questions</h2>
+<table>
+<thead><tr><th>Question</th><th>Answer</th></tr></thead>
+<tbody>
+<tr><td>Is <code>i++</code> atomic?</td><td>No — read, add, write.</td></tr>
+<tr><td>Is <code>long</code>/<code>double</code> assignment atomic?</td><td>Not guaranteed for non-<code>volatile</code> 64-bit fields (JLS §17.7). <code>volatile</code> makes it so.</td></tr>
+<tr><td>Does <code>volatile</code> replace a lock?</td><td>Only when the new value does not depend on the old one.</td></tr>
+<tr><td>Does <code>sleep()</code> release the lock?</td><td>No. <code>wait()</code> does.</td></tr>
+<tr><td>Can one thread enter two <code>synchronized</code> blocks on the same object?</td><td>Yes — monitors are reentrant.</td></tr>
+<tr><td>What does <code>synchronized</code> lock on a static method?</td><td>The <code>Class</code> object.</td></tr>
+<tr><td>Is an immutable object thread-safe?</td><td>Yes, if all fields are <code>final</code> and <code>this</code> never escaped the constructor.</td></tr>
+<tr><td>Safest singleton?</td><td>An <code>enum</code>, or a static holder class — no locking needed.</td></tr>
+<tr><td>How do I find a deadlock?</td><td><code>jstack</code> / <code>jcmd Thread.print</code> — the JVM names it for you.</td></tr>
+</tbody>
+</table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Race condition</dt><dd>Correctness depends on the timing of threads.</dd>
+  <dt>Data race</dt><dd>Two threads access the same location, one writes, with no happens-before edge between them.</dd>
+  <dt>Critical section</dt><dd>Code that must not be run by two threads at once.</dd>
+  <dt>Mutual exclusion</dt><dd>The guarantee that only one thread is in the critical section.</dd>
+  <dt>Monitor / intrinsic lock</dt><dd>The hidden lock every Java object has, used by <code>synchronized</code>.</dd>
+  <dt>Reentrancy</dt><dd>A thread may re-acquire a lock it already holds.</dd>
+  <dt>happens-before</dt><dd>The JMM relation guaranteeing one action's writes are visible to another.</dd>
+  <dt>volatile</dt><dd>A field read/written straight from memory, never reordered around.</dd>
+  <dt>CAS</dt><dd>Compare-and-swap: update only if the value is still what I last saw.</dd>
+  <dt>Lock-free</dt><dd>Progress without blocking; failed attempts retry instead of waiting.</dd>
+  <dt>Deadlock / Livelock / Starvation</dt><dd>Waiting in a cycle / retrying forever / never getting a turn.</dd>
+  <dt>Safe publication</dt><dd>Handing a reference to another thread so it is guaranteed to see a fully built object.</dd>
+  <dt>Confinement</dt><dd>Keeping data reachable by only one thread.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p>
+<a href="https://docs.oracle.com/javase/tutorial/essential/concurrency/sync.html">Oracle Java Tutorials — Synchronization</a>
+for the gentle version, then <a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html#jls-17.4">JLS SE 21 §17.4 (Memory Model)</a>
+for the exact wording of happens-before. Chapters 2–3 and 10 of <em>Java Concurrency in Practice</em> (Goetz) are the
+classic treatment of state, visibility, and deadlock.
+</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>Java Tutorials</em> (Synchronization, Atomic Variables); Oracle, <em>JLS SE 21</em> §17.4–§17.7; Oracle, <em>Java SE 21 API</em> (<code>java.util.concurrent.atomic</code>, <code>ReentrantLock</code>); Goetz, <em>Java Concurrency in Practice</em>. Demos run on JDK 1.8. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

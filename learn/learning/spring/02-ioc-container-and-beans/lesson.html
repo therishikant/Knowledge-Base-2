@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>02 · The IoC Container &amp; Beans — Spring &amp; Spring Boot</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58;-webkit-font-smoothing:antialiased}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.65rem;margin-bottom:1.8rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  h1{font-size:2.25rem;line-height:1.12;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .55rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.12rem;margin:1.45rem 0 .35rem}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.48}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.98rem;margin:0 0 .45rem;text-transform:uppercase;letter-spacing:.03em}
+  .flow-steps{background:#fff8ee;border:1px solid var(--rule);border-radius:6px;padding:.85rem 1.1rem;margin:1rem 0;font-size:.94rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem}
+  .flow-steps li{margin:.35rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.85rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.35rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  @media print{body{padding:1rem;max-width:100%} pre{white-space:pre-wrap} .nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../01-problem-and-philosophy/lesson.html">01: Problem &amp; Philosophy</a></span>
+  <span><strong>Lesson 02 of 18</strong> · <a href="../overview.html">Topic Overview</a></span>
+  <span><a href="../03-dependency-injection/lesson.html">03: Dependency Injection</a> →</span>
+</nav>
+
+<h1>The IoC Container &amp; Beans</h1>
+<p class="crumb"><a href="../overview.html">Spring &amp; Spring Boot</a> › lesson 2 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the engine room (Boxes 2 &amp; 3)</p>
+
+<div class="tldr">
+<strong>In simple English —</strong> The Spring IoC Container is literally <strong>two Java Maps</strong> that run one after the
+other at startup. First, Spring builds <strong>Box 2 (The Recipe Book)</strong>: a <code>Map&lt;String, BeanDefinition&gt;</code>
+that lists what classes <em>could</em> be created, before any business object exists. Second, Spring builds <strong>Box 3 (The
+Object Warehouse)</strong>: a <code>Map&lt;String, Object&gt; singletonObjects</code> by looping over the recipes and calling
+constructors via reflection. Keeping recipes separate from live objects is **Universal Rule #1 (Order of Steps)** and explains
+nearly every startup error in Spring.
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the 6-Box Map</h2>
+
+<div class="map-banner">
+  <div class="map-title">🧭 You Are Here: Phase 1 (Startup) › Zooming into Box 2 (Recipe Map) &amp; Box 3 (Singleton Warehouse Map)</div>
+  <figure style="margin:.6rem 0 .2rem">
+  <svg viewBox="0 0 780 155" width="100%" role="img" aria-label="You are here on the 6-Box Map: Phase 1 Startup, Box 2 and Box 3 highlighted">
+    <style>
+      .ph{fill:#fff;stroke:#d9d3c7;stroke-width:1.3}
+      .bx{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.2;opacity:0.65}
+      .active{fill:#fff8ee;stroke:#7a1f1f;stroke-width:2.5}
+      .tx{font:bold 11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+      .sm{font:10.5px Georgia,serif;fill:#3f3b34}
+      .lb{font:bold 11px Georgia,serif;fill:#7a1f1f}
+      .ar{stroke:#6b675e;stroke-width:1.4;marker-end:url(#arr02);fill:none}
+    </style>
+    <defs><marker id="arr02" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+    <!-- PHASE 1 -->
+    <rect class="ph" x="8" y="8" width="490" height="138" rx="6"/>
+    <text class="lb" x="18" y="26">PHASE 1: STARTUP (refresh()) — YOU ARE IN BOX 2 &amp; BOX 3</text>
+
+    <rect class="bx" x="18" y="38" width="94" height="96" rx="5"/>
+    <text class="tx" x="24" y="56">Box 1: Env</text>
+    <text class="sm" x="24" y="74">Property</text>
+    <text class="sm" x="24" y="88">Sources</text>
+    <text class="sm" x="24" y="102">(Happened</text>
+    <text class="sm" x="24" y="116">right before)</text>
+
+    <rect class="active" x="124" y="34" width="128" height="104" rx="5"/>
+    <text class="lb" x="132" y="52">★ Box 2: Recipes</text>
+    <text class="tx" x="132" y="70">Map&lt;String,</text>
+    <text class="tx" x="132" y="84">BeanDefinition&gt;</text>
+    <text class="sm" x="132" y="102">0 objects exist yet!</text>
+    <text class="sm" x="132" y="118">Keyed by bean name</text>
+
+    <rect class="active" x="264" y="34" width="128" height="104" rx="5"/>
+    <text class="lb" x="272" y="52">★ Box 3: Objects</text>
+    <text class="tx" x="272" y="70">Map&lt;String,</text>
+    <text class="tx" x="272" y="84">Object&gt;</text>
+    <text class="sm" x="272" y="102">singletonObjects</text>
+    <text class="sm" x="272" y="118">1 shared instance</text>
+
+    <rect class="bx" x="404" y="38" width="84" height="96" rx="5"/>
+    <text class="tx" x="410" y="56">Box 4: BPP</text>
+    <text class="sm" x="410" y="74">Proxy hook</text>
+    <text class="sm" x="410" y="90">(Lesson 04)</text>
+
+    <path class="ar" d="M112,86 L122,86"/>
+    <path class="ar" d="M252,86 L262,86"/>
+    <path class="ar" d="M392,86 L402,86"/>
+
+    <!-- PHASE 2 -->
+    <rect class="ph" x="508" y="8" width="184" height="138" rx="6"/>
+    <text class="sm" x="518" y="26" style="font-weight:bold">PHASE 2: REQUEST</text>
+    <rect class="bx" x="518" y="38" width="76" height="96" rx="5"/>
+    <text class="tx" x="524" y="56">Box 5</text>
+    <text class="sm" x="524" y="74">Tomcat</text>
+    <rect class="bx" x="604" y="38" width="78" height="96" rx="5"/>
+    <text class="tx" x="610" y="56">Box 6</text>
+    <text class="sm" x="610" y="74">MVC + TL</text>
+
+    <!-- PHASE 3 -->
+    <rect class="ph" x="700" y="8" width="72" height="138" rx="6"/>
+    <text class="sm" x="706" y="26" style="font-weight:bold">PHASE 3</text>
+    <text class="sm" x="706" y="58">Shutdown</text>
+  </svg>
+  </figure>
+  <p style="margin:.3rem 0 0;font-size:.9rem">
+    <strong>Before this:</strong> Box 1 (<code>Environment</code>) loaded properties from <code>application.yml</code>.<br/>
+    <strong>Right here (Lesson 02):</strong> Box 2 collects recipes into <code>beanDefinitionMap</code>, then Box 3 cooks those recipes into live objects in <code>singletonObjects</code>.<br/>
+    <strong>Next:</strong> <a href="../03-dependency-injection/lesson.html">Lesson 03</a> zooms into how Box 3 resolves constructor arguments when multiple recipes match, and <a href="../04-bean-lifecycle-and-extension-points/lesson.html">Lesson 04</a> zooms into Box 4 (<code>BeanPostProcessor</code>).
+  </p>
+</div>
+
+<h2><span class="n">§2</span>Why it exists — why not just call <code>new</code> immediately?</h2>
+<p>
+Suppose you were asked to write a program that scans a folder for `@Component` classes and creates one instance of each. Your first
+instinct in plain Java would be a single loop: <em>"As soon as I see `BookService.class` on disk, call `new BookService(...)` right away!"</em>
+</p>
+<p>
+Why would that single-loop approach crash immediately in a real project? Because of <strong>four problems</strong>:
+</p>
+<pre><span class="c">// ❌ THE NAIVE SINGLE-PASS IDEA (Why scanning + instant 'new' fails)</span>
+<span class="k">for</span> (Class&lt;?&gt; clazz : scanFolder(<span class="s">"com.bookvault"</span>)) {
+    <span class="c">// Problem 1 (Ordering): Scan finds BookService.class alphabetically BEFORE JdbcBookRepository.class!</span>
+    <span class="c">//   We can't call new BookService(repo) yet because 'repo' hasn't been scanned or created!</span>
+    <span class="c">// Problem 2 (Conditions): What if a @Bean later says "only create this if no other DataSource exists"?</span>
+    <span class="c">//   You can't know if another DataSource exists until you've finished reading ALL classes!</span>
+    <span class="c">// Problem 3 (Placeholders): What if a class needs "${db.url}", and a config post-processor</span>
+    <span class="c">//   needs to replace "${db.url}" before any constructor runs?</span>
+    <span class="c">// Problem 4 (Scopes): What if Ticket is marked @Scope("prototype") and shouldn't be created at boot?</span>
+    Object obj = clazz.getDeclaredConstructor().newInstance(); <span class="c">// 💥 CRASH!</span>
+}</pre>
+<p>
+To solve all four problems cleanly, Spring splits startup into <strong>two separate phases</strong> (**Universal Rule #1: Recipes
+before Objects**):
+</p>
+<ol>
+  <li><strong>Phase 1A (Box 2 — Fill the Recipe Book):</strong> Scan everything first and write down a metadata recipe (<code>BeanDefinition</code>) for each class inside <code>Map&lt;String, BeanDefinition&gt;</code>. <strong>Zero business constructors have been called yet!</strong> Because they are just recipes in a Map, Spring can inspect the whole picture, check conditions, and fill in <code>${...}</code> placeholders before cooking a single object.</li>
+  <li><strong>Phase 1B (Box 3 — Cook the Objects into the Warehouse):</strong> Loop over the finished Recipe Book, recursively create dependencies in the right order, and store the finished singleton objects in <code>Map&lt;String, Object&gt; singletonObjects</code>.</li>
+</ol>
+
+<h2><span class="n">§3</span>How it works — Plain Java Data Structures First</h2>
+
+<h3>Level 1 Zoom: The Two Maps inside the Container</h3>
+<p>
+Forget the long Spring class names for 60 seconds. In plain Java, the entire IoC container is just a class holding two `Map`s and a `Set`:
+</p>
+<pre><span class="k">public class</span> PlainJavaContainer {
+    <span class="c">// BOX 2: The Recipe Book (key = bean name like "bookService", value = metadata recipe)</span>
+    <span class="c">// In real Spring: DefaultListableBeanFactory.beanDefinitionMap</span>
+    <span class="k">private final</span> Map&lt;String, BeanDefinition&gt; beanDefinitionMap = <span class="k">new</span> ConcurrentHashMap&lt;&gt;();
+
+    <span class="c">// BOX 3: The Singleton Object Warehouse (key = bean name, value = the live Java object)</span>
+    <span class="c">// In real Spring: DefaultSingletonBeanRegistry.singletonObjects</span>
+    <span class="k">private final</span> Map&lt;String, Object&gt; singletonObjects = <span class="k">new</span> ConcurrentHashMap&lt;&gt;();
+
+    <span class="c">// Breadcrumb trail of beans currently halfway through construction (detects A -> B -> A cycles!)</span>
+    <span class="c">// In real Spring: DefaultSingletonBeanRegistry.singletonsCurrentlyInCreation</span>
+    <span class="k">private final</span> Set&lt;String&gt; singletonsCurrentlyInCreation = <span class="k">new</span> HashSet&lt;&gt;();
+}</pre>
+
+<div class="idiom"><strong>The Golden Sentence of Spring:</strong> <em>"A <code>BeanDefinition</code> (Box 2) is a recipe card; a
+Bean (Box 3) is the cooked dish."</em>
+<ul>
+  <li>When Spring throws <code>NoSuchBeanDefinitionException</code>, it means <strong>Box 2 (the Recipe Map) didn't have a recipe card</strong> matching the type you asked for (maybe you forgot <code>@Service</code> or put the class in the wrong package).</li>
+  <li>When Spring throws <code>BeanDefinitionOverrideException</code>, it means <strong>two recipe cards tried to use the same key</strong> in Box 2's <code>beanDefinitionMap</code>.</li>
+</ul>
+</div>
+
+<h3>What is inside one <code>BeanDefinition</code> recipe card (Box 2)?</h3>
+<table>
+<thead><tr><th>Plain Java Field inside <code>BeanDefinition</code></th><th>What It Tells Box 3 When Cooking</th><th>How You Set It</th></tr></thead>
+<tbody>
+<tr><td><code>String beanClassName</code></td><td>Which class to load and call <code>new</code> on</td><td><code>@Component</code> / <code>@Service</code> class or <code>@Bean</code> return type</td></tr>
+<tr><td><code>String scope</code></td><td><code>"singleton"</code> (cook once, cache in Box 3) vs <code>"prototype"</code> (cook fresh every time, never cache)</td><td><code>@Scope("prototype")</code> (default is <code>"singleton"</code>)</td></tr>
+<tr><td><code>boolean lazyInit</code></td><td><code>false</code> = cook at startup; <code>true</code> = wait until someone calls <code>getBean()</code></td><td><code>@Lazy</code></td></tr>
+<tr><td><code>boolean primary</code></td><td>If 2 recipes match a type, pick this one as the default winner</td><td><code>@Primary</code></td></tr>
+<tr><td><code>String initMethodName</code> / <code>destroyMethodName</code></td><td>Methods to call right after construction and on shutdown</td><td><code>@Bean(initMethod="...", destroyMethod="...")</code></td></tr>
+</tbody></table>
+
+<h3>How Bean Names (the Map Keys in Box 2 &amp; Box 3) Are Chosen</h3>
+<p>
+Both `beanDefinitionMap` (Box 2) and `singletonObjects` (Box 3) use a **`String` bean name** as their Map key — <em>not</em> the
+`Class` object! When you ask for a bean by type (`getBean(BookRepository.class)`), Spring searches the values of `beanDefinitionMap`
+to find the matching String key first, then looks up that String key in `singletonObjects`.
+</p>
+<ul>
+  <li>For a scanned class <code>@Service class BookService</code> → key is <code>"bookService"</code> (first letter lowercased).</li>
+  <li>For a config method <code>@Bean DataSource primaryDb()</code> → key is <code>"primaryDb"</code> (the <strong>method name</strong>).</li>
+  <li><em>Edge case worth knowing:</em> if the first <strong>two</strong> letters are capitalized (like <code>URLParser</code>), Java's <code>Introspector.decapitalize</code> leaves the name unchanged: <code>"URLParser"</code>.</li>
+</ul>
+
+<h3>Level 2 Zoom: The 7-Step Startup Flow inside <code>refresh()</code></h3>
+<p>
+When `SpringApplication.run()` boots your app, it calls one master method on the container: **`AbstractApplicationContext.refresh()`**.
+Here is the exact arrow flow from Box 1 → Box 2 → Box 3 → Box 4:
+</p>
+
+<figure>
+<svg viewBox="0 0 760 410" width="100%" role="img" aria-label="Step-by-step flow of AbstractApplicationContext.refresh() across Boxes 1, 2, 3, and 4">
+  <style>
+    .b{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}.b2{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .b3{fill:#eefaf4;stroke:#6db33f;stroke-width:1.5}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .h{font:bold 13px Georgia,serif;fill:#2b2b28}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#m2);fill:none}
+  </style>
+  <defs><marker id="m2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <!-- STAGE 1: BOX 2 RECIPES -->
+  <rect x="8" y="8" width="744" height="175" rx="8" fill="none" stroke="#7a1f1f" stroke-dasharray="5 4"/>
+  <text class="h" x="22" y="28" style="fill:#7a1f1f">STAGE 1 (BOX 2): Build &amp; Edit the Recipe Book — Map&lt;String, BeanDefinition&gt; (0 business objects exist!)</text>
+
+  <rect class="b" x="22" y="42" width="160" height="58" rx="6"/>
+  <text class="t" x="34" y="62">Step 1: Box 1 Env</text>
+  <text class="c" x="34" y="80">prepareRefresh()</text>
+  <text class="c" x="34" y="94">Load property sources</text>
+
+  <rect class="b" x="210" y="42" width="240" height="58" rx="6"/>
+  <text class="t" x="222" y="62">Step 2: Scan Classpath</text>
+  <text class="c" x="222" y="80">Put @Component/@Service recipes</text>
+  <text class="c" x="222" y="94">into beanDefinitionMap (Box 2)</text>
+
+  <rect class="b3" x="478" y="42" width="258" height="58" rx="6"/>
+  <text class="t" x="490" y="62">Step 3: BeanFactoryPostProc</text>
+  <text class="c" x="490" y="80">Parse @Configuration/@Bean, Boot</text>
+  <text class="c" x="490" y="94">Auto-Config &amp; resolve ${...}</text>
+
+  <path class="a" d="M182,71 L208,71"/>
+  <path class="a" d="M450,71 L476,71"/>
+
+  <rect class="b" x="22" y="114" width="714" height="54" rx="6"/>
+  <text class="t" x="36" y="135">Step 4: registerBeanPostProcessors() — Create the Box 4 Inspector beans FIRST</text>
+  <text class="c" x="36" y="154">Why now? Because the inspectors (like @Autowired &amp; @Transactional processors) must be ready on the assembly line BEFORE business beans are built!</text>
+
+  <!-- STAGE 2: BOX 3 & BOX 4 -->
+  <rect x="8" y="198" width="744" height="202" rx="8" fill="none" stroke="#1f4d7a" stroke-dasharray="5 4"/>
+  <text class="h" x="22" y="220" style="fill:#1f4d7a">STAGE 2 (BOX 3 &amp; BOX 4): finishBeanFactoryInitialization() — Cook Singletons into Map&lt;String, Object&gt;</text>
+
+  <rect class="b2" x="22" y="236" width="165" height="68" rx="6"/>
+  <text class="t" x="34" y="256">Step 5a: getBean(n)</text>
+  <text class="c" x="34" y="274">In singletonObjects?</text>
+  <text class="c" x="34" y="290">Yes → return cached!</text>
+
+  <rect class="b2" x="214" y="236" width="185" height="68" rx="6"/>
+  <text class="t" x="226" y="256">Step 5b: Resolve Deps</text>
+  <text class="c" x="226" y="274">Add name to inCreation;</text>
+  <text class="c" x="226" y="290">recursively getBean(arg)</text>
+
+  <rect class="b2" x="426" y="236" width="150" height="68" rx="6"/>
+  <text class="t" x="438" y="256">Step 5c: Construct</text>
+  <text class="c" x="438" y="274">ctor.newInstance()</text>
+  <text class="c" x="438" y="290">+ @Autowired/@PostConstruct</text>
+
+  <rect class="b3" x="602" y="236" width="134" height="68" rx="6"/>
+  <text class="t" x="612" y="256">Step 5d: Box 4</text>
+  <text class="c" x="612" y="274">BeanPostProc wraps</text>
+  <text class="c" x="612" y="290">in Proxy if needed</text>
+
+  <path class="a" d="M187,270 L212,270"/>
+  <path class="a" d="M399,270 L424,270"/>
+  <path class="a" d="M576,270 L600,270"/>
+
+  <rect class="b2" x="22" y="322" width="714" height="62" rx="6"/>
+  <text class="t" x="36" y="344">Step 6: Store in singletonObjects Map (Box 3) → Step 7: finishRefresh() starts Tomcat (Box 5)!</text>
+  <text class="c" x="36" y="364">Notice: What gets stored in singletonObjects (and injected into other beans) is the output of Step 5d (the Proxy if wrapped)!</text>
+  <path class="a" d="M669,304 L669,320"/>
+</svg>
+<figcaption>The 7 steps of <code>AbstractApplicationContext.refresh()</code>. Memorize the boundary between Stage 1 (Box 2 Recipes)
+and Stage 2 (Box 3 Live Objects) — that boundary is <strong>Universal Rule #1</strong>.</figcaption>
+</figure>
+
+<h3><code>BeanFactory</code> vs <code>ApplicationContext</code> — why Eager Startup saves you at 3 a.m.</h3>
+<p>
+Spring has two container interfaces
+<span class="sources">(<a href="https://docs.spring.io/spring-framework/reference/core/beans/introduction.html">Spring Framework Reference — The IoC Container</a>)</span>:
+</p>
+<table>
+<thead><tr><th>Feature</th><th><code>BeanFactory</code> (The Bare Engine)</th><th><code>ApplicationContext</code> (The Complete Container You Always Use)</th></tr></thead>
+<tbody>
+<tr><td><strong>What it is</strong></td><td>Basic interface with <code>getBean()</code> plus its core implementation <code>DefaultListableBeanFactory</code></td><td>Extends <code>BeanFactory</code> and wraps it with enterprise features (returned by <code>SpringApplication.run()</code>)</td></tr>
+<tr><td><strong>When are singletons created?</strong></td><td><strong>Lazy</strong> — only when someone first calls <code>getBean("bookService")</code></td><td><strong>Eager</strong> — loops over all recipes and builds every non-lazy singleton during <code>refresh()</code> Step 5!</td></tr>
+<tr><td><strong>Post-processors (Box 2C &amp; Box 4)</strong></td><td>Must be registered by hand in code</td><td><strong>Auto-detected</strong> and run automatically in Steps 3 &amp; 4</td></tr>
+<tr><td><strong>Extras included</strong></td><td>None</td><td>Box 1 (<code>Environment</code>), Events (<code>ApplicationEventPublisher</code>), i18n (<code>MessageSource</code>)</td></tr>
+</tbody></table>
+<div class="callout"><strong>Why Eager Creation in <code>ApplicationContext</code> is a superpower:</strong> Because
+<code>ApplicationContext</code> cooks every singleton recipe during startup (before Tomcat opens port 8080), any missing bean,
+circular dependency, or mistyped <code>@Value("${...}")</code> property crashes the deployment immediately in 2 seconds — instead
+of crashing at 3 a.m. when the first customer clicks the checkout button!</div>
+
+<h3>Bean Scopes — Who gets stored in Box 3's <code>singletonObjects</code> Map?</h3>
+<table>
+<thead><tr><th>Scope</th><th>How Many Objects Exist?</th><th>Stored in Box 3 <code>singletonObjects</code>?</th><th>Does Spring Call <code>@PreDestroy</code> on Shutdown?</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong><code>singleton</code></strong> <em>(default)</em></td>
+  <td><strong>Exactly 1</strong> per <code>ApplicationContext</code></td>
+  <td><strong>Yes</strong> — created once at boot and cached forever</td>
+  <td><strong>Yes</strong></td>
+</tr>
+<tr>
+  <td><strong><code>prototype</code></strong></td>
+  <td><strong>A brand-new object</strong> every time <code>getBean()</code> or injection runs</td>
+  <td><strong>No!</strong> Spring builds it, runs Box 4, hands it to you, and forgets it</td>
+  <td><strong>No!</strong> (If Spring kept a reference to call destroy, it would cause a memory leak!)</td>
+</tr>
+<tr>
+  <td><strong><code>request</code></strong></td>
+  <td>1 per HTTP request (stored as a request attribute)</td>
+  <td>No (lives in the current HTTP request)</td>
+  <td>Yes, when the HTTP request finishes</td>
+</tr>
+<tr>
+  <td><strong><code>session</code></strong></td>
+  <td>1 per user HTTP session</td>
+  <td>No (lives in the user's HTTP session)</td>
+  <td>Yes, when the session expires</td>
+</tr>
+</tbody></table>
+<p class="sources">(Scope rules per <a href="https://docs.spring.io/spring-framework/reference/core/beans/factory-scopes.html">Spring Framework Reference — Bean Scopes</a>.)</p>
+
+<div class="pitfall"><strong>Universal Rule #3 (Where State Lives): Singleton beans are shared by ALL threads!</strong>
+Because there is only <strong>one</strong> <code>BookService</code> instance inside Box 3's <code>singletonObjects</code> Map,
+if 200 users send HTTP requests at the same millisecond, 200 Tomcat threads (Box 5) execute methods on that <em>exact same</em>
+<code>BookService</code> object simultaneously! Never store per-user data in an instance field of a singleton bean (e.g.
+<code>private User currentUser;</code>) — User B will overwrite User A's field! Keep per-request data in local variables/method
+parameters (which live on each thread's own call stack) or in <code>ThreadLocal</code> (Box 6).</div>
+
+<h2><span class="n">§4</span>When to use</h2>
+<table>
+<thead><tr><th>Goal</th><th>What to Use</th><th>Trade-off / Rule to Remember</th></tr></thead>
+<tbody>
+<tr>
+  <td>Stateless service, controller, repository, or client</td>
+  <td>Default <code>singleton</code> scope (do nothing)</td>
+  <td>Zero GC allocation per request; must be 100% thread-safe (no mutable fields).</td>
+</tr>
+<tr>
+  <td>Need a fresh stateful builder/command object on every method call inside a Singleton</td>
+  <td><code>@Scope("prototype")</code> on the target + inject <strong><code>ObjectProvider&lt;T&gt;</code></strong> into the Singleton</td>
+  <td>If you inject <code>T</code> directly into a singleton constructor, the constructor only runs <em>once</em> at boot, so you get 1 instance forever! Calling <code>provider.getObject()</code> asks Box 3 for a fresh instance each time.</td>
+</tr>
+<tr>
+  <td>A heavyweight bean (e.g., PDF report engine) is rarely used and slows down local startup</td>
+  <td><code>@Lazy</code></td>
+  <td>Skips eager creation in Step 5 of <code>refresh()</code>; trades away fail-fast startup validation for faster boot time.</td>
+</tr>
+</tbody></table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Think of Spring's container as a <strong>Restaurant Kitchen</strong> preparing for dinner service.
+</p>
+<p>
+<strong>Box 2 (<code>beanDefinitionMap</code>) is the Recipe Binder on the counter.</strong> At 3 p.m., the Head Chef walks through
+the kitchen, collects every recipe card, and puts them in a binder. Not a single pot of soup has been cooked yet! Because they are
+still just paper cards, an assistant chef (a <code>BeanFactoryPostProcessor</code>) can walk by with a pen and cross out
+<em>"secret-spice-placeholder"</em> and write in <em>"paprika"</em> on all the cards before the stoves are even turned on.
+</p>
+<p>
+<strong>Box 3 (<code>singletonObjects</code>) is the Steam Table of Big Pots.</strong> At 4:30 p.m. (before the restaurant doors
+open at 5 p.m.), the cooks read the Recipe Binder and cook one giant pot of each <strong>Singleton</strong> dish. Why cook them
+before customers arrive? Because if the kitchen is missing tomatoes, you want the alarm to ring at 4:30 p.m. while you can still
+fix it — not at 8 p.m. when a customer orders!
+</p>
+<p>
+And what is a <strong>Prototype</strong> bean? That's a <em>Cook-to-Order Ice Cream Cone</em>. You can't put an ice cream cone in a
+hot steam table at 4:30 p.m.! So whenever someone asks for one, the kitchen makes a brand-new cone, hands it over the counter, and
+never sees it again — which is also why the kitchen can't clean up your cone when you finish eating it (no <code>@PreDestroy</code>
+on prototypes!).
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="../../java/02-jvm-class-loader/lesson.html">java/02-jvm-class-loader</a>:</strong> How does Step 2 scan 500 classes for <code>@Component</code> so fast without loading all 500 classes into the JVM Metaspace? Spring reads the raw <code>.class</code> bytes from disk using a tiny bytecode reader (ASM) before calling <code>Class.forName()</code>!</li>
+  <li><strong>← <a href="../../java/11-concurrency/lesson.html">java/11-concurrency</a>:</strong> Box 3's <code>singletonObjects</code> is a <code>ConcurrentHashMap</code> accessed by all Tomcat request threads (Universal Rule #3).</li>
+  <li><strong>→ <a href="../03-dependency-injection/lesson.html">03-dependency-injection</a>:</strong> Next we zoom into Step 5b of <code>refresh()</code>: how <code>getBean(Class)</code> picks the right recipe when 0, 1, or 2+ recipes match.</li>
+  <li><strong>→ <a href="../04-bean-lifecycle-and-extension-points/lesson.html">04-bean-lifecycle</a>:</strong> Zooms into Step 3 (<code>BeanFactoryPostProcessor</code>) and Step 5d (<code>BeanPostProcessor</code>).</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Build Box 2 &amp; Box 3 in 60 lines of Java &amp; Interview Derivation</h2>
+<p>
+Let's look at <a href="../code/02-mini-container/MiniContainer.java">code/02-mini-container/MiniContainer.java</a>. This 60-line
+class implements Box 2 (`definitions`), Box 3 (`singletons`), recursive dependency ordering, circular dependency detection
+(`inCreation`), and the Box 4 proxy hook (`postProcess`) using nothing but plain Java:
+</p>
+
+<pre><span class="c">// Full runnable file: learn/learning/spring/code/02-mini-container/MiniContainer.java</span>
+<span class="k">static class</span> Container {
+    <span class="c">// BOX 2 — The Recipe Book (Spring: DefaultListableBeanFactory.beanDefinitionMap)</span>
+    <span class="k">private final</span> Map&lt;String, Class&lt;?&gt;&gt; definitions = <span class="k">new</span> LinkedHashMap&lt;String, Class&lt;?&gt;&gt;();
+    <span class="c">// BOX 3 — The Singleton Object Warehouse (Spring: DefaultSingletonBeanRegistry.singletonObjects)</span>
+    <span class="k">private final</span> Map&lt;String, Object&gt; singletons = <span class="k">new</span> HashMap&lt;String, Object&gt;();
+    <span class="c">// Cycle detector (Spring: singletonsCurrentlyInCreation)</span>
+    <span class="k">private final</span> Set&lt;String&gt; inCreation = <span class="k">new</span> LinkedHashSet&lt;String&gt;();
+
+    <span class="c">// PHASE 1A (Fill Box 2): Register recipes by bean name. Zero objects created here!</span>
+    <span class="k">void</span> register(Class&lt;?&gt;... classes) {
+        <span class="k">for</span> (Class&lt;?&gt; c : classes) {
+            <span class="k">if</span> (!c.isAnnotationPresent(MiniComponent.class))
+                <span class="k">throw new</span> IllegalArgumentException(c + <span class="s">" is not a @MiniComponent"</span>);
+            definitions.put(name(c), c);           <span class="c">// "BookService" -&gt; key "bookService"</span>
+        }
+    }
+
+    <span class="c">// PHASE 1B (Fill Box 3): Eagerly build every non-prototype recipe at startup</span>
+    <span class="k">void</span> refresh() {
+        <span class="k">for</span> (Map.Entry&lt;String, Class&lt;?&gt;&gt; e : <span class="k">new</span> ArrayList&lt;&gt;(definitions.entrySet())) {
+            <span class="k">if</span> (!isPrototype(e.getValue())) getBean(e.getKey());
+        }
+    }
+
+    <span class="k">Object</span> getBean(String n) {
+        Object cached = singletons.get(n);                       <span class="c">// Step 1: Already in Box 3? Return it!</span>
+        <span class="k">if</span> (cached != <span class="k">null</span>) <span class="k">return</span> cached;
+
+        Class&lt;?&gt; type = definitions.get(n);                      <span class="c">// Step 2: Look up recipe in Box 2</span>
+        <span class="k">if</span> (type == <span class="k">null</span>) <span class="k">throw new</span> IllegalStateException(<span class="s">"No bean named '"</span> + n + <span class="s">"'"</span>);
+        <span class="k">if</span> (!inCreation.add(n))                                  <span class="c">// Step 3: Already inCreation? Cycle!</span>
+            <span class="k">throw new</span> IllegalStateException(<span class="s">"Circular dependency: "</span> + inCreation + <span class="s">" -&gt; "</span> + n);
+        <span class="k">try</span> {
+            Constructor&lt;?&gt; ctor = type.getDeclaredConstructors()[0];
+            Class&lt;?&gt;[] paramTypes = ctor.getParameterTypes();
+            Object[] args = <span class="k">new</span> Object[paramTypes.length];
+            <span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; paramTypes.length; i++)
+                args[i] = getBean(paramTypes[i]);                <span class="c">// Step 4: RECURSION builds dependencies first!</span>
+
+            ctor.setAccessible(<span class="k">true</span>);
+            Object bean = ctor.newInstance(args);                <span class="c">// Step 5: Call constructor</span>
+            bean = postProcess(bean);                            <span class="c">// Step 6: Box 4 Proxy hook!</span>
+            <span class="k">if</span> (!isPrototype(type)) singletons.put(n, bean);     <span class="c">// Step 7: Cache ONLY singletons in Box 3</span>
+            <span class="k">return</span> bean;
+        } <span class="k">catch</span> (ReflectiveOperationException e) {
+            <span class="k">throw new</span> IllegalStateException(<span class="s">"Failed to create bean '"</span> + n + <span class="s">"'"</span>, e);
+        } <span class="k">finally</span> {
+            inCreation.remove(n);
+        }
+    }
+}</pre>
+
+<h3>Verified console output</h3>
+<pre>  built BookRepository
+  built BookService
+same singleton? true
+same prototype? false</pre>
+<div class="ann">
+<strong>Code Dissection (<a href="../code/02-mini-container/MiniContainer.java">code/02-mini-container/MiniContainer.java</a>):</strong>
+<ul>
+  <li><strong>Why did <code>BookRepository</code> print before <code>BookService</code> even though we registered <code>BookService</code> first?</strong>
+    In <code>main()</code>, we called <code>ctx.register(BookService.class, BookRepository.class, Ticket.class)</code>. When <code>refresh()</code> started with <code>getBean("bookService")</code>, Step 4 inspected <code>BookService(BookRepository)</code> and recursively called <code>getBean(BookRepository.class)</code> <em>before</em> calling <code>new BookService(...)</code>! Recursion automatically topologically sorts your dependency graph.</li>
+  <li><strong>Why did <code>same prototype?</code> print <code>false</code>?</strong>
+    Look at Step 7: <code>if (!isPrototype(type)) singletons.put(n, bean);</code>. Because <code>Ticket</code> is a prototype, it is never put into <code>singletons</code> (Box 3), so Step 1 (<code>singletons.get("ticket")</code>) always returns <code>null</code> and cooks a fresh <code>Ticket</code> every time!</li>
+</ul>
+</div>
+
+<div class="try"><strong>Try this / Predict the output:</strong>
+Suppose we inject our prototype <code>Ticket</code> into the constructor of singleton <code>BookService(BookRepository repo, Ticket ticket)</code>.
+If we call <code>ctx.getBean(BookService.class).ticket</code> ten times, how many <code>Ticket</code> objects are created in total?
+<br/><em>Answer:</em> <strong>Only ONE!</strong> Why? Trace the code above: the second time you call <code>ctx.getBean("bookService")</code>,
+<strong>Step 1</strong> hits <code>singletons.get("bookService")</code> and returns the cached <code>BookService</code> immediately!
+<code>BookService</code>'s constructor never runs a second time, so <code>getBean(Ticket.class)</code> is never called a second time.</div>
+
+<h3>How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead><tr><th>Classic Interview Question</th><th>Which Box / Rule to Picture</th><th>10-Second Derived Answer</th></tr></thead>
+<tbody>
+<tr>
+  <td><em>"What is the difference between a Spring Singleton and the Gang-of-Four (GoF) Singleton pattern?"</em></td>
+  <td><strong>Box 3 (<code>singletonObjects</code> Map)</strong></td>
+  <td>A GoF Singleton uses a <code>private static</code> field, so there is 1 instance per <strong>ClassLoader / JVM</strong> and it is hard to unit-test. A Spring Singleton is just a normal POJO stored once as a value inside Box 3's <code>Map&lt;String, Object&gt;</code> — so there is 1 instance per <strong><code>ApplicationContext</code></strong>, and you can still call <code>new</code> in unit tests.</td>
+</tr>
+<tr>
+  <td><em>"Are Spring singleton beans thread-safe?"</em></td>
+  <td><strong>Rule 3 (Where State Lives) + Box 3 &amp; Box 5</strong></td>
+  <td><strong>No, Spring does not synchronize your bean!</strong> Box 3 holds 1 shared instance in <code>singletonObjects</code> while Box 5's Tomcat thread pool runs 200 request threads through it concurrently. Stateless beans (<code>final</code> dependencies only) are completely thread-safe; mutable fields on a singleton cause data races.</td>
+</tr>
+<tr>
+  <td><em>"What happens when you inject a Prototype bean into a Singleton bean, and how do you fix it?"</em></td>
+  <td><strong>Rule 1 (Order of Steps) + Box 3</strong></td>
+  <td>The Singleton's constructor runs only <strong>once</strong> at startup (when Box 3 populates <code>singletonObjects</code>), so it receives one Prototype instance and holds onto it forever. Fix it by injecting <code>ObjectProvider&lt;MyPrototype&gt;</code> (or using <code>@Lookup</code>) so each method call asks Box 3 for a fresh instance at runtime.</td>
+</tr>
+<tr>
+  <td><em>"What is the difference between <code>BeanFactory</code> and <code>ApplicationContext</code>?"</em></td>
+  <td><strong>Box 2 &amp; Box 3 + <code>refresh()</code></strong></td>
+  <td><code>BeanFactory</code> is the core lazy lookup engine. <code>ApplicationContext</code> extends it and runs <code>refresh()</code> at boot to auto-register post-processors (Box 4), eagerly instantiate all singletons (Box 3) so config errors fail fast at startup, and add <code>Environment</code> (Box 1) and Events.</td>
+</tr>
+<tr>
+  <td><em>"Why doesn't Spring call <code>@PreDestroy</code> on a <code>prototype</code> bean?"</em></td>
+  <td><strong>Box 3 (<code>singletonObjects</code> Map)</strong></td>
+  <td>Because Box 3 only stores references to <code>singleton</code> beans. For a prototype, Spring creates the object and hands the reference to the caller without storing it in any Map — if Spring kept references to every prototype ever created just to call <code>@PreDestroy</code> at shutdown, your app would run out of memory!</td>
+</tr>
+</tbody></table>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Pitfall 1: Storing request-specific data in a singleton field (Data Race).</strong>
+Writing <code>private Long currentCustomerId;</code> inside an <code>@Service</code> class means Customer A's HTTP thread and
+Customer B's HTTP thread will overwrite each other's ID inside Box 3's single shared object. Pass <code>customerId</code> as a
+method argument instead.</div>
+
+<div class="pitfall"><strong>Pitfall 2: Enabling <code>spring.main.allow-bean-definition-overriding=true</code> to silence a startup error.</strong>
+When two beans share the same name key in Box 2's <code>beanDefinitionMap</code>, Spring Boot 2.1+ throws
+<code>BeanDefinitionOverrideException</code> at startup. Turning overriding back on means whichever recipe gets scanned last
+silently overwrites the other in the Map! Rename one of the beans instead.</div>
+
+<div class="pitfall"><strong>Pitfall 3: Using <code>@Lazy</code> everywhere to hide broken beans.</strong>
+Marking beans <code>@Lazy</code> stops Step 5 of <code>refresh()</code> from creating them at boot. If a lazy bean has a missing
+dependency or broken SQL query, your server will boot "healthy" and then crash in production on the first user request that touches
+that bean.</div>
+
+<h2><span class="n">§9</span>Recap &amp; Glossary / Reference</h2>
+<ul class="recap">
+  <li><strong>Two Maps, Two Phases (Rule #1):</strong> First fill Box 2 (<code>Map&lt;String, BeanDefinition&gt;</code> recipes), then fill Box 3 (<code>Map&lt;String, Object&gt; singletonObjects</code> live instances).</li>
+  <li><strong>Map Keys are Bean Names:</strong> Both Maps are keyed by <code>String</code> bean name (<code>"bookService"</code>), not <code>Class</code>. Looking up by type searches Box 2's values first.</li>
+  <li><strong>Dependency Ordering is Recursion:</strong> Calling <code>getBean("bookService")</code> recursively calls <code>getBean()</code> on each constructor parameter type before calling <code>new</code>.</li>
+  <li><strong>Scopes:</strong> <code>singleton</code> = 1 per context, cached in Box 3, must be stateless (Rule #3). <code>prototype</code> = new every time, not cached in Box 3, never destroyed by Spring.</li>
+</ul>
+
+<h3>Quick Cheat-Sheet: Startup Exceptions → Which Box Failed?</h3>
+<table>
+<thead><tr><th>Exception at Startup</th><th>Which Box Failed &amp; Why</th><th>How to Fix</th></tr></thead>
+<tbody>
+<tr><td><code>NoSuchBeanDefinitionException</code></td><td><strong>Box 2:</strong> 0 recipes in <code>beanDefinitionMap</code> matched the requested type/name.</td><td>Add <code>@Component</code>/<code>@Service</code>/<code>@Bean</code>, or check package scanning.</td></tr>
+<tr><td><code>NoUniqueBeanDefinitionException</code></td><td><strong>Box 2:</strong> 2+ recipes in <code>beanDefinitionMap</code> matched the requested type.</td><td>Add <code>@Primary</code> on the default bean or <code>@Qualifier</code> at the injection point (Lesson 03).</td></tr>
+<tr><td><code>BeanDefinitionOverrideException</code></td><td><strong>Box 2:</strong> 2 recipes tried to use the exact same <code>String</code> key in <code>beanDefinitionMap</code>.</td><td>Rename one of the <code>@Bean</code> methods or <code>@Component</code> classes.</td></tr>
+<tr><td><code>BeanCurrentlyInCreationException</code></td><td><strong>Box 3:</strong> <code>inCreation.add(name)</code> returned <code>false</code> (A's constructor needs B, B's constructor needs A).</td><td>Break the cycle by extracting a 3rd class or using <code>ObjectProvider</code> (Lesson 03).</td></tr>
+<tr><td><code>BeanCreationException</code></td><td><strong>Box 3:</strong> Your constructor or <code>@PostConstruct</code> threw an exception while cooking the recipe.</td><td>Read the bottom <code>Caused by:</code> line in the stack trace.</td></tr>
+</tbody></table>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>BeanDefinition (Box 2)</dt><dd>The metadata recipe object describing a bean's class, scope, lazy flag, and init/destroy methods before any instance is created.</dd>
+  <dt>singletonObjects (Box 3)</dt><dd>The internal <code>ConcurrentHashMap&lt;String, Object&gt;</code> inside <code>DefaultSingletonBeanRegistry</code> that caches live singleton beans by name.</dd>
+  <dt>BeanFactory</dt><dd>The root interface for accessing a Spring bean container (provides lazy <code>getBean()</code> lookups).</dd>
+  <dt>ApplicationContext</dt><dd>The full container interface extending <code>BeanFactory</code>; eagerly pre-instantiates singletons during <code>refresh()</code> and integrates <code>Environment</code>, events, and post-processors.</dd>
+  <dt>refresh()</dt><dd>The master startup method in <code>AbstractApplicationContext</code> that executes Phase 1 (load recipes → run post-processors → instantiate singletons).</dd>
+  <dt>ObjectProvider&lt;T&gt;</dt><dd>A lightweight handle to Box 3 that lets a singleton fetch a fresh prototype instance (or an optional bean) on demand via <code>getObject()</code> / <code>getIfAvailable()</code>.</dd>
+</dl>
+
+<h3>Official Documentation &amp; Primary Sources</h3>
+<p>
+Read <a href="https://docs.spring.io/spring-framework/reference/core/beans/definition.html">Spring Framework Reference — Bean Overview</a>
+and <a href="https://docs.spring.io/spring-framework/reference/core/beans/factory-scopes.html">Bean Scopes</a>.
+</p>
+<p class="sources" style="margin-top:1.6rem">Sources: Spring Framework 6.x Reference Documentation (Core → IoC Container → Container Overview, Bean Overview, Bean Scopes);
+Spring Boot 3.x Reference Documentation. Runnable code verified on JDK 17 (<a href="../code/02-mini-container/MiniContainer.java">code/02-mini-container/MiniContainer.java</a>).</p>
+
+</body>
+</html>

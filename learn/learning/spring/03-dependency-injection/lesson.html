@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>03 · Dependency Injection in Depth — Spring &amp; Spring Boot</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58;-webkit-font-smoothing:antialiased}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.65rem;margin-bottom:1.8rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  h1{font-size:2.25rem;line-height:1.12;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .55rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.12rem;margin:1.45rem 0 .35rem}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.48}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.98rem;margin:0 0 .45rem;text-transform:uppercase;letter-spacing:.03em}
+  .flow-steps{background:#fff8ee;border:1px solid var(--rule);border-radius:6px;padding:.85rem 1.1rem;margin:1rem 0;font-size:.94rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem}
+  .flow-steps li{margin:.35rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.85rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.35rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  @media print{body{padding:1rem;max-width:100%} pre{white-space:pre-wrap} .nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../02-ioc-container-and-beans/lesson.html">02: IoC Container &amp; Beans</a></span>
+  <span><strong>Lesson 03 of 18</strong> · <a href="../overview.html">Topic Overview</a></span>
+  <span><a href="../04-bean-lifecycle-and-extension-points/lesson.html">04: Bean Lifecycle &amp; Extension Points</a> →</span>
+</nav>
+
+<h1>Dependency Injection in Depth</h1>
+<p class="crumb"><a href="../overview.html">Spring &amp; Spring Boot</a> › lesson 3 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — how Box 3 resolves &amp; wires dependencies</p>
+
+<div class="tldr">
+<strong>In simple English —</strong> When Box 3 is building a bean and sees a constructor parameter like <code>PaymentGateway gw</code>,
+how does it pick the right object? It searches Box 2's Recipe Map by <strong>Java type first</strong>, then narrows multiple matches
+using <strong><code>@Qualifier</code> → <code>@Primary</code> → parameter name</strong>. Always use <strong>Constructor Injection</strong>
+(not field injection): it runs in Step 1 of creation so fields can be <code>final</code>, works in plain-Java unit tests without
+Spring, and stops circular dependencies right at startup.
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the 6-Box Map</h2>
+
+<div class="map-banner">
+  <div class="map-title">🧭 You Are Here: Phase 1 (Startup) › Inside Box 3 Step 1 &amp; Step 2 (Recursive getBean() &amp; Wiring)</div>
+  <figure style="margin:.6rem 0 .2rem">
+  <svg viewBox="0 0 780 160" width="100%" role="img" aria-label="You are here on the 6-Box Map: Inside Box 3 Step 1 and Step 2 recursive getBean and dependency wiring">
+    <style>
+      .ph{fill:#fff;stroke:#d9d3c7;stroke-width:1.3}
+      .bx{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.2;opacity:0.65}
+      .active{fill:#fff8ee;stroke:#7a1f1f;stroke-width:2.5}
+      .tx{font:bold 11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+      .sm{font:10.5px Georgia,serif;fill:#3f3b34}
+      .lb{font:bold 11px Georgia,serif;fill:#7a1f1f}
+      .ar{stroke:#6b675e;stroke-width:1.4;marker-end:url(#arr03);fill:none}
+    </style>
+    <defs><marker id="arr03" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+    <rect class="ph" x="8" y="8" width="510" height="142" rx="6"/>
+    <text class="lb" x="18" y="26">PHASE 1: STARTUP › ZOOMED INTO BOX 3 (HOW getBean() RESOLVES &amp; WIRES)</text>
+
+    <rect class="bx" x="18" y="38" width="82" height="100" rx="5"/>
+    <text class="tx" x="24" y="56">Box 1</text>
+    <text class="sm" x="24" y="72">Env</text>
+
+    <rect class="bx" x="110" y="38" width="105" height="100" rx="5"/>
+    <text class="tx" x="116" y="56">Box 2: Recipes</text>
+    <text class="sm" x="116" y="72">Map&lt;String,</text>
+    <text class="sm" x="116" y="86">BeanDefinition&gt;</text>
+    <text class="sm" x="116" y="106">(Searched by</text>
+    <text class="sm" x="116" y="120">Box 3!)</text>
+
+    <rect class="active" x="225" y="34" width="190" height="108" rx="5"/>
+    <text class="lb" x="233" y="52">★ Box 3: Creation &amp; Wiring</text>
+    <text class="tx" x="233" y="70">Step 1: Ctor newInstance()</text>
+    <text class="tx" x="233" y="86">Step 2: Field/Setter inject</text>
+    <text class="sm" x="233" y="104">Resolves @Qualifier, @Primary,</text>
+    <text class="sm" x="233" y="120">List&lt;T&gt;, and detects cycles!</text>
+
+    <rect class="bx" x="425" y="38" width="84" height="100" rx="5"/>
+    <text class="tx" x="431" y="56">Box 4: BPP</text>
+    <text class="sm" x="431" y="72">@PostConstruct</text>
+    <text class="sm" x="431" y="88">&amp; Proxies</text>
+    <text class="sm" x="431" y="106">(Happens</text>
+    <text class="sm" x="431" y="120">right after)</text>
+
+    <path class="ar" d="M215,88 L223,88"/>
+    <path class="ar" d="M415,88 L423,88"/>
+
+    <rect class="ph" x="526" y="8" width="170" height="142" rx="6"/>
+    <text class="sm" x="536" y="26" style="font-weight:bold">PHASE 2: REQUEST</text>
+    <rect class="bx" x="536" y="38" width="70" height="100" rx="5"/><text class="tx" x="542" y="56">Box 5</text>
+    <rect class="bx" x="614" y="38" width="72" height="100" rx="5"/><text class="tx" x="620" y="56">Box 6</text>
+
+    <rect class="ph" x="704" y="8" width="68" height="142" rx="6"/>
+    <text class="sm" x="710" y="26" style="font-weight:bold">PHASE 3</text>
+    <text class="sm" x="710" y="56">Shutdown</text>
+  </svg>
+  </figure>
+  <p style="margin:.3rem 0 0;font-size:.9rem">
+    <strong>Before this:</strong> In <a href="../02-ioc-container-and-beans/lesson.html">Lesson 02</a>, Box 2 filled <code>beanDefinitionMap</code> with recipes.<br/>
+    <strong>Right here (Lesson 03):</strong> Box 3 is trying to instantiate <code>bookService</code>. It sees constructor parameters (Step 1) or <code>@Autowired</code> fields/setters (Step 2) and must pick the exact bean from Box 2 &amp; Box 3.<br/>
+    <strong>Right after this:</strong> Once the bean is constructed and wired, <a href="../04-bean-lifecycle-and-extension-points/lesson.html">Lesson 04</a> runs <code>@PostConstruct</code> and wraps it in a Box 4 Proxy.
+  </p>
+</div>
+
+<h2><span class="n">§2</span>Why it exists — Three ways Java lets Spring hand a dependency in</h2>
+<p>
+When Box 3 builds your object, Java's reflection API gives Spring only <strong>three possible doors</strong> to pass a collaborator
+into your class:
+</p>
+<ol>
+  <li><strong>Door 1 — Constructor Injection (Box 3 Step 1):</strong> Pass the dependency into <code>Constructor.newInstance(args)</code> at the exact moment the object is born.</li>
+  <li><strong>Door 2 — Setter Injection (Box 3 Step 2):</strong> Call <code>new MyService()</code> with an empty constructor first, then call <code>Method.invoke(bean, dep)</code> on a <code>@Autowired void setRepo(...)</code> method afterwards.</li>
+  <li><strong>Door 3 — Field Injection (Box 3 Step 2):</strong> Call <code>new MyService()</code> with an empty constructor first, then use <code>field.setAccessible(true); field.set(bean, dep)</code> to shove the value directly into a private field.</li>
+</ol>
+
+<p>
+Why does the Spring team (and every senior interviewer) strongly insist on **Constructor Injection** over Field Injection? Look at
+what happens because of **Universal Rule #1 (Order of Steps: Step 1 Constructor runs BEFORE Step 2 Field/Setter Injection)**:
+</p>
+
+<table>
+<thead><tr><th>Question</th><th>1. Constructor Injection <span style="color:#1f6b4d">✓ Winner</span></th><th>2. Setter Injection</th><th>3. Field Injection (<code>@Autowired</code> on field)</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>When does it happen inside Box 3?</strong></td>
+  <td><strong>Step 1</strong> (at birth, inside <code>new</code>)</td>
+  <td><strong>Step 2</strong> (after constructor finishes)</td>
+  <td><strong>Step 2</strong> (after constructor finishes)</td>
+</tr>
+<tr>
+  <td><strong>Can fields be <code>private final</code>?</strong></td>
+  <td><strong>Yes!</strong> (Immutable &amp; thread-safe)</td>
+  <td>No (must be mutable)</td>
+  <td>No (cannot be <code>final</code>)</td>
+</tr>
+<tr>
+  <td><strong>Is the dependency available inside the constructor body?</strong></td>
+  <td><strong>Yes!</strong> Never <code>null</code></td>
+  <td><strong>No!</strong> Still <code>null</code> inside constructor</td>
+  <td><strong>No!</strong> Still <code>null</code> inside constructor</td>
+</tr>
+<tr>
+  <td><strong>Can you test with plain <code>new BookService(fake)</code> without Spring?</strong></td>
+  <td><strong>Yes!</strong> 1-millisecond unit tests</td>
+  <td>Yes, if you remember to call <code>setX()</code></td>
+  <td><strong>No!</strong> Private field has no setter or constructor arg — requires reflection or booting Spring!</td>
+</tr>
+<tr>
+  <td><strong>What happens if Class A and Class B depend on each other (Cycle)?</strong></td>
+  <td><strong>Fails immediately at startup</strong> (<code>BeanCurrentlyInCreationException</code>)</td>
+  <td>Can be papered over with a half-built object</td>
+  <td>Can be papered over with a half-built object</td>
+</tr>
+</tbody></table>
+
+<div class="idiom"><strong>Modern Spring Idiom (Spring 4.3+):</strong> If your class has <strong>only one constructor</strong>, you
+don't even need to write <code>@Autowired</code> on it! Box 3 automatically uses that single constructor
+<span class="sources">(<a href="https://docs.spring.io/spring-framework/reference/core/beans/dependencies/factory-collaborators.html">Spring Framework Reference — Dependency Injection</a>)</span>:
+<pre style="margin:.55rem 0 0"><span class="an">@Service</span>
+<span class="k">public class</span> BookService {
+    <span class="k">private final</span> BookRepository repo;          <span class="c">// final = guaranteed non-null forever</span>
+    <span class="k">private final</span> AuditLog audit;
+
+    <span class="c">// Zero @Autowired needed! Clean, readable, and works with plain 'new' in JUnit.</span>
+    <span class="k">public</span> BookService(BookRepository repo, AuditLog audit) {
+        <span class="k">this</span>.repo = repo;
+        <span class="k">this</span>.audit = audit;
+    }
+}</pre>
+</div>
+
+<h2><span class="n">§3</span>How it works — Plain Java Data Structures First</h2>
+
+<h3>Level 1 Zoom: How Box 3's Recursive Loop Resolves a Dependency</h3>
+<p>
+Suppose Box 3 is running `getBean("bookService")` and sees that `BookService`'s constructor asks for a parameter `PaymentGateway gw`.
+What plain Java code runs inside Box 3 to find the right bean?
+</p>
+<pre><span class="c">// Plain-Java mental model of DefaultListableBeanFactory.resolveDependency(...)</span>
+Object resolveDependency(Class&lt;?&gt; requiredType, String paramName, Annotation[] paramAnnotations) {
+    <span class="c">// STEP 1: Search Box 2 (beanDefinitionMap) for ALL recipes whose class implements requiredType</span>
+    List&lt;String&gt; candidates = findBeanNamesForType(beanDefinitionMap, requiredType);
+
+    <span class="k">if</span> (candidates.isEmpty()) {
+        <span class="k">throw new</span> NoSuchBeanDefinitionException(requiredType);      <span class="c">// 0 matches!</span>
+    }
+    <span class="k">if</span> (candidates.size() == 1) {
+        <span class="k">return</span> getBean(candidates.get(0));                          <span class="c">// 1 match! Recursively cook/fetch it!</span>
+    }
+
+    <span class="c">// --- 2 OR MORE MATCHES! Run the 3 Tie-Breakers in strict order: ---</span>
+
+    <span class="c">// TIE-BREAKER A: Does the parameter have @Qualifier("...")? Filter candidates by qualifier!</span>
+    <span class="k">if</span> (hasQualifier(paramAnnotations)) {
+        candidates = filterByQualifier(candidates, paramAnnotations);
+        <span class="k">if</span> (candidates.size() == 1) <span class="k">return</span> getBean(candidates.get(0));
+    }
+
+    <span class="c">// TIE-BREAKER B: Is one of the remaining recipes marked @Primary in Box 2?</span>
+    String primaryName = findPrimaryCandidate(candidates);
+    <span class="k">if</span> (primaryName != <span class="k">null</span>) <span class="k">return</span> getBean(primaryName);
+
+    <span class="c">// TIE-BREAKER C: Does the parameter variable name (e.g. "stripeGateway") match a bean name key?</span>
+    <span class="k">if</span> (candidates.contains(paramName)) <span class="k">return</span> getBean(paramName);
+
+    <span class="c">// Still tied? Crash loudly at startup!</span>
+    <span class="k">throw new</span> NoUniqueBeanDefinitionException(requiredType, candidates);
+}</pre>
+
+<h3>Level 2 Zoom: Visual Flowchart of the 4-Step Resolution Algorithm</h3>
+
+<figure>
+<svg viewBox="0 0 760 410" width="100%" role="img" aria-label="Spring autowiring resolution flowchart: Type first, then Qualifier, then Primary, then Parameter Name">
+  <style>
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .g{fill:#eefaf4;stroke:#6db33f;stroke-width:1.5}
+    .r{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11.5px Georgia,serif;fill:#3f3b34}
+    .lb{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#m3);fill:none}
+  </style>
+  <defs><marker id="m3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="b" x="210" y="8" width="340" height="40" rx="6"/>
+  <text class="t" x="228" y="33">Constructor param: PaymentGateway gw</text>
+
+  <rect class="b" x="210" y="68" width="340" height="48" rx="6"/>
+  <text class="c" x="228" y="88">Step 1: Search Box 2 for all recipes assignable to type</text>
+  <text class="lb" x="228" y="106">(Generics are checked too: Repo&lt;Book&gt; ≠ Repo&lt;User&gt;)</text>
+  <path class="a" d="M380,48 L380,66"/>
+
+  <rect class="r" x="16" y="144" width="204" height="54" rx="6"/>
+  <text class="c" x="30" y="166">0 recipes found →</text>
+  <text class="t" x="30" y="186">NoSuchBeanDefinition</text>
+
+  <rect class="g" x="540" y="144" width="204" height="54" rx="6"/>
+  <text class="c" x="556" y="166">Exactly 1 recipe →</text>
+  <text class="t" x="556" y="186">getBean(it). Done!</text>
+
+  <rect class="b" x="245" y="144" width="270" height="54" rx="6"/>
+  <text class="c" x="262" y="168">2+ recipes match type →</text>
+  <text class="lb" x="262" y="186">Run Tie-Breakers (Steps 2 → 3 → 4) ↓</text>
+
+  <path class="a" d="M290,116 L160,142"/>
+  <path class="a" d="M470,116 L600,142"/>
+  <path class="a" d="M380,116 L380,142"/>
+
+  <rect class="b" x="215" y="220" width="330" height="44" rx="6"/>
+  <text class="c" x="230" y="240">Step 2 (Tie-Breaker A): @Qualifier("...") present?</text>
+  <text class="lb" x="230" y="257">→ Filter to beans matching that qualifier</text>
+  <path class="a" d="M380,198 L380,218"/>
+
+  <rect class="b" x="215" y="284" width="330" height="44" rx="6"/>
+  <text class="c" x="230" y="304">Step 3 (Tie-Breaker B): One marked @Primary?</text>
+  <text class="lb" x="230" y="321">→ Pick the @Primary bean</text>
+  <path class="a" d="M380,264 L380,282"/>
+
+  <rect class="b" x="215" y="348" width="330" height="46" rx="6"/>
+  <text class="c" x="230" y="368">Step 4 (Tie-Breaker C): Bean name == param name?</text>
+  <text class="lb" x="230" y="385">→ Pick bean whose Map key matches variable name</text>
+  <path class="a" d="M380,328 L380,346"/>
+
+  <rect class="r" x="566" y="348" width="182" height="46" rx="6"/>
+  <text class="c" x="578" y="368">Still 2+ candidates →</text>
+  <text class="t" x="578" y="386">NoUniqueBeanDef</text>
+  <path class="a" d="M545,371 L564,371"/>
+
+  <rect class="g" x="16" y="220" width="180" height="174" rx="6"/>
+  <text class="c" x="28" y="242" style="font-weight:bold">Collection &amp; Optional</text>
+  <text class="c" x="28" y="260" style="font-weight:bold">Shortcuts:</text>
+  <text class="lb" x="28" y="282">• List&lt;T&gt; → injects ALL</text>
+  <text class="lb" x="28" y="298">  matching beans (sorted</text>
+  <text class="lb" x="28" y="314">  by @Order)</text>
+  <text class="lb" x="28" y="334">• Map&lt;String, T&gt; → all</text>
+  <text class="lb" x="28" y="350">  beans keyed by name</text>
+  <text class="lb" x="28" y="370">• Optional&lt;T&gt; → empty</text>
+  <text class="lb" x="28" y="384">  instead of exception</text>
+</svg>
+<figcaption>Notice that <strong><code>@Qualifier</code> is checked BEFORE <code>@Primary</code></strong>! Think of <code>@Primary</code> as the
+"default choice when nobody asks for a specific one," and <code>@Qualifier</code> as an explicit override.</figcaption>
+</figure>
+
+<h3>How Circular Dependencies Happen in the Recursion Stack (and Why Constructor Injection Catches Them)</h3>
+<p>
+Suppose `ServiceA` has constructor `ServiceA(ServiceB b)` and `ServiceB` has constructor `ServiceB(ServiceA a)`.
+Let's trace what happens in Box 3's recursion stack (**Universal Rule #1: Order of Steps**):
+</p>
+<div class="flow-steps">
+  <strong>Tracing a Constructor Circular Dependency inside Box 3:</strong>
+  <ol>
+    <li><strong>Step 1:</strong> Box 3 calls <code>getBean("serviceA")</code>. Not in <code>singletonObjects</code> yet. Adds <code>"serviceA"</code> to <code>singletonsCurrentlyInCreation</code> Set: <code>inCreation = ["serviceA"]</code>.</li>
+    <li><strong>Step 2:</strong> To call <code>new ServiceA(b)</code>, Box 3 must first get <code>ServiceB</code>! So it recursively calls <code>getBean("serviceB")</code>. Adds <code>"serviceB"</code> to Set: <code>inCreation = ["serviceA", "serviceB"]</code>.</li>
+    <li><strong>Step 3:</strong> To call <code>new ServiceB(a)</code>, Box 3 must first get <code>ServiceA</code>! So it recursively calls <code>getBean("serviceA")</code>.</li>
+    <li><strong>Step 4:</strong> <code>getBean("serviceA")</code> checks <code>inCreation.add("serviceA")</code> — it returns <strong><code>false</code></strong> because <code>"serviceA"</code> is already sitting on the call stack waiting for <code>ServiceB</code>! Spring immediately throws <strong><code>BeanCurrentlyInCreationException</code></strong>.</li>
+  </ol>
+</div>
+
+<figure>
+<svg viewBox="0 0 760 225" width="100%" role="img" aria-label="Constructor cycle fails at Step 1 whereas Setter cycle uses early reference cache">
+  <style>
+    .r{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.4}.g{fill:#eefaf4;stroke:#6db33f;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11.5px Georgia,serif;fill:#3f3b34}
+    .lb{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#7a1f1f;stroke-width:1.4;marker-end:url(#m4);fill:none}
+    .a2{stroke:#1f6b4d;stroke-width:1.4;marker-end:url(#m5);fill:none}
+  </style>
+  <defs>
+    <marker id="m4" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker>
+    <marker id="m5" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1f6b4d"/></marker>
+  </defs>
+
+  <text class="c" x="18" y="22" style="font-weight:bold;fill:#7a1f1f">Constructor Cycle (Step 1 needs Step 1) — Impossible!</text>
+  <rect class="r" x="18" y="34" width="135" height="44" rx="6"/><text class="t" x="34" y="61">new ServiceA(b)</text>
+  <rect class="r" x="225" y="34" width="135" height="44" rx="6"/><text class="t" x="241" y="61">new ServiceB(a)</text>
+  <path class="a" d="M153,48 L223,48"/><text class="lb" x="158" y="42">needs B first</text>
+  <path class="a" d="M223,66 L155,66"/><text class="lb" x="158" y="84">needs A first</text>
+  <text class="c" x="18" y="114">Neither constructor can finish first → throws</text>
+  <text class="t" x="18" y="132">BeanCurrentlyInCreationException</text>
+  <text class="c" x="18" y="156" style="fill:#1f6b4d">✓ Catches bad architecture immediately at boot!</text>
+
+  <line x1="385" y1="10" x2="385" y2="215" stroke="#d9d3c7" stroke-width="1.5"/>
+
+  <text class="c" x="406" y="22" style="font-weight:bold;fill:#1f4d7a">Setter/Field Cycle (Step 1 before Step 2) — Early Cache</text>
+  <rect class="g" x="406" y="34" width="140" height="44" rx="6"/><text class="t" x="420" y="61">1. new ServiceA()</text>
+  <rect class="g" x="596" y="34" width="140" height="44" rx="6"/><text class="t" x="610" y="61">2. new ServiceB()</text>
+  <path class="a2" d="M546,56 L594,56"/>
+  <text class="c" x="406" y="102">3. B.setA(raw half-built A from early cache — A.b is still null!)</text>
+  <text class="c" x="406" y="122">4. A.setB(finished B)</text>
+  <text class="c" x="406" y="150" style="fill:#7a1f1f">⚠ Disabled by default since Spring Boot 2.6</text>
+  <text class="lb" x="406" y="168">(spring.main.allow-circular-references=false)</text>
+</svg>
+<figcaption>Why could Setter/Field injection survive a cycle before Spring Boot 2.6? Because Step 1 (`new ServiceA()`) takes 0 arguments!
+Spring could stash the half-built `ServiceA` in an early cache before Step 2 (`setB`). Spring Boot 2.6+ blocks even setter cycles by default because half-built beans cause subtle NPEs.</figcaption>
+</figure>
+
+<h2><span class="n">§4</span>When to use — Practical Decision Table</h2>
+<table>
+<thead><tr><th>Situation</th><th>What to Write</th><th>Why</th></tr></thead>
+<tbody>
+<tr>
+  <td>Standard mandatory dependency (95% of cases)</td>
+  <td>Single constructor with <code>private final</code> fields</td>
+  <td>Guaranteed non-null at birth (Step 1), immutable, zero annotations needed.</td>
+</tr>
+<tr>
+  <td>Two implementations of an interface exist, and one is the standard default (e.g. <code>StripeGateway</code> vs <code>PaypalGateway</code>)</td>
+  <td>Put <code>@Primary</code> on the default class; use <code>@Qualifier("paypalGateway")</code> only where the non-default is needed</td>
+  <td>Callers asking for <code>PaymentGateway</code> get the default without clutter; special callers opt in with <code>@Qualifier</code>.</td>
+</tr>
+<tr>
+  <td>You want to run <strong>all</strong> implementations of an interface (e.g., validation rules, notification channels, discount calculators)</td>
+  <td>Inject <code>List&lt;Rule&gt;</code> or <code>Map&lt;String, Rule&gt;</code> into the constructor</td>
+  <td>Spring automatically collects every bean implementing <code>Rule</code>! Adding a new rule later requires zero changes to the caller (Open/Closed Principle).</td>
+</tr>
+<tr>
+  <td>A dependency might not exist in some environments (e.g., an optional metrics exporter)</td>
+  <td>Inject <code>Optional&lt;MetricsExporter&gt;</code> or <code>ObjectProvider&lt;MetricsExporter&gt;</code></td>
+  <td>Avoids <code>NoSuchBeanDefinitionException</code> while keeping constructor injection clean.</td>
+</tr>
+<tr>
+  <td>You hit a <code>BeanCurrentlyInCreationException</code> (Circular Dependency)</td>
+  <td><strong>1st choice:</strong> Extract shared logic into a 3rd class.<br/><strong>2nd choice:</strong> Use <code>@Lazy</code> on one constructor parameter (injects a tiny proxy placeholder).</td>
+  <td>Extracting a 3rd class fixes the design tangle; <code>@Lazy</code> defers calling <code>getBean()</code> until the first method call.</td>
+</tr>
+</tbody></table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine you are building a Lego spaceship, and the instruction manual says: <em>"Step 1: Snap the Pilot into the cockpit."</em>
+</p>
+<p>
+If there is only <strong>one</strong> Lego person in your toy box, you grab them and snap them in. Easy!
+</p>
+<p>
+What if there are <strong>zero</strong> Lego people in your toy box? You stop and yell: <em>"Hey! There is no Pilot!"</em>
+(<code>NoSuchBeanDefinitionException</code>).
+</p>
+<p>
+What if there are <strong>two</strong> Lego people in your toy box — Batman and Astronaut? You can't guess! If you guess wrong, you
+ruin the spaceship. So you stop and yell: <em>"There are two people! Which one do you want?"</em> (<code>NoUniqueBeanDefinitionException</code>).
+To help you choose, your friend can either put a <strong>Gold "Default" Sticker</strong> on Astronaut (<code>@Primary</code> = "always
+use Astronaut unless I say otherwise"), or write <strong>"Put Batman here"</strong> right on the cockpit seat (<code>@Qualifier("batman")</code>).
+And if it's a Passenger Bus with a sign saying <em>"Give me a List of all Lego people"</em> (<code>List&lt;Person&gt;</code>), you put
+both Batman and Astronaut on the bus!
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="../../java/05-type-system-and-oop/lesson.html">java/05-type-system-and-oop</a>:</strong> Wait — doesn't Java erase generics at runtime? How can Spring tell <code>Repository&lt;Book&gt;</code> apart from <code>Repository&lt;User&gt;</code>? Because Java preserves generic signatures in class headers and constructor/field metadata (via <code>Method.getGenericParameterTypes()</code>), which Spring reads using its <code>ResolvableType</code> utility!</li>
+  <li><strong>← <a href="../02-ioc-container-and-beans/lesson.html">02-ioc-container-and-beans</a>:</strong> This lesson is the inside of <code>MiniContainer.getBean(Class)</code> from Lesson 02.</li>
+  <li><strong>→ <a href="../04-bean-lifecycle-and-extension-points/lesson.html">04-bean-lifecycle</a>:</strong> Shows the exact order inside Box 3 &amp; Box 4: Constructor (Step 1) → Field/Setter `@Autowired` (Step 2) → `@PostConstruct` (Step 3) → Proxy (Step 4).</li>
+  <li><strong>→ <a href="../14-testing-spring-applications/lesson.html">14-testing</a>:</strong> Constructor injection is why 80% of your tests can run with plain JUnit in milliseconds without `@SpringBootTest`.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Zero-Wiring Plugin Registry &amp; Interview Derivation</h2>
+<p>
+One of the cleanest patterns in production Spring Boot code is injecting `List<T>` into a constructor to build a lookup Map of
+strategies once at startup:
+</p>
+<pre><span class="k">public interface</span> Notifier {
+    String channel();                       <span class="c">// "email", "sms", "push"</span>
+    <span class="k">void</span> send(String to, String msg);
+}
+
+<span class="an">@Component</span>
+<span class="k">class</span> EmailNotifier <span class="k">implements</span> Notifier {
+    <span class="k">public</span> String channel() { <span class="k">return</span> <span class="s">"email"</span>; }
+    <span class="k">public void</span> send(String to, String msg) { System.out.println(<span class="s">"email -&gt; "</span> + to); }
+}
+
+<span class="an">@Component</span>
+<span class="k">class</span> SmsNotifier <span class="k">implements</span> Notifier {
+    <span class="k">public</span> String channel() { <span class="k">return</span> <span class="s">"sms"</span>; }
+    <span class="k">public void</span> send(String to, String msg) { System.out.println(<span class="s">"sms -&gt; "</span> + to); }
+}
+
+<span class="an">@Service</span>
+<span class="k">public class</span> NotificationService {
+    <span class="k">private final</span> Map&lt;String, Notifier&gt; byChannel;
+
+    <span class="c">// Box 3 sees List&lt;Notifier&gt; and injects ALL beans implementing Notifier!</span>
+    <span class="k">public</span> NotificationService(List&lt;Notifier&gt; notifiers) {
+        <span class="k">this</span>.byChannel = notifiers.stream()
+            .collect(Collectors.toUnmodifiableMap(Notifier::channel, Function.identity()));
+    }
+
+    <span class="k">public void</span> notify(String channel, String to, String msg) {
+        Notifier n = byChannel.get(channel);
+        <span class="k">if</span> (n == <span class="k">null</span>) <span class="k">throw new</span> IllegalArgumentException(<span class="s">"Unknown channel: "</span> + channel);
+        n.send(to, msg);
+    }
+}</pre>
+<div class="ann">
+<strong>Code Dissection:</strong>
+<ul>
+  <li><strong>Zero-wiring extensibility:</strong> When a teammate adds <code>@Component class SlackNotifier implements Notifier</code> next month, <code>NotificationService</code> automatically discovers it at startup without a single line of <code>NotificationService</code> changing!</li>
+  <li><strong>Thread-safety (Universal Rule #3):</strong> Because <code>byChannel</code> is populated once inside the constructor using <code>toUnmodifiableMap</code> and stored in a <code>final</code> field, 200 concurrent request threads can call <code>notify()</code> safely with zero locks.</li>
+  <li><strong>Alternative:</strong> You can also inject <code>Map&lt;String, Notifier&gt;</code> directly, and Spring will populate the map using each bean's <strong>bean name</strong> (<code>"emailNotifier"</code>, <code>"smsNotifier"</code>) as the key. Building the map from an explicit <code>channel()</code> method is safer because renaming a Java class won't break your API keys!</li>
+</ul>
+</div>
+
+<div class="try"><strong>Try this / Predict the output:</strong>
+Suppose a developer writes this class using <strong>field injection</strong> instead of constructor injection:
+<pre style="margin:.4rem 0"><span class="an">@Service</span>
+<span class="k">public class</span> BrokenService {
+    <span class="an">@Autowired</span> <span class="k">private</span> EmailNotifier email;
+    <span class="k">public</span> BrokenService() {
+        System.out.println(<span class="s">"Channel is: "</span> + email.channel());
+    }
+}</pre>
+What happens when Spring boots?
+<br/><em>Answer:</em> Instant <strong><code>NullPointerException</code></strong> inside the constructor! By <strong>Universal Rule #1
+(Order of Steps)</strong>, Box 3 must finish running <code>new BrokenService()</code> (Step 1) <em>before</em> it can use reflection to
+inject <code>@Autowired</code> fields (Step 2). Inside the constructor body, every <code>@Autowired</code> field is still <code>null</code>!</div>
+
+<h3>How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead><tr><th>Classic Interview Question</th><th>Which Box / Rule to Picture</th><th>10-Second Derived Answer</th></tr></thead>
+<tbody>
+<tr>
+  <td><em>"Why is Constructor Injection recommended over Field Injection?"</em></td>
+  <td><strong>Rule 1 (Order of Steps) + Box 3</strong></td>
+  <td>1. Runs in Step 1 (`new`), so fields can be `final` and the object is never half-built.<br/>2. You can instantiate the class in a JUnit test with plain `new` without reflection or Spring.<br/>3. Catches circular dependencies immediately at startup.</td>
+</tr>
+<tr>
+  <td><em>"If a bean has both <code>@Primary</code> on Bean A and <code>@Qualifier("beanB")</code> at the injection point, which one wins?"</em></td>
+  <td><strong>Box 3 Resolution Flowchart (Step 2 vs Step 3)</strong></td>
+  <td><strong><code>@Qualifier("beanB")</code> wins!</strong> In Box 3's tie-breaker order, explicit `@Qualifier` (Step 2) filters the candidates <em>before</em> `@Primary` (Step 3) is checked. `@Primary` is only the fallback default when no qualifier is specified.</td>
+</tr>
+<tr>
+  <td><em>"How does Spring handle Circular Dependencies, and why does Constructor vs Setter injection matter?"</em></td>
+  <td><strong>Rule 1 (Order of Steps) + Box 3 `inCreation` Set</strong></td>
+  <td>With <strong>Constructors</strong>, Step 1 of A needs Step 1 of B which needs Step 1 of A — impossible, so Box 3's `inCreation` Set throws `BeanCurrentlyInCreationException`. With <strong>Setters</strong>, Step 1 (`new A()`) takes 0 args, so Spring can expose an early reference to A before Step 2 (`setB`). (Note: Boot 2.6+ disables circular references by default for both!)</td>
+</tr>
+<tr>
+  <td><em>"Why is an <code>@Autowired</code> field or <code>@Value</code> field <code>null</code> inside the constructor?"</em></td>
+  <td><strong>Rule 1 (Order of Steps: Step 1 before Step 2)</strong></td>
+  <td>In Java bytecode, an object cannot have its fields set by outside reflection until `Constructor.newInstance()` (Step 1) returns the object reference! Field/setter population is Step 2. Move the code to constructor parameters or `@PostConstruct` (Step 3).</td>
+</tr>
+</tbody></table>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Pitfall 1: Switching to Field Injection to hide a 10-argument constructor.</strong>
+When a constructor grows to 10 parameters, it feels ugly to type — so people switch to 10 <code>@Autowired</code> fields to make
+the file look shorter. Don't! A 10-argument constructor is a helpful alarm bell telling you your class violates the Single
+Responsibility Principle. Split the class into two smaller services.</div>
+
+<div class="pitfall"><strong>Pitfall 2: Magic strings in <code>@Qualifier("typoName")</code>.</strong>
+String qualifiers are not checked until startup. When you have multiple beans of the same type (like a read replica `DataSource` and
+a primary `DataSource`), create a custom annotation meta-annotated with `@Qualifier` (e.g. `@ReadOnlyDb`) so the Java compiler
+checks it at compile time!</div>
+
+<div class="pitfall"><strong>Pitfall 3: Relying on the order of an injected <code>List&lt;T&gt;</code> without <code>@Order</code>.</strong>
+When you inject `List<Rule>`, the order of beans depends on classpath scanning order unless you explicitly put `@Order(1)`,
+`@Order(2)` (or implement `Ordered`) on the classes.</div>
+
+<h2><span class="n">§9</span>Recap &amp; Glossary / Reference</h2>
+<ul class="recap">
+  <li><strong>3 Doors into a Bean:</strong> Constructor (Box 3 Step 1 — always prefer this), Setter (Box 3 Step 2 — optional deps only), Field (Box 3 Step 2 — avoid in production code).</li>
+  <li><strong>4-Step Resolution Order:</strong> Match by Type (including generics) → filter by <code>@Qualifier</code> → check <code>@Primary</code> → match bean name to parameter variable name.</li>
+  <li><strong>Collections &amp; Optionals:</strong> Inject <code>List&lt;T&gt;</code> or <code>Map&lt;String, T&gt;</code> to get all implementations; inject <code>Optional&lt;T&gt;</code> or <code>ObjectProvider&lt;T&gt;</code> when a bean may be absent.</li>
+  <li><strong>Circular Dependencies:</strong> Caught by Box 3's <code>singletonsCurrentlyInCreation</code> Set; rejected by default since Spring Boot 2.6.</li>
+</ul>
+
+<h3>Quick Cheat-Sheet Reference</h3>
+<table>
+<thead><tr><th>What You Want to Inject</th><th>Exact Code to Write</th></tr></thead>
+<tbody>
+<tr><td>Mandatory collaborator</td><td><code>MyService(MyRepo repo)</code> (single constructor, no <code>@Autowired</code> needed)</td></tr>
+<tr><td>Default among multiple implementations</td><td>Put <code>@Primary</code> on the default bean class</td></tr>
+<tr><td>Specific implementation among multiple</td><td><code>MyService(@Qualifier("stripe") PaymentGateway gw)</code></td></tr>
+<tr><td>All implementations of an interface</td><td><code>MyService(List&lt;PaymentGateway&gt; all)</code> (ordered by <code>@Order</code>)</td></tr>
+<tr><td>Optional collaborator that might not exist</td><td><code>MyService(Optional&lt;MetricsClient&gt; metrics)</code> or <code>ObjectProvider&lt;MetricsClient&gt;</code></td></tr>
+<tr><td>Break a startup cycle temporarily</td><td><code>MyService(@Lazy OtherService other)</code></td></tr>
+</tbody></table>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>Injection Point</dt><dd>A constructor parameter, setter parameter, or field where Box 3 supplies a dependency.</dd>
+  <dt>Autowiring</dt><dd>Box 3 automatically resolving which bean from Box 2/Box 3 satisfies an injection point by inspecting types and qualifiers.</dd>
+  <dt>@Qualifier</dt><dd>An annotation placed on both a bean and an injection point to narrow down candidate beans when multiple beans share the same type.</dd>
+  <dt>@Primary</dt><dd>Marks a bean recipe in Box 2 as the default winner when multiple candidates match by type and no <code>@Qualifier</code> is present.</dd>
+  <dt>Circular Dependency</dt><dd>When Bean A requires Bean B and Bean B (directly or indirectly) requires Bean A in order to be created.</dd>
+  <dt>ResolvableType</dt><dd>Spring's reflection wrapper that reads generic type arguments (like <code>Repo&lt;Book&gt;</code>) preserved in bytecode signatures.</dd>
+</dl>
+
+<h3>Official Documentation &amp; Primary Sources</h3>
+<p>
+Read <a href="https://docs.spring.io/spring-framework/reference/core/beans/dependencies/factory-collaborators.html">Spring Framework Reference — Dependency Injection</a>
+and <a href="https://docs.spring.io/spring-framework/reference/core/beans/annotation-config/autowired.html">Fine-tuning Annotation-based Autowiring with @Primary and @Qualifier</a>.
+</p>
+<p class="sources" style="margin-top:1.6rem">Sources: Spring Framework 6.x Reference Documentation (Core → IoC Container → Dependencies, Annotation-based Container Configuration);
+Spring Boot 3.x Reference Documentation (<code>spring.main.allow-circular-references</code>).</p>
+
+</body>
+</html>

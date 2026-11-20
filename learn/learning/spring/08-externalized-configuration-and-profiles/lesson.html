@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Externalized Configuration &amp; Profiles — Spring</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    padding:.55rem .85rem;background:#f4f0e6;border:1px solid var(--rule);border-radius:6px;margin-bottom:1.6rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{text-decoration:none;font-weight:600} .nav a:hover{text-decoration:underline}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner h3{margin:0 0 .5rem;color:var(--accent2);font-size:1.05rem}
+  .flow-steps{background:#f4f0e6;border-left:4px solid var(--accent2);padding:.8rem 1.1rem;border-radius:0 6px 6px 0;margin:1rem 0;font-size:.93rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem} .flow-steps li{margin:.3rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <a href="../07-spring-boot-and-autoconfiguration/lesson.html">← 07 Spring Boot &amp; Auto-Configuration</a>
+  <span><a href="../overview.html">Spring Map</a> · Lesson 8 of 18</span>
+  <a href="../09-web-mvc-request-lifecycle/lesson.html">09 Web MVC Request Lifecycle →</a>
+</nav>
+
+<h1>Externalized Configuration &amp; Profiles</h1>
+<p class="crumb"><a href="../overview.html">Spring</a> › lesson 8 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — zooming into Box 1 (<code>Environment</code> &amp; <code>List&lt;PropertySource&gt;</code>)</p>
+
+<div class="tldr">
+<strong>Summary —</strong> To deploy the exact same JAR file to dev, staging, and production, you must keep environment-specific settings outside your Java code. Spring stores all settings in <strong>Box 1 (<code>Environment</code>)</strong>, which is simply an ordered Java <code>List&lt;PropertySource&gt;</code> (a list of <code>Map&lt;String, Object&gt;</code> searched from index <code>0</code> downward so the first match wins) plus a <code>Set&lt;String&gt; activeProfiles</code>. You bind those settings into your beans using immutable <code>@ConfigurationProperties</code> records (with <code>@Validated</code> and relaxed binding), while <code>@Profile</code> acts as a gatekeeper on Box 1 files and Box 2 recipes.
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the Map</h2>
+<p>
+Lesson 7 traced <code>SpringApplication.run()</code> and showed that <strong>Step 1 of startup</strong> is building <strong>Box 1 (<code>Environment</code>)</strong> before any recipes in Box 2 or beans in Box 3 exist. Now we open Box 1 to see the exact data structures inside it and how its values flow into Box 2 and Box 3.
+</p>
+
+<div class="map-banner">
+  <h3>📍 You Are Here on the 6-Box Map: Phase 1 (Startup) → Box 1 (<code>Environment</code>)</h3>
+  <figure style="margin:.6rem 0 .2rem">
+  <svg viewBox="0 0 780 190" width="100%" role="img" aria-label="6-Box Map highlighting Box 1 Environment and how it feeds Box 2 and Box 3">
+    <style>
+      .dim{fill:#f4f0e6;stroke:#b5afa3;stroke-width:1.2}
+      .here{fill:#fff8ee;stroke:#7a1f1f;stroke-width:2.6}
+      .feed{fill:#eefaf4;stroke:#1f6b4d;stroke-width:1.8}
+      .phase{font:bold 11px Georgia,serif;fill:#6b675e;letter-spacing:.04em}
+      .bt{font:bold 11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+      .bs{font:10.5px Georgia,serif;fill:#3f3b34}
+      .arr{stroke:#6b675e;stroke-width:1.4;marker-end:url(#m8a);fill:none}
+    </style>
+    <defs><marker id="m8a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+    <text class="phase" x="12" y="16">PHASE 1: STARTUP (Box 1 is built FIRST, then feeds Box 2 &amp; Box 3)</text>
+    <text class="phase" x="595" y="16">PHASE 2: REQUEST</text>
+
+    <!-- Box 1 (Highlighted) -->
+    <rect class="here" x="10" y="22" width="210" height="100" rx="6"/>
+    <text class="bt" x="20" y="41" style="fill:#7a1f1f">★ Box 1: Environment</text>
+    <text class="bs" x="20" y="59" style="font-weight:bold">1. List&lt;PropertySource&gt;</text>
+    <text class="bs" x="20" y="74">   (CLI → Env → YAML)</text>
+    <text class="bs" x="20" y="90" style="font-weight:bold">2. Set&lt;String&gt; activeProfiles</text>
+    <text class="bs" x="20" y="108" style="fill:#7a1f1f;font-weight:bold">YOU ARE HERE</text>
+
+    <path class="arr" d="M220,72 L240,72"/>
+
+    <!-- Box 2 -->
+    <rect class="feed" x="242" y="26" width="160" height="92" rx="5"/>
+    <text class="bt" x="250" y="44" style="fill:#1f6b4d">Box 2: Recipes</text>
+    <text class="bs" x="250" y="62">Reads Box 1 for:</text>
+    <text class="bs" x="250" y="77">• @Profile("prod")</text>
+    <text class="bs" x="250" y="92">• @ConditionalOnProperty</text>
+
+    <path class="arr" d="M402,72 L422,72"/>
+
+    <!-- Box 3 -->
+    <rect class="feed" x="424" y="26" width="155" height="92" rx="5"/>
+    <text class="bt" x="432" y="44" style="fill:#1f6b4d">Box 3: Warehouse</text>
+    <text class="bs" x="432" y="62">Binds Box 1 values:</text>
+    <text class="bs" x="432" y="77">• @ConfigurationProperties</text>
+    <text class="bs" x="432" y="92">• @Value("${...}")</text>
+
+    <path class="arr" d="M579,72 L595,72"/>
+
+    <!-- Box 4, 5, 6 -->
+    <rect class="dim" x="597" y="26" width="170" height="92" rx="5"/>
+    <text class="bt" x="605" y="44">Box 4, 5 &amp; 6</text>
+    <text class="bs" x="605" y="62">AOP Proxies, Tomcat</text>
+    <text class="bs" x="605" y="76">(:8080 from Box 1),</text>
+    <text class="bs" x="605" y="90">DispatcherServlet</text>
+
+    <text class="bs" x="12" y="144"><strong>Right before this:</strong> JVM started main(String[] args) and called SpringApplication.run().</text>
+    <text class="bs" x="12" y="162"><strong>Right now (Box 1):</strong> Spring assembles the ordered List&lt;PropertySource&gt; ladder and determines activeProfiles before creating the ApplicationContext.</text>
+    <text class="bs" x="12" y="180"><strong>Right after this:</strong> Box 2 uses Box 1 to decide *which* recipes to register (@Profile), and Box 3 uses Box 1 to inject values into live objects (@ConfigurationProperties, @Value).</text>
+  </svg>
+  </figure>
+</div>
+
+<h2><span class="n">§2</span>Why it exists — the pain in plain Java</h2>
+<p>
+Suppose your BookVault app needs a database URL, a connection pool size, and an HTTP timeout. Without Box 1 (<code>Environment</code>) and <code>@ConfigurationProperties</code>, look at the plain Java code you would have to write by hand:
+</p>
+<pre><span class="c">// Without Spring's Environment + @ConfigurationProperties:</span>
+<span class="k">public class</span> ManualConfigLoader {
+    <span class="k">public static</span> CatalogConfig load(String[] args) <span class="k">throws</span> IOException {
+        <span class="c">// 1. Read defaults from a file inside the JAR</span>
+        Properties fileProps = <span class="k">new</span> Properties();
+        fileProps.load(ManualConfigLoader.class.getResourceAsStream(<span class="s">"/app.properties"</span>));
+
+        <span class="c">// 2. Manually check CLI args first, then OS env var (with uppercase_underscore!), then file:</span>
+        String timeoutStr = findCliArg(args, <span class="s">"--catalog.timeout"</span>);
+        <span class="k">if</span> (timeoutStr == <span class="k">null</span>) timeoutStr = System.getenv(<span class="s">"CATALOG_TIMEOUT"</span>);
+        <span class="k">if</span> (timeoutStr == <span class="k">null</span>) timeoutStr = System.getProperty(<span class="s">"catalog.timeout"</span>);
+        <span class="k">if</span> (timeoutStr == <span class="k">null</span>) timeoutStr = fileProps.getProperty(<span class="s">"catalog.timeout"</span>, <span class="s">"2s"</span>);
+
+        <span class="c">// 3. Manually parse strings into Duration/int and validate constraints:</span>
+        Duration timeout = parseDurationByHand(timeoutStr);
+        String url = System.getenv(<span class="s">"CATALOG_BASE_URL"</span>);
+        <span class="k">if</span> (url == <span class="k">null</span> || url.isBlank()) {
+            <span class="k">throw new</span> IllegalArgumentException(<span class="s">"Missing catalog.base-url!"</span>);
+        }
+        <span class="k">return new</span> CatalogConfig(url, timeout);
+    }
+}</pre>
+<p>
+Doing that for 50 properties across 10 sources is error-prone misery. Box 1 (<code>Environment</code>) automates the lookup ladder, and <code>@ConfigurationProperties</code> automates the parsing, relaxed naming, and startup validation.
+</p>
+
+<h2><span class="n">§3</span>How it works (Level 1 → Level 2 Zoom)</h2>
+
+<h3>Start with Plain Java Data Structures First: Inside Box 1 (<code>Environment</code>)</h3>
+<p>
+Strip away the Spring jargon. What is <code>Environment</code> in plain Java? Just two fields—an ordered <code>List</code> of <code>Map</code>s and a <code>Set</code> of profile names:
+</p>
+<pre><span class="k">public class</span> SimpleEnvironment {
+
+    <span class="c">// 1. Ordered list of Maps — index 0 is highest priority, last index is lowest priority!</span>
+    <span class="k">private final</span> List&lt;Map&lt;String, Object&gt;&gt; propertySources = List.of(
+        cliArgsMap,             <span class="c">// Index 0: --server.port=9000           (HIGHEST PRIORITY)</span>
+        jvmSystemPropsMap,      <span class="c">// Index 1: -Dserver.port=9000</span>
+        osEnvVarsMap,           <span class="c">// Index 2: SERVER_PORT=9000             (Docker / K8s)</span>
+        applicationProdYmlMap,  <span class="c">// Index 3: application-prod.yml         (Profile-specific file)</span>
+        applicationYmlMap       <span class="c">// Index 4: application.yml              (LOWEST PRIORITY)</span>
+    );
+
+    <span class="c">// 2. Active profiles (e.g. ["prod"])</span>
+    <span class="k">private final</span> Set&lt;String&gt; activeProfiles = <span class="k">new</span> HashSet&lt;&gt;();
+
+    <span class="c">// How getProperty("server.port") works:</span>
+    <span class="c">// Loop from index 0 downward; FIRST MAP THAT CONTAINS THE KEY WINS!</span>
+    <span class="k">public</span> Object getProperty(String key) {
+        <span class="k">for</span> (Map&lt;String, Object&gt; source : propertySources) {
+            <span class="k">if</span> (source.containsKey(key)) {
+                <span class="k">return</span> source.get(key); <span class="c">// ← First hit returns immediately!</span>
+            }
+        }
+        <span class="k">return null</span>;
+    }
+}</pre>
+<div class="idiom"><strong>That <code>for</code> loop is the entire precedence ladder!</strong> Why does <code>--server.port=9000</code> on the command line override <code>SERVER_PORT=8081</code> in Docker, which overrides <code>server.port: 8080</code> in <code>application.yml</code>? Simply because <code>cliArgsMap</code> sits at an earlier index in <code>List&lt;PropertySource&gt;</code> than <code>osEnvVarsMap</code>, which sits at an earlier index than <code>applicationYmlMap</code>!</div>
+
+<div class="flow-steps">
+  <strong>Step-by-step control flow (How Box 1 feeds Box 2 and Box 3):</strong>
+  <ol>
+    <li><strong>Step 1 (Box 1 Assembly):</strong> <code>SpringApplication.run()</code> populates <code>List&lt;PropertySource&gt;</code> in precedence order (CLI args → JVM <code>-D</code> props → OS <code>ENV_VARS</code> → <code>application-{profile}.yml</code> → <code>application.yml</code>).</li>
+    <li><strong>Step 2 (Box 2 Gatekeeping — <code>@Profile</code> &amp; <code>@ConditionalOnProperty</code>):</strong> While scanning recipes into Box 2 (<code>beanDefinitionMap</code>), Spring checks <code>@Profile("prod")</code> against <code>environment.getActiveProfiles()</code> and <code>@ConditionalOnProperty</code> against <code>environment.getProperty(...)</code>. Non-matching recipes never enter Box 2.</li>
+    <li><strong>Step 3 (Box 3 Constructor &amp; <code>@ConfigurationProperties</code> Binding):</strong> When Box 3 instantiates a <code>@ConfigurationProperties</code> record, Spring's <code>Binder</code> queries Box 1 using <strong>relaxed binding</strong> (<code>BOOKVAULT_MAX_PAGE_SIZE</code> → <code>bookvault.max-page-size</code>), converts strings into <code>Duration</code> / <code>DataSize</code> / <code>int</code>, runs Jakarta <code>@Validated</code> checks, and calls the record's constructor.</li>
+    <li><strong>Step 4 (Box 3/4 <code>@Value</code> Injection):</strong> When Box 3 creates a bean with <code>@Value("${my.key}")</code>, it resolves the string from Box 1. (Note: if <code>@Value</code> is on a field instead of a constructor parameter, by <strong>Rule 1</strong> it is injected *after* the constructor runs!)</li>
+  </ol>
+</div>
+
+<figure>
+<svg viewBox="0 0 760 320" width="100%" role="img" aria-label="Box 1 List of PropertySources searched from index 0 downward">
+  <style>
+    .hi{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.5}
+    .mid{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .lo{fill:#eefaf4;stroke:#6db33f;stroke-width:1.4}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11.5px Georgia,serif;fill:#3f3b34}
+    .h{font:bold 12.5px Georgia,serif;fill:#2b2b28}
+    .a{stroke:#7a1f1f;stroke-width:1.8;marker-end:url(#mb);fill:none}
+  </style>
+  <defs><marker id="mb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker></defs>
+
+  <text class="h" x="14" y="18">Box 1: List&lt;PropertySource&gt; — Searched Top-to-Bottom (First Hit Wins!)</text>
+
+  <rect class="hi" x="14" y="30" width="580" height="36" rx="4"/>
+  <text class="t" x="26" y="53">[0] @TestPropertySource / @SpringBootTest(properties=…)  (in tests)</text>
+
+  <rect class="hi" x="14" y="74" width="580" height="36" rx="4"/>
+  <text class="t" x="26" y="97">[1] Command-line arguments        --server.port=9000</text>
+
+  <rect class="mid" x="14" y="118" width="580" height="36" rx="4"/>
+  <text class="t" x="26" y="141">[2] Java System properties        -Dserver.port=9000</text>
+
+  <rect class="mid" x="14" y="162" width="580" height="36" rx="4"/>
+  <text class="t" x="26" y="185">[3] OS Environment variables      SERVER_PORT=9000  (Docker / Kubernetes)</text>
+
+  <rect class="lo" x="14" y="206" width="580" height="36" rx="4"/>
+  <text class="t" x="26" y="229">[4] application-{profile}.yml     (e.g. application-prod.yml)</text>
+
+  <rect class="lo" x="14" y="250" width="580" height="36" rx="4"/>
+  <text class="t" x="26" y="273">[5] application.yml               (base defaults inside JAR)</text>
+
+  <path class="a" d="M625,38 L625,280"/>
+  <text class="c" x="640" y="65" style="font-weight:bold;fill:#7a1f1f">getProperty(k)</text>
+  <text class="c" x="640" y="85">checks [0], [1],</text>
+  <text class="c" x="640" y="103">[2]… and stops</text>
+  <text class="c" x="640" y="121">at the FIRST</text>
+  <text class="c" x="640" y="139">Map that has</text>
+  <text class="c" x="640" y="157">the key!</text>
+
+  <text class="c" x="14" y="308">Note: Within files ([4] &amp; [5]), external files next to the JAR (./config/application.yml) sit above files packaged inside the JAR.</text>
+</svg>
+<figcaption>The practical precedence ladder inside Box 1 (<code>Environment</code>).
+<span class="sources">(Full 14-step list: <a href="https://docs.spring.io/spring-boot/reference/features/external-config.html">Spring Boot Reference — Externalized Configuration</a>.)</span></figcaption>
+</figure>
+
+<h3><code>@ConfigurationProperties</code> vs <code>@Value</code> — and Relaxed Binding</h3>
+<p>
+Why do Linux/Docker environment variables look like <code>DB_POOL_SIZE=20</code>, while YAML files look like <code>db.pool-size: 20</code>, and Java fields look like <code>int poolSize</code>? Because Linux shells only allow letters, digits, and underscores in environment variable names!
+</p>
+<p>
+Spring Boot bridges this gap with <strong>Relaxed Binding</strong>: when binding a <code>@ConfigurationProperties(prefix = "db")</code> object, Boot automatically normalizes all of these to the Java field <code>poolSize</code>:
+</p>
+<ul>
+  <li><code>db.pool-size</code> (kebab-case in <code>application.yml</code> — canonical)</li>
+  <li><code>db.poolSize</code> (camelCase in <code>.properties</code>)</li>
+  <li><code>db.pool_size</code> (snake_case)</li>
+  <li><code>DB_POOL_SIZE</code> (UPPERCASE_SNAKE_CASE in OS environment variables)</li>
+</ul>
+
+<table>
+<thead><tr><th>Feature</th><th><code>@Value("${db.pool-size}")</code></th><th><code>@ConfigurationProperties(prefix = "db")</code> <span style="color:#1f6b4d">✓</span></th></tr></thead>
+<tbody>
+<tr><td>How many properties bound</td><td>One single field/param at a time</td><td>An entire cohesive group into a typed Java <code>record</code></td></tr>
+<tr><td>Relaxed binding</td><td>Limited / brittle with complex env vars</td><td><strong>Full relaxed binding</strong> (maps <code>DB_POOL_SIZE</code> → <code>db.pool-size</code> → <code>poolSize</code>)</td></tr>
+<tr><td>Startup validation</td><td>None (unless inside a validated bean)</td><td><strong><code>@Validated</code> + <code>@NotBlank</code> / <code>@Min</code> / <code>@Max</code></strong> — fails fast at startup!</td></tr>
+<tr><td>Complex types (<code>List</code>, <code>Map</code>, nested objects)</td><td>Awkward or impossible</td><td>First-class support (<code>List&lt;String&gt;</code>, <code>Duration</code>, <code>DataSize</code>, nested records)</td></tr>
+<tr><td>Unit testing without Spring</td><td>Hard (if injected onto private fields)</td><td>Trivial: just call <code>new DbProperties("jdbc:...", 20)</code> in your JUnit test!</td></tr>
+</tbody></table>
+
+<h3>How <code>@Profile</code> Gatekeeps Box 1 and Box 2</h3>
+<p>
+A profile (like <code>dev</code>, <code>test</code>, or <code>prod</code>) is just a string in Box 1's <code>Set&lt;String&gt; activeProfiles</code>, activated via <code>SPRING_PROFILES_ACTIVE=prod</code> or <code>--spring.profiles.active=prod</code>. It controls two things:
+</p>
+<ol>
+  <li><strong>In Box 1 (Which property maps get loaded):</strong> Activating <code>prod</code> adds <code>application-prod.yml</code> (or the <code>spring.config.activate.on-profile: prod</code> section of <code>application.yml</code>) into <code>List&lt;PropertySource&gt;</code> above <code>application.yml</code>.</li>
+  <li><strong>In Box 2 (Which bean recipes get registered):</strong> Putting <code>@Profile("prod")</code> on a <code>@Component</code> or <code>@Bean</code> method acts as a <code>@Conditional</code> gatekeeper—if <code>"prod"</code> is not in <code>activeProfiles</code>, that recipe is never added to <code>beanDefinitionMap</code>!</li>
+</ol>
+
+<h2><span class="n">§4</span>When to use — Decision Table</h2>
+<table>
+<thead><tr><th>What varies between environments</th><th>Which tool to use</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td><strong>Values</strong> change (URLs, pool sizes, timeouts, credentials), same Java class runs everywhere</td><td>Externalized properties + <strong><code>@ConfigurationProperties</code> record</strong></td><td>Keeps the exact same bean graph in dev, test, and prod; only the injected numbers/strings change.</td></tr>
+<tr><td><strong>Implementation class</strong> changes (e.g., <code>SmtpMailSender</code> in prod vs <code>InMemoryMailSender</code> in local dev)</td><td><strong><code>@Profile("prod")</code></strong> / <strong><code>@Profile("dev")</code></strong> on the beans</td><td>Swaps which recipe enters Box 2 based on the target environment.</td></tr>
+<tr><td>Toggling a single feature on or off via configuration</td><td><strong><code>@ConditionalOnProperty(name = "feature.x.enabled")</code></strong></td><td>More surgical than <code>@Profile</code>; ties the bean directly to one self-documenting property.</td></tr>
+<tr><td>Injecting a single one-off property or SpEL expression</td><td><strong><code>@Value("${app.version}")</code></strong> on a <strong>constructor parameter</strong></td><td>Convenient for 1 property; passing via constructor avoids Rule 1's <code>null</code>-in-constructor trap!</td></tr>
+<tr><td>Mounting secrets in Kubernetes / Docker Swarm</td><td><strong><code>spring.config.import=optional:configtree:/run/secrets/</code></strong></td><td>Reads mounted secret files directly into Box 1 without exposing secrets in process environment tables.</td></tr>
+</tbody></table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine you are asking your family what temperature to set the house thermostat to. Instead of asking everyone at random, you have a strict <strong>Priority List (Box 1's <code>List&lt;PropertySource&gt;</code>)</strong> taped to the wall:
+</p>
+<ol>
+  <li><strong>Line 1:</strong> What Mom just shouted from the kitchen right now (<strong>Command-line args</strong>).</li>
+  <li><strong>Line 2:</strong> The sticky note on the fridge (<strong>OS Environment Variables</strong>).</li>
+  <li><strong>Line 3:</strong> The "Winter Rules" booklet (<strong><code>application-winter.yml</code></strong>).</li>
+  <li><strong>Line 4:</strong> The factory manual that came with the thermostat (<strong><code>application.yml</code></strong>).</li>
+</ol>
+<p>
+You read the list from Line 1 downward. The <strong>very first line that gives you an answer wins</strong>, and you stop reading! So if the manual says <code>20°C</code>, the fridge note says <code>22°C</code>, and Mom shouts <code>18°C</code>, you set it to <code>18°C</code> because Line 1 is at the top of the list.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← Lesson 04 (Bean Lifecycle):</strong> By <strong>Rule 1 (Order of Steps)</strong>, Java constructors run *before* field injection (<code>@Autowired</code> / <code>@Value</code> on fields). That is why reading a <code>@Value</code> field inside a constructor always gives <code>null</code>!</li>
+  <li><strong>← Lesson 05 (Component Model):</strong> <code>@Profile</code> is implemented as a <code>@Conditional(ProfileCondition.class)</code> that checks Box 1's <code>Environment</code> before registering a recipe in Box 2.</li>
+  <li><strong>← Lesson 07 (Spring Boot Auto-Configuration):</strong> Every auto-configuration class in Box 2B uses <code>@EnableConfigurationProperties(SomeProperties.class)</code> to pull its settings from Box 1.</li>
+  <li><strong>→ Lesson 14 (Testing) &amp; Lesson 15 (Actuator):</strong> <code>@ActiveProfiles("test")</code> and <code>@SpringBootTest(properties = ...)</code> sit at index <code>0</code> of Box 1 in tests; <code>/actuator/env</code> lets you inspect the entire <code>List&lt;PropertySource&gt;</code> at runtime.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Code Dissection &amp; Interview Derivation</h2>
+
+<h3>Code Dissection: Immutable <code>@ConfigurationProperties</code> Record + Constructor Binding</h3>
+<pre><span class="c">// 1. Group related properties into an immutable, validated Java record:</span>
+<span class="an">@ConfigurationProperties</span>(prefix = <span class="s">"bookvault.catalog"</span>)
+<span class="an">@Validated</span>                                                      <span class="c">// ① Fail at startup if constraints fail!</span>
+<span class="k">public record</span> CatalogProperties(
+    <span class="an">@NotBlank</span> String baseUrl,                                   <span class="c">// ② Binds bookvault.catalog.base-url / BOOKVAULT_CATALOG_BASE_URL</span>
+    <span class="an">@DefaultValue</span>(<span class="s">"2s"</span>) Duration timeout,                       <span class="c">// ③ Parses "2s", "500ms", "PT2S" automatically</span>
+    <span class="an">@Min</span>(1) <span class="an">@Max</span>(200) <span class="an">@DefaultValue</span>(<span class="s">"50"</span>) <span class="k">int</span> maxPageSize
+) {}
+
+<span class="c">// 2. Register it (or place @ConfigurationPropertiesScan on BookVaultApplication):</span>
+<span class="an">@Configuration</span>
+<span class="an">@EnableConfigurationProperties</span>(CatalogProperties.class)         <span class="c">// ④ Registers CatalogProperties recipe in Box 2</span>
+<span class="k">public class</span> CatalogConfig {}
+
+<span class="c">// 3. Inject into your service via constructor:</span>
+<span class="an">@Service</span>
+<span class="k">public class</span> CatalogClient {
+    <span class="k">private final</span> RestClient http;
+
+    <span class="k">public</span> CatalogClient(RestClient.Builder builder, CatalogProperties props) {
+        <span class="c">// ⑤ Safe inside constructor! `props` is already bound and validated in Box 3!</span>
+        <span class="k">this</span>.http = builder.baseUrl(props.baseUrl()).build();
+    }
+}</pre>
+<div class="ann"><strong>Chunk-by-chunk dissection:</strong>
+<strong>①</strong> <code>@Validated</code> triggers Jakarta Bean Validation the moment Box 3 constructs <code>CatalogProperties</code>. If <code>bookvault.catalog.base-url</code> is missing or <code>max-page-size: 999</code>, the app refuses to start and prints the exact offending property name and value.
+<strong>②</strong> Because <code>CatalogProperties</code> is a Java <code>record</code>, Spring Boot uses <strong>constructor binding</strong> automatically—there are no setter methods, so no code can mutate your configuration at runtime.
+<strong>⑤</strong> Because <code>CatalogProperties</code> is passed as a constructor parameter, <code>props.baseUrl()</code> is non-null and ready to use right inside <code>CatalogClient</code>'s constructor.</div>
+
+<div class="try"><strong>Try this / Predict the output:</strong>
+Suppose a developer writes this service class:
+<pre style="margin:.4rem 0"><span class="an">@Service</span>
+<span class="k">public class</span> PaymentService {
+    <span class="an">@Value</span>(<span class="s">"${payment.api-url}"</span>)
+    <span class="k">private</span> String apiUrl;
+
+    <span class="k">public</span> PaymentService() {
+        System.out.println(<span class="s">"Connecting to: "</span> + apiUrl.toUpperCase());
+    }
+}</pre>
+<strong>Predict:</strong> Even if <code>payment.api-url=https://pay.example.com</code> is present in <code>application.yml</code>, what happens at startup?
+<br/><em>Answer:</em> Startup crashes with a <code>NullPointerException</code> inside <code>PaymentService()</code>! By <strong>Universal Rule 1 (Order of Steps)</strong>, Java must finish running <code>new PaymentService()</code> (the constructor) <em>before</em> Box 4's <code>AutowiredAnnotationBeanPostProcessor</code> can inject <code>@Value</code> onto the private field <code>apiUrl</code>. Inside the constructor, <code>apiUrl</code> is still <code>null</code>! Fix: put <code>@Value("${payment.api-url}") String apiUrl</code> as a constructor parameter (or better, inject a <code>@ConfigurationProperties</code> record).</div>
+
+<h3>How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead><tr><th>Classic Interview Question</th><th>Which Box / Rule to Check</th><th>10-Second Derived Answer</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>"If a property is defined in <code>application.yml</code>, an OS environment variable, and a CLI <code>--arg</code>, which one wins and why?"</strong></td>
+  <td><strong>Box 1 (<code>List&lt;PropertySource&gt;</code>)</strong></td>
+  <td>The CLI <code>--arg</code> wins (followed by OS env var, then <code>application.yml</code>). Box 1's <code>Environment</code> holds an ordered <code>List&lt;PropertySource&gt;</code> with CLI args near index 0 and <code>application.yml</code> near the bottom; <code>getProperty()</code> searches top-to-bottom and returns the first match.</td>
+</tr>
+<tr>
+  <td><strong>"Why was my <code>@Value</code> field <code>null</code> inside the bean's constructor?"</strong></td>
+  <td><strong>Rule 1 (Constructor before <code>@Value</code> field injection)</strong></td>
+  <td>In Box 3, Spring must call <code>new MyBean()</code> first before any <code>BeanPostProcessor</code> (Box 4) can reflectively set <code>@Value</code> fields on the constructed instance. Pass the <code>@Value</code> (or <code>@ConfigurationProperties</code> record) as a constructor parameter instead.</td>
+</tr>
+<tr>
+  <td><strong>"When should you use <code>@ConfigurationProperties</code> vs <code>@Value</code>?"</strong></td>
+  <td><strong>Box 1 → Box 3 Binding</strong></td>
+  <td>Use <code>@ConfigurationProperties</code> (on a <code>@Validated record</code>) whenever you have related settings: it gives type-safe grouping, JSR-380 startup validation, nested lists/maps, and full relaxed binding (<code>DB_POOL_SIZE</code> → <code>db.pool-size</code>). Use <code>@Value</code> only for isolated single keys or SpEL expressions.</td>
+</tr>
+<tr>
+  <td><strong>"How does <code>@Profile("prod")</code> work under the hood?"</strong></td>
+  <td><strong>Box 1 (<code>activeProfiles</code>) → Box 2 (<code>@Conditional</code>)</strong></td>
+  <td><code>@Profile</code> is a meta-annotation carrying <code>@Conditional(ProfileCondition.class)</code>. During Box 2 recipe scanning, <code>ProfileCondition</code> checks if <code>"prod"</code> is in Box 1's <code>environment.getActiveProfiles()</code>. If not, the recipe is skipped and never enters <code>beanDefinitionMap</code>.</td>
+</tr>
+<tr>
+  <td><strong>"What happens if you override a YAML <code>List</code> property inside <code>application-prod.yml</code>?"</strong></td>
+  <td><strong>Box 1 (<code>getProperty</code> first-hit rule)</strong></td>
+  <td>Unlike <code>Map</code> properties (which merge key-by-key across property sources), a <code>List</code> in a higher-priority <code>PropertySource</code> (<code>application-prod.yml</code>) <strong>replaces</strong> the entire list from <code>application.yml</code> rather than appending to it.</td>
+</tr>
+</tbody></table>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Reading a <code>@Value</code> field inside a constructor.</strong> By <strong>Rule 1</strong>, the constructor runs before field injection, so the field is always <code>null</code> inside the constructor. Always use constructor injection (<code>public MyService(@Value("${...}") String url)</code> or <code>CatalogProperties props</code>).</div>
+<div class="pitfall"><strong>Creating a <code>@ConfigurationProperties</code> class and forgetting <code>@EnableConfigurationProperties</code> or <code>@ConfigurationPropertiesScan</code>.</strong> <code>@ConfigurationProperties</code> alone does not register a bean recipe in Box 2! Without enabling it, Spring fails with <code>NoSuchBeanDefinitionException</code> when you try to inject it.</div>
+<div class="pitfall"><strong>Expecting <code>@Value</code> to support full relaxed binding with OS environment variables.</strong> While <code>@ConfigurationProperties(prefix = "bookvault")</code> effortlessly binds <code>BOOKVAULT_MAX_PAGE_SIZE</code> to <code>maxPageSize</code>, <code>@Value</code> lookups are much stricter and easily break when dots, dashes, and camelCase mix with OS env vars.</div>
+<div class="pitfall"><strong>Expecting <code>List</code> properties in <code>application-prod.yml</code> to append to <code>application.yml</code>.</strong> Lists in higher-precedence <code>PropertySource</code>s completely overwrite lists in lower-precedence sources.</div>
+<div class="pitfall"><strong>Hardcoding secrets in <code>application.yml</code> or exposing <code>/actuator/env</code> publicly.</strong> Never commit passwords or API keys to Git; pass them via <code>configtree:/run/secrets/</code>, Vault, or environment variables, and lock down Actuator endpoints in Box 5 (<code>SecurityFilterChain</code>).</div>
+
+<h2><span class="n">§9</span>Recap, Reference &amp; Glossary</h2>
+<ul class="recap">
+  <li><strong>Box 1 (<code>Environment</code>) is built first during Phase 1 (Startup)</strong> and holds <code>List&lt;PropertySource&gt;</code> + <code>Set&lt;String&gt; activeProfiles</code>.</li>
+  <li><strong>Precedence is just list order:</strong> <code>getProperty(key)</code> loops from index <code>0</code> downward (<code>CLI args</code> → <code>JVM -D props</code> → <code>OS ENV_VARS</code> → <code>application-{profile}.yml</code> → <code>application.yml</code>) and returns the first hit.</li>
+  <li><strong>Relaxed binding</strong> maps <code>DB_POOL_SIZE</code> (env var) ↔ <code>db.pool-size</code> (YAML) ↔ <code>poolSize</code> (Java field) on <code>@ConfigurationProperties</code>.</li>
+  <li><strong>Prefer <code>@ConfigurationProperties</code> + <code>record</code> + <code>@Validated</code></strong> over scattered <code>@Value</code> fields for immutability, startup validation, and easy unit testing.</li>
+  <li><strong>Universal Rule 1:</strong> Never read a field-injected <code>@Value</code> inside a constructor; inject via constructor parameters.</li>
+  <li><strong><code>@Profile</code></strong> activates profile-specific YAML files in Box 1 and gatekeeps bean recipes in Box 2.</li>
+</ul>
+
+<h2>Reference — Quick Cheat-Sheet</h2>
+<table>
+<thead><tr><th>You want to…</th><th>Write this</th><th>Box 1 / Box 2 / Box 3 Mechanism</th></tr></thead>
+<tbody>
+<tr><td>Bind a group of settings safely</td><td><code>@ConfigurationProperties("app") @Validated public record AppProps(...) {}</code></td><td>Box 3 binds from Box 1 via constructor + validates at startup.</td></tr>
+<tr><td>Register <code>@ConfigurationProperties</code> records</td><td><code>@ConfigurationPropertiesScan</code> on main class</td><td>Box 2A scans and registers recipes for your property records.</td></tr>
+<tr><td>Provide a default in <code>@Value</code></td><td><code>@Value("${app.timeout:5000}")</code></td><td>Colon <code>:</code> supplies fallback if key is absent in all Box 1 maps.</td></tr>
+<tr><td>Activate the <code>prod</code> profile in Docker</td><td>Env var <code>SPRING_PROFILES_ACTIVE=prod</code></td><td>Adds <code>"prod"</code> to Box 1's <code>activeProfiles</code> and loads <code>application-prod.yml</code>.</td></tr>
+<tr><td>Register a bean only when <code>prod</code> is NOT active</td><td><code>@Profile("!prod")</code></td><td>Box 2 skips the recipe when <code>"prod"</code> is in <code>activeProfiles</code>.</td></tr>
+<tr><td>Mount Kubernetes secret files into Box 1</td><td><code>spring.config.import=optional:configtree:/run/secrets/</code></td><td>Adds a directory-backed <code>PropertySource</code> into Box 1.</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Environment (Box 1)</dt><dd>The container's configuration registry holding the ordered <code>List&lt;PropertySource&gt;</code> and the <code>Set&lt;String&gt; activeProfiles</code>.</dd>
+  <dt>PropertySource</dt><dd>A named <code>Map&lt;String, Object&gt;</code> representing one source of configuration (CLI args, OS env vars, a YAML file, etc.) inside Box 1.</dd>
+  <dt>Precedence ladder</dt><dd>The top-to-bottom order of <code>List&lt;PropertySource&gt;</code> in Box 1; the first source containing a requested key wins.</dd>
+  <dt>Relaxed binding</dt><dd>Spring Boot's normalization rule that matches <code>DB_POOL_SIZE</code>, <code>db.pool-size</code>, <code>db.pool_size</code>, and <code>db.poolSize</code> to the same Java property on <code>@ConfigurationProperties</code>.</dd>
+  <dt>@ConfigurationProperties</dt><dd>Binds a prefix-grouped set of properties from Box 1 into a structured, type-safe Java class or <code>record</code>.</dd>
+  <dt>Constructor binding</dt><dd>Instantiating an immutable <code>@ConfigurationProperties</code> <code>record</code> (or class) by passing bound values directly into its constructor.</dd>
+  <dt>Profile</dt><dd>A named environment label (e.g., <code>dev</code>, <code>prod</code>) stored in Box 1 that activates <code>application-{profile}.yml</code> files and filters <code>@Profile</code>-annotated recipes in Box 2.</dd>
+  <dt>Config tree (<code>configtree:</code>)</dt><dd>A <code>PropertySource</code> that maps files in a directory (such as Kubernetes mounted secrets in <code>/run/secrets/</code>) where the filename is the property key and the file content is the value.</dd>
+</dl>
+
+<h2>Official Documentation &amp; Primary Sources</h2>
+<p>
+Read <a href="https://docs.spring.io/spring-boot/reference/features/external-config.html">Spring Boot Reference — Externalized Configuration</a> (especially the precedence order and <em>Type-safe Configuration Properties</em>) and <a href="https://docs.spring.io/spring-boot/reference/features/profiles.html">Spring Boot Reference — Profiles</a>.
+</p>
+<p class="sources" style="margin-top:2rem">Sources: <a href="https://docs.spring.io/spring-boot/reference/features/external-config.html">Spring Boot Reference — Externalized Configuration</a>; <a href="https://docs.spring.io/spring-boot/reference/features/profiles.html">Spring Boot Reference — Profiles</a>; <a href="https://docs.spring.io/spring-framework/reference/core/beans/environment.html">Spring Framework Reference — Environment Abstraction</a>; <a href="https://12factor.net/config">The Twelve-Factor App — III. Config</a>. Targeting Spring Framework 6.x / Spring Boot 3.x. Authored per Knowledge-Base-2 <code>rules/03-teaching.md</code> and <code>rules/topic-styles/framework.md</code>.</p>
+
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Application Architecture — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<h1>Application Architecture</h1>
+<p class="crumb">Java › lesson 13 of 14 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the weighted capstone: designing systems, not just classes</p>
+
+<div class="tldr">
+<strong>In one line —</strong> Architecture is how you arrange classes so the system stays <strong>easy to change and test</strong> as
+it grows. The core moves: keep each part doing one job (<strong>SOLID</strong>), depend on <strong>interfaces</strong> not concrete
+classes, wire dependencies from outside (<strong>dependency injection</strong>), and separate <strong>layers</strong> (web →
+service → data) so changing one doesn't ripple through the others.</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>This is your mission's target — the weighted capstone. It ties every earlier lesson together: types &amp; interfaces (5),
+immutability &amp; value objects (5, 6, 12), collections (8), and concurrency-safe design (11). Here the question shifts from "does
+this class work?" to "will this <em>system</em> still be changeable in two years?"</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+<p>Software cost is dominated by <em>change</em>, not first write. Without structure, every feature touches everything, tests need the
+whole world spun up, and one change breaks three unrelated things (high coupling). Good architecture buys
+<strong>changeability</strong>: clear boundaries so a change stays local, and <strong>testability</strong>: parts you can test in
+isolation by swapping fakes for real dependencies <span class="sources">(Martin, <em>Clean Architecture</em>; Bloch, <em>Effective Java</em>)</span>.</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+<h3>SOLID — five habits for changeable classes</h3>
+<table>
+<thead><tr><th></th><th>Principle</th><th>Plain meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>S</strong></td><td>Single Responsibility</td><td>one class, one reason to change</td></tr>
+<tr><td><strong>O</strong></td><td>Open/Closed</td><td>extend behaviour without editing existing code</td></tr>
+<tr><td><strong>L</strong></td><td>Liskov Substitution</td><td>a subtype must work anywhere its parent does</td></tr>
+<tr><td><strong>I</strong></td><td>Interface Segregation</td><td>many small interfaces beat one fat one</td></tr>
+<tr><td><strong>D</strong></td><td>Dependency Inversion</td><td>depend on abstractions, not concretes</td></tr>
+</tbody></table>
+
+<h3>Layering &amp; dependency direction</h3>
+<figure>
+<svg viewBox="0 0 760 210" width="100%" role="img" aria-label="Layered architecture: controller, service, repository, with an interface boundary">
+  <style>
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}.i{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}.b2{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#m9);fill:none}
+  </style>
+  <defs><marker id="m9" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+  <rect class="b" x="290" y="15" width="180" height="40" rx="6"/><text class="t" x="315" y="40">Controller (web)</text>
+  <rect class="b" x="290" y="80" width="180" height="40" rx="6"/><text class="t" x="330" y="105">Service (logic)</text>
+  <rect class="i" x="290" y="145" width="180" height="40" rx="6"/><text class="t" x="300" y="170">Repository (interface)</text>
+  <rect class="b2" x="540" y="145" width="180" height="40" rx="6"/><text class="t" x="548" y="170">JpaRepo / InMemoryRepo</text>
+  <line class="a" x1="380" y1="55" x2="380" y2="79"/>
+  <line class="a" x1="380" y1="120" x2="380" y2="144"/>
+  <line class="a" x1="470" y1="165" x2="538" y2="165"/>
+  <text class="c" x="50" y="105">Each layer depends only</text><text class="c" x="50" y="122">on the one below —</text>
+  <text class="c" x="50" y="139">through an interface.</text>
+  <text class="c" x="500" y="205">Swap the implementation (real DB ↔ fake) without touching Service.</text>
+</svg>
+<figcaption>Dependencies point one way and cross an <strong>interface</strong> boundary. The service depends on a
+<code>Repository</code> interface, not a database — so tests inject a fake. (Layered/hexagonal style; Martin, <em>Clean Architecture</em>.)</figcaption>
+</figure>
+
+<h3>Dependency injection — wire from outside</h3>
+<p>Instead of a class building its own dependencies (<code>new JpaUserRepo()</code> — welded to one implementation), it
+<em>receives</em> them through its constructor. Now the caller decides what to pass: the real repo in production, a fake in tests.
+This is <strong>Dependency Inversion + Injection</strong> in practice, and it's why frameworks like Spring exist.</p>
+
+<h3>Composition &amp; patterns, used idiomatically</h3>
+<p>Most reuse should be <strong>composition</strong> (hold a collaborator) not inheritance. The classic
+<strong>Gang-of-Four patterns</strong> are named solutions — <em>Strategy</em> (swap an algorithm via an interface),
+<em>Factory</em> (centralise construction), <em>Adapter</em> (make one API fit another), <em>Observer</em> (publish/subscribe). Use
+them when the shape fits, not as decoration.</p>
+
+<div class="idiom"><strong>The through-line:</strong> program to interfaces, inject dependencies, prefer immutability, keep each module's
+public surface small. Do those four and SOLID mostly falls out for free.</div>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong>Interfaces + DI</strong> — anywhere you cross a boundary (DB, network, clock, randomness) so you can test without it.</li>
+  <li><strong>Layering</strong> — separate web/transport, business logic, and persistence in any non-trivial app.</li>
+  <li><strong>Strategy</strong> — when one step has several interchangeable algorithms.</li>
+  <li><strong>Immutability (records)</strong> — for domain values passed around and across threads.</li>
+  <li><strong>Package/module boundaries</strong> — expose a thin API, hide internals (<code>private</code>, package-private, JPMS).</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>A good restaurant separates the <strong>waiter</strong> (takes orders), the <strong>chef</strong> (cooks), and the
+<strong>pantry</strong> (stores food). The chef doesn't care <em>which</em> pantry supplies the tomatoes — a fresh market or a can —
+as long as it fits the "give me tomatoes" slot (an <strong>interface</strong>). So you can swap suppliers without retraining the
+chef. If instead the chef personally grew every tomato, changing suppliers would mean rebuilding the whole kitchen. Architecture is
+keeping those jobs separate so any one can change on its own.</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← type-system-and-oop:</strong> interfaces + composition are the raw materials; SOLID is how you use them.</li>
+  <li><strong>← modern-java:</strong> sealed + records make domain models precise and immutable.</li>
+  <li><strong>← concurrency:</strong> stateless services + immutable values sidestep most threading bugs.</li>
+  <li><strong>→ tooling-and-ecosystem:</strong> modules, build tools, and tests enforce these boundaries mechanically.</li>
+  <li><strong>Same idea elsewhere:</strong> SOLID, DI, and layering are language-agnostic — identical in C#, Python, Go, TypeScript.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — dependency inversion, dissected</h2>
+<pre><span class="c">// The boundary: the service depends on THIS, not on a database.</span>
+<span class="k">interface</span> UserRepository { Optional&lt;User&gt; findById(String id); }
+
+<span class="c">// Business logic — knows nothing about JPA, SQL, or HTTP.</span>
+<span class="k">final class</span> UserService {
+    <span class="k">private final</span> UserRepository repo;             <span class="c">// depend on the abstraction</span>
+    UserService(UserRepository repo) { <span class="k">this</span>.repo = repo; } <span class="c">// injected from outside</span>
+
+    String greet(String id) {
+        <span class="k">return</span> repo.findById(id)
+                   .map(u -&gt; <span class="s">"Hi "</span> + u.name())
+                   .orElse(<span class="s">"Unknown user"</span>);       <span class="c">// Optional from lesson 7</span>
+    }
+}
+
+<span class="c">// Production wires the real one; a test wires a fake — no DB needed.</span>
+UserService prod = <span class="k">new</span> UserService(<span class="k">new</span> JpaUserRepository(dataSource));
+UserService test = <span class="k">new</span> UserService(id -&gt; Optional.of(<span class="k">new</span> User(<span class="s">"Ada"</span>)));</pre>
+<div class="ann">The whole point sits in that last line: because <code>UserService</code> only knows the <code>UserRepository</code>
+<em>interface</em>, the test hands it a one-line lambda fake and verifies the logic in microseconds — no database, no framework. Flip
+it around (a <code>new JpaUserRepository()</code> hard-coded inside the service) and the class becomes untestable and welded to one
+storage choice. Interface + injection is the smallest change that buys the most flexibility.</div>
+
+<div class="try"><strong>Design drill.</strong> Add email + SMS notifications to this app. Sketch it with a <code>Notifier</code> interface
+and two implementations injected into the service (Strategy pattern). Which SOLID letters did you just satisfy? <em>(Hint: O — add a
+new notifier without editing the service; D — the service depends on the interface.)</em></div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>God classes.</strong> A class that does everything violates S and can't be tested. Split by responsibility.</div>
+<div class="pitfall"><strong>Leaky layers.</strong> A controller reaching straight into the database skips the service and spreads logic everywhere.</div>
+<div class="pitfall"><strong>Inheritance for reuse.</strong> Deep hierarchies to share a method are brittle — compose instead (lesson 5).</div>
+<div class="pitfall"><strong>Over-engineering.</strong> Patterns and layers for a 200-line tool are cost, not value. Add structure as complexity demands.</div>
+<div class="pitfall"><strong>New-ing dependencies inside a class.</strong> It couples you to one implementation and blocks testing. Inject them.</div>
+<div class="pitfall"><strong>Anemic + leaky domain.</strong> Exposing mutable internals breaks encapsulation; prefer immutable value objects (records).</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>Architecture optimises for <strong>change</strong> and <strong>testability</strong>, not first-write speed.</li>
+  <li><strong>SOLID</strong> = five habits; the practical core is "one job per class" + "depend on abstractions."</li>
+  <li><strong>Program to interfaces</strong> and <strong>inject dependencies</strong> so you can swap and test.</li>
+  <li><strong>Layer</strong> the system (web → service → data); dependencies point one way, across interfaces.</li>
+  <li>Prefer <strong>composition</strong> and <strong>immutability</strong>; use GoF patterns when the shape genuinely fits.</li>
+  <li>Keep module surfaces small; <strong>don't over-engineer</strong> — add structure as the system grows.</li>
+</ul>
+
+<hr/>
+<h2>Reference — smell → move</h2>
+<table>
+<thead><tr><th>Smell</th><th>Refactor toward</th></tr></thead>
+<tbody>
+<tr><td>class does many things</td><td>split by responsibility (S)</td></tr>
+<tr><td><code>new</code> a dependency inside</td><td>constructor injection (D)</td></tr>
+<tr><td><code>if/else</code> over a type</td><td>polymorphism / Strategy</td></tr>
+<tr><td>can't test without a DB</td><td>repository interface + fake</td></tr>
+<tr><td>deep <code>extends</code> chain</td><td>composition</td></tr>
+<tr><td>fat interface</td><td>segregate into small ones (I)</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Coupling / Cohesion</dt><dd>How much parts depend on each other / how focused a part is. Aim low coupling, high cohesion.</dd>
+  <dt>SOLID</dt><dd>Five design principles for changeable OO code.</dd>
+  <dt>Dependency Injection</dt><dd>Passing a class its collaborators from outside rather than constructing them.</dd>
+  <dt>Layered architecture</dt><dd>Separating presentation, business logic, and data with one-way dependencies.</dd>
+  <dt>Strategy pattern</dt><dd>Swap an algorithm behind a common interface.</dd>
+  <dt>Repository</dt><dd>An interface abstracting data access from business logic.</dd>
+  <dt>Immutability</dt><dd>Objects that don't change after creation; safe to share.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/tutorial/java/IandI/index.html">Oracle — Interfaces &amp; Inheritance</a> for the language mechanics, then Robert C. Martin's <em>Clean Architecture</em> and Joshua Bloch's <em>Effective Java</em> (Items 18–22, 64) for the design principles.</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>Java Tutorials</em> (Interfaces &amp; Inheritance); Martin, <em>Clean Architecture</em>; Bloch, <em>Effective Java</em> (3rd ed.); Gamma et al., <em>Design Patterns</em>. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>What a String Really Is — Strings, Part 1 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .step{display:flex;gap:.8rem;margin:.9rem 0} .step .num{flex:0 0 2rem;height:2rem;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.95rem}
+  .step .body{flex:1} .step .body strong{display:block}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>What a String Really Is</h1>
+<p class="crumb">Java › strings cluster · lesson 9, <strong>part 1 of 3</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the most-used type in the language</p>
+
+<p class="nav"><strong>Strings cluster:</strong>
+  <strong>1. What a String really is</strong> ·
+  <a href="lesson-2-building-text.html">2. Building text</a> ·
+  <a href="lesson-3-characters-and-encoding.html">3. Characters, bytes &amp; encoding</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> A <code>String</code> is a <em>box of letters that can never be changed</em>.
+Once Java makes one, nobody can edit a single letter inside it. Every method that looks like it edits a
+string actually hands you a <strong>brand-new</strong> string and leaves the old one alone. This one rule
+explains everything else in this lesson: why strings are safe to share, why Java keeps one copy of
+repeated text, and why <code>==</code> gives such strange answers.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+Text is the thing your program handles most. Names, messages, file paths, JSON, SQL, log lines, HTTP
+headers — all of it is text. In Java, all of it is <code>String</code>.
+</p>
+<p>
+This sits right on top of everything you have learnt so far. A string is an
+<a href="../05-type-system-and-oop/lesson.html">object</a>, so a <code>String</code> variable holds an
+<em>arrow</em> to it, not the letters themselves. It lives on the
+<a href="../06-memory-model-and-gc/lesson.html">heap</a>, so the garbage collector cleans it up. And it is the
+most common <a href="../08-collections-and-equality/lesson-2-maps-and-hashing.html">map key</a> in all of Java.
+By the end of this cluster you should be able to answer, from first principles, the question every Java
+interview asks: <em>"what is the difference between <code>==</code> and <code>equals</code>?"</em>
+</p>
+<p>The subject is big, so it is split into three small lessons:</p>
+<ul>
+  <li><strong>Part 1 (this one)</strong> — what a string is made of, why it cannot be changed, the shared pool, and <code>==</code> vs <code>equals</code>.</li>
+  <li><strong><a href="lesson-2-building-text.html">Part 2</a></strong> — how to actually build and slice text: <code>+</code>, <code>StringBuilder</code>, and the everyday method toolbox.</li>
+  <li><strong><a href="lesson-3-characters-and-encoding.html">Part 3</a></strong> — what a letter <em>is</em> underneath: characters, Unicode, bytes, and encoding.</li>
+</ul>
+
+<h2><span class="n">§2</span>Why it exists — the problem before <code>String</code></h2>
+
+<h3>Start from nothing: text as a bag of letters</h3>
+<p>
+Suppose Java had no <code>String</code> class. The only way to hold the word "hello" would be an array of
+letters:
+</p>
+<pre><span class="k">char</span>[] greeting = {<span class="s">'h'</span>,<span class="s">'e'</span>,<span class="s">'l'</span>,<span class="s">'l'</span>,<span class="s">'o'</span>};</pre>
+<p>This works. It is exactly what the C language does. But it hurts in four ways.</p>
+
+<div class="step"><div class="num">1</div><div class="body"><strong>It has no behaviour.</strong>
+There is no "make this upper case", no "does this start with 'he'?", no "split this on commas". You would write
+every one of those by hand, in every project, forever.</div></div>
+
+<div class="step"><div class="num">2</div><div class="body"><strong>Anyone can edit it behind your back.</strong>
+An array is <em>mutable</em>. If you pass <code>greeting</code> to a method, that method can do
+<code>greeting[0] = 'j'</code>. Your variable now says "jello" and you never asked for it. You could never hand
+your text to code you do not control.</div></div>
+
+<div class="step"><div class="num">3</div><div class="body"><strong>It cannot be a safe key.</strong>
+Think of a <a href="../08-collections-and-equality/lesson-2-maps-and-hashing.html">HashMap</a>. You file a value
+under the key "alice". A map finds things by the key's <em>hash number</em>. If someone later edits the letters of
+that key, the hash changes, and the map can no longer find its own entry. The value is lost inside the map.</div></div>
+
+<div class="step"><div class="num">4</div><div class="body"><strong>It cannot be trusted across a security check.</strong>
+Imagine code that checks <code>isAllowed(path)</code> and then opens <code>path</code>. If <code>path</code> can be
+edited, another thread can change it <em>in between</em> the check and the open. You checked one file and opened a
+different one. This class of bug has a name: time-of-check to time-of-use.</div></div>
+
+<h3>The fix: make editing impossible</h3>
+<p>
+Java's answer is blunt and very effective. The class is declared <code>public final class String</code>, the
+letters are kept in a <code>private final</code> array, and <em>not one single method</em> writes to that array
+<span class="sources">(Oracle, <a href="https://docs.oracle.com/javase/8/docs/api/java/lang/String.html">String API</a>:
+"Strings are constant; their values cannot be changed after they are created")</span>. The array is never handed
+out, so nobody outside can reach it.
+</p>
+<p>All four problems dissolve at once:</p>
+<ul>
+  <li>You can hand a string to <em>any</em> method, even untrusted code, and it comes back untouched. No copying needed.</li>
+  <li>Many threads can read the same string at the same time with no locks. An object that cannot change is automatically thread-safe.</li>
+  <li>It is a perfect map key — its hash can never go stale.</li>
+  <li>Because the letters are frozen, two strings with the same letters are interchangeable, so Java can quietly
+      keep <strong>one shared copy</strong> and save memory. That is the pool, below.</li>
+</ul>
+
+<div class="callout"><strong>The trade you make.</strong> Immutability is not free. "Changing" a string means
+building a whole new one, so a loop that keeps appending creates a mountain of garbage. Java's answer to that is
+<code>StringBuilder</code> — a separate, mutable class — which is all of
+<a href="lesson-2-building-text.html">part 2</a>.</div>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>3.1 What is actually inside a String object</h3>
+<p>
+A <code>String</code> is an ordinary object on the heap. Nothing magic. On JDK 8 it holds exactly two interesting
+fields:
+</p>
+<pre><span class="k">public final class</span> String {
+    <span class="k">private final char</span>[] value;   <span class="c">// the letters (JDK 8)</span>
+    <span class="k">private int</span> hash;             <span class="c">// cached hashCode, 0 until first asked</span>
+}</pre>
+<p>So a string variable is really a chain of three things: variable → String object → character array.</p>
+
+<figure>
+<svg viewBox="0 0 760 215" width="100%" role="img" aria-label="A String variable points to a String object which points to a char array">
+  <style>
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}.p{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .cell{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.2}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#ma);fill:none}
+  </style>
+  <defs><marker id="ma" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+  <text class="c" x="20" y="20" style="font-weight:bold;font-style:normal">STACK</text>
+  <rect class="b" x="20" y="32" width="140" height="40" rx="5"/><text class="t" x="42" y="57">s = ref</text>
+  <text class="c" x="22" y="92">a variable holds an arrow,</text><text class="c" x="22" y="106">not the letters</text>
+
+  <text class="c" x="230" y="20" style="font-weight:bold;font-style:normal">HEAP</text>
+  <rect class="p" x="230" y="32" width="200" height="78" rx="6"/>
+  <text class="t" x="245" y="55">String object</text>
+  <text class="t" x="245" y="76">value = ref</text>
+  <text class="t" x="245" y="97">hash  = 0</text>
+
+  <rect class="cell" x="500" y="36" width="36" height="34"/><text class="t" x="513" y="59">h</text>
+  <rect class="cell" x="536" y="36" width="36" height="34"/><text class="t" x="549" y="59">e</text>
+  <rect class="cell" x="572" y="36" width="36" height="34"/><text class="t" x="587" y="59">l</text>
+  <rect class="cell" x="608" y="36" width="36" height="34"/><text class="t" x="623" y="59">l</text>
+  <rect class="cell" x="644" y="36" width="36" height="34"/><text class="t" x="657" y="59">o</text>
+  <text class="c" x="500" y="90">final char[] — private, never handed out,</text>
+  <text class="c" x="500" y="104">never written to after construction</text>
+
+  <line class="a" x1="160" y1="52" x2="228" y2="60"/>
+  <line class="a" x1="430" y1="74" x2="498" y2="58"/>
+
+  <rect x="150" y="150" width="540" height="48" rx="6" style="fill:#fff6e0;stroke:#d0a94a"/>
+  <text class="c" x="168" y="170" style="font-style:normal">The letters sit one more hop away. Because that array is private and final,</text>
+  <text class="c" x="168" y="187" style="font-style:normal">and no method ever writes to it, the string is frozen for life.</text>
+</svg>
+<figcaption>A string on JDK 8: variable → String object → <code>char[]</code>. The freeze happens at the array,
+which is private and never escapes (Oracle, <em>String</em> API).</figcaption>
+</figure>
+
+<div class="callout"><strong>JDK 9 changed the storage, not the idea.</strong> Since Java 9 the field is a
+<code>byte[]</code> plus a one-byte <em>coder</em> flag. Text that is all Latin-1 then uses one byte per letter
+instead of two, roughly halving the memory most applications spend on text. This is called <strong>compact
+strings</strong> <span class="sources">(<a href="https://openjdk.org/jeps/254">JEP 254</a>)</span>. Nothing in your
+code changes — the class is still immutable and the API is identical.</div>
+
+<h3>3.2 What "immutable" actually feels like</h3>
+<p>
+Every method on <code>String</code> that sounds like an edit — <code>concat</code>, <code>toUpperCase</code>,
+<code>replace</code>, <code>trim</code>, <code>substring</code> — builds a new string and returns it. The one you
+called it on is untouched. This is the single most common beginner bug in Java:
+</p>
+<pre>String s = <span class="s">"hello"</span>;
+s.toUpperCase();              <span class="c">// result thrown away! s is still "hello"</span>
+System.out.println(s);        <span class="c">// hello</span>
+
+s = s.toUpperCase();          <span class="c">// correct: point s at the NEW string</span>
+System.out.println(s);        <span class="c">// HELLO</span></pre>
+<p>
+Read the second version carefully. The old "hello" object did not change. You moved the <em>arrow</em>
+<code>s</code> so it points at a different object. The original "hello" is still out there, unchanged, until the
+garbage collector notices nobody is pointing at it.
+</p>
+
+<figure>
+<svg viewBox="0 0 760 185" width="100%" role="img" aria-label="Reassigning a string moves the arrow, it does not edit the object">
+  <style>
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}.p{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .old{fill:#f2efe8;stroke:#b5aea0;stroke-width:1.4;stroke-dasharray:4 3}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#mb);fill:none}
+    .dead{stroke:#b5aea0;stroke-width:1.4;stroke-dasharray:4 3;marker-end:url(#mb);fill:none}
+  </style>
+  <defs><marker id="mb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+  <rect class="b" x="30" y="62" width="120" height="40" rx="5"/><text class="t" x="80" y="87">s</text>
+  <rect class="old" x="330" y="22" width="220" height="40" rx="6"/><text class="t" x="352" y="47">"hello"  (unchanged)</text>
+  <rect class="p" x="330" y="112" width="220" height="40" rx="6"/><text class="t" x="372" y="137">"HELLO"  (new)</text>
+  <line class="dead" x1="150" y1="74" x2="328" y2="46"/>
+  <line class="a" x1="150" y1="90" x2="328" y2="130"/>
+  <text class="c" x="168" y="40">was pointing here</text>
+  <text class="c" x="168" y="172">now points here — the old object was never edited</text>
+  <text class="c" x="562" y="47">becomes garbage</text>
+</svg>
+<figcaption><code>s = s.toUpperCase()</code> does not change an object. It makes a second object and re-aims the variable.</figcaption>
+</figure>
+
+<h3>3.3 The string pool — one copy of repeated text</h3>
+<p>
+Now the pay-off. Because strings can never change, two strings with the same letters behave identically forever.
+So why store "hello" a thousand times if your program writes it a thousand times?
+</p>
+<p>
+Java keeps a hidden table called the <strong>string pool</strong> (also: the intern table). Every string
+<em>literal</em> you type in your source — anything in double quotes — is put in that table once. Every other place
+in your whole program that types the same literal gets a pointer to that <em>same one object</em>
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-3.html#jls-3.10.5">JLS §3.10.5</a>:
+string literals "are 'interned' so as to share unique instances")</span>.
+</p>
+<p>
+But if you write <code>new String("hello")</code>, you are explicitly ordering Java to build a fresh object. It
+obeys. You now have two objects with identical letters: the pooled one, and your private one.
+</p>
+
+<figure>
+<svg viewBox="0 0 760 255" width="100%" role="img" aria-label="String pool sharing versus new String on the heap">
+  <style>
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}.b2{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}.p{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#m6);fill:none}
+  </style>
+  <defs><marker id="m6" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+  <rect class="b" x="20" y="30" width="200" height="36" rx="5"/><text class="t" x="35" y="53">a = "hello"</text>
+  <rect class="b" x="20" y="80" width="200" height="36" rx="5"/><text class="t" x="35" y="103">b = "hello"</text>
+  <rect class="b" x="20" y="168" width="230" height="36" rx="5"/><text class="t" x="33" y="191">c = new String("hello")</text>
+
+  <rect class="p" x="470" y="48" width="270" height="58" rx="6"/>
+  <text class="t" x="490" y="72">"hello"</text><text class="c" x="490" y="93">the pooled copy — shared by all literals</text>
+  <rect class="b2" x="470" y="158" width="270" height="58" rx="6"/>
+  <text class="t" x="490" y="182">"hello"</text><text class="c" x="490" y="203">a separate object, because you said "new"</text>
+
+  <line class="a" x1="220" y1="48" x2="468" y2="68"/>
+  <line class="a" x1="220" y1="98" x2="468" y2="86"/>
+  <line class="a" x1="250" y1="186" x2="468" y2="186"/>
+
+  <text class="c" x="258" y="34">a and b are the SAME object → a == b is true</text>
+  <text class="c" x="268" y="140">same letters, different object → a == c is false, a.equals(c) is true</text>
+  <text class="c" x="268" y="240">c.intern() hands back the pooled one → a == c.intern() is true</text>
+</svg>
+<figcaption>Literals are shared through the pool; <code>new String(...)</code> always builds a distinct object;
+<code>intern()</code> asks the pool for its shared copy (JLS §3.10.5; Oracle <em>String</em> API).</figcaption>
+</figure>
+
+<div class="callout"><strong>Where does the pool live?</strong> Up to Java 6 it lived in <em>PermGen</em>, a small
+fixed area, so interning too much could blow up the JVM. Since Java 7 interned strings live in the normal heap, so
+they can be garbage collected like anything else
+<span class="sources">(<a href="https://docs.oracle.com/javase/7/docs/technotes/guides/vm/performance-enhancements-7.html">Oracle,
+JDK 7 performance enhancements</a>)</span>. That ties straight back to
+<a href="../03-jvm-runtime-data-areas/lesson.html">lesson 3</a>.</div>
+
+<h3>3.4 <code>==</code> versus <code>equals</code> — the question every interview asks</h3>
+<p>Two different questions, and people confuse them constantly:</p>
+<table>
+<thead><tr><th></th><th><code>a == b</code></th><th><code>a.equals(b)</code></th></tr></thead>
+<tbody>
+<tr><td>Asks</td><td>"Are these the <em>same object</em>?"</td><td>"Do these have the <em>same letters</em>?"</td></tr>
+<tr><td>Compares</td><td>The two arrows</td><td>Character by character</td></tr>
+<tr><td>Cost</td><td>One instruction</td><td>Up to the length of the text</td></tr>
+<tr><td>You want this</td><td>Almost never, for text</td><td>Almost always</td></tr>
+</tbody></table>
+<p>
+Here is the trap. Because of the pool, <code>==</code> <em>accidentally works</em> for literals typed in your
+source. So beginners use it, every test passes, and then it fails in production the first time a string arrives
+from a user form, a file, a database, or a network call — because those strings are built at run time and are not
+in the pool.
+</p>
+<div class="idiom"><strong>Rule with no exceptions:</strong> compare text with <code>equals</code> (or
+<code>equalsIgnoreCase</code>). If you ever feel a genuine need for <code>==</code> on strings, you are either
+writing the JDK or you are wrong.</div>
+
+<h3>3.5 Compile time versus run time — why <code>"ja" + "va"</code> is special</h3>
+<p>
+If every part of a join is a <em>constant</em> the compiler can work out by itself, the compiler does the join
+while compiling and stores the finished text as one literal — which means it lands in the pool. This is called
+<strong>constant folding</strong>
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jls/se8/html/jls-15.html#jls-15.28">JLS §15.28,
+constant expressions</a>)</span>.
+</p>
+<p>
+If any part is an ordinary variable, the compiler cannot know its value yet, so the join happens while the program
+runs — producing a brand-new object that is <em>not</em> in the pool.
+</p>
+<pre>              <span class="s">"java"</span> == <span class="s">"ja"</span> + <span class="s">"va"</span>      <span class="c">// true  — both constants, folded at compile time</span>
+String var = <span class="s">"ja"</span>;
+              <span class="s">"java"</span> == var + <span class="s">"va"</span>       <span class="c">// false — joined at run time, new object</span>
+<span class="k">final</span> String con = <span class="s">"ja"</span>;
+              <span class="s">"java"</span> == con + <span class="s">"va"</span>       <span class="c">// true  — a final local holding a literal IS a constant</span></pre>
+<p>That third line surprises almost everyone. A <code>final</code> local variable initialised with a literal counts
+as a constant expression, so the compiler folds it too. All three results are verified output in §7.</p>
+
+<h3>3.6 The cached hash code</h3>
+<p>
+<code>String.hashCode()</code> walks every character, so it costs time proportional to the length. Because the
+letters can never change, the answer can never change — so <code>String</code> computes it once and stores it in
+that <code>hash</code> field. Every later call is instant. This is exactly why a <code>HashMap</code> with string
+keys stays fast even when the keys are long
+<span class="sources">(Oracle, <a href="https://docs.oracle.com/javase/8/docs/api/java/lang/String.html#hashCode--">String.hashCode</a>)</span>.
+Immutability is what makes that cache legal — a mutable class could never do it.
+</p>
+
+<h2><span class="n">§4</span>When to use what</h2>
+<table>
+<thead><tr><th>Situation</th><th>Do this</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Comparing two pieces of text</td><td><code>a.equals(b)</code></td><td><code>==</code> compares objects, not letters</td></tr>
+<tr><td>Comparing, ignoring case</td><td><code>a.equalsIgnoreCase(b)</code></td><td>Does the case folding for you</td></tr>
+<tr><td>One of them might be null</td><td><code>Objects.equals(a, b)</code> or <code>"lit".equals(x)</code></td><td>Avoids <code>NullPointerException</code></td></tr>
+<tr><td>Creating a plain string</td><td><code>String s = "hi";</code></td><td>Never write <code>new String("hi")</code> — it is pure waste</td></tr>
+<tr><td>A map key or a set member</td><td><code>String</code></td><td>Immutable + cached hash = ideal key</td></tr>
+<tr><td>A constant used in many places</td><td><code>static final String</code></td><td>Pooled once, named once, typo-proof</td></tr>
+<tr><td>Holding a password</td><td><code>char[]</code>, then wipe it</td><td>A string cannot be erased — see <a href="lesson-3-characters-and-encoding.html">part 3</a></td></tr>
+</tbody></table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+A <strong>String</strong> is a word <em>carved into stone</em>. Once it is carved, nobody can rub out a letter. If
+you want "HELLO" instead of "hello", you do not fix the old stone — you carve a brand-new one and look at that
+instead. The old stone just sits there until the town cleaner takes it away.
+</p>
+<p>
+Because stones never change, the town keeps <strong>one shared stone for each common word</strong> in the main
+square. That is the <strong>pool</strong>. Everyone who writes "hello" is pointing at that one square stone. That
+is why two people's "hello" are literally the same stone.
+</p>
+<p>
+But if you insist — <code>new String("hello")</code> — the mason carves you a private "hello" stone for your own
+garden. It reads exactly the same. It is not the same stone. So "is it the same stone?" (<code>==</code>) says no,
+while "does it say the same word?" (<code>equals</code>) says yes. Almost always you care about the <em>word</em>,
+not the <em>stone</em>.
+</p>
+<p>
+<em>"But why not just let us edit the stone?"</em> Because you lend your stones to other people all the time. If
+they could re-carve them, you would hand someone your name and get back something else. Frozen stones are safe to
+lend, safe for many people to read at once, and safe to use as labels on filing cabinets.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="../05-type-system-and-oop/lesson.html">type system &amp; OOP</a>:</strong> a string variable holds a reference. Everything odd about <code>==</code> comes from that one fact.</li>
+  <li><strong>← <a href="../03-jvm-runtime-data-areas/lesson.html">runtime data areas</a>:</strong> the pool is a JVM-managed table; it moved out of PermGen into the heap in Java 7.</li>
+  <li><strong>← <a href="../06-memory-model-and-gc/lesson.html">memory &amp; GC</a>:</strong> discarded strings are ordinary garbage; pooled ones stay alive as long as the table holds them.</li>
+  <li><strong>← <a href="../08-collections-and-equality/lesson-3-equality-and-ordering.html">equality &amp; ordering</a>:</strong> <code>String</code> is the textbook example of <code>equals</code>/<code>hashCode</code> done right — and of why keys must be immutable.</li>
+  <li><strong>→ <a href="lesson-2-building-text.html">part 2</a>:</strong> immutability is the reason <code>StringBuilder</code> has to exist.</li>
+  <li><strong>→ <a href="../10-exceptions-and-error-design/lesson.html">exceptions</a>:</strong> every exception message is a string you should build carefully.</li>
+  <li><strong>Same idea elsewhere:</strong> Python and JavaScript strings are also immutable, and C# also interns literals — so the "<code>equals</code>, not <code>==</code>" instinct transfers. C strings are raw mutable char arrays, which is precisely the pain Java is avoiding here.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — one file, dissected</h2>
+<p>Full source: <a href="../code/StringDemo.java">code/StringDemo.java</a>, compiled and run on JDK 1.8.0_411.</p>
+
+<pre>String a = <span class="s">"hello"</span>;              <span class="c">// literal -> goes in the pool</span>
+String b = <span class="s">"hello"</span>;              <span class="c">// same letters -> same pooled object</span>
+String c = <span class="k">new</span> String(<span class="s">"hello"</span>);  <span class="c">// "new" forces a separate object</span></pre>
+<div class="ann">Three variables, but only <strong>two</strong> objects. <code>a</code> and <code>b</code> are two
+arrows pointing at one pooled object. <code>c</code> is an arrow to its own copy. (Strictly, the literal written
+inside <code>new String("hello")</code> is pooled too — so the pool holds one object, and the heap holds the extra
+one that <code>new</code> built.)</div>
+
+<pre>a == b            <span class="c">// true  — same object</span>
+a == c            <span class="c">// false — different objects</span>
+a.equals(c)       <span class="c">// true  — same letters</span>
+a == c.intern()   <span class="c">// true  — intern() returns the pooled copy</span></pre>
+<div class="ann">The whole mental model in four lines. <code>intern()</code> means "give me the pool's copy of this
+text". Since <code>a</code> already <em>is</em> the pool's copy, the two arrows match.</div>
+
+<pre>String s = <span class="s">"a"</span>;
+String s2 = s.concat(<span class="s">"b"</span>);       <span class="c">// builds a NEW string; s is untouched</span></pre>
+<div class="ann">Proof of immutability. After this line <code>s</code> is still <code>"a"</code>. If you had written
+<code>s.concat("b");</code> on a line by itself and thrown the result away, nothing at all would have happened — a
+very common bug.</div>
+
+<pre>StringBuilder sb = <span class="k">new</span> StringBuilder();
+<span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; 3; i++) sb.append(i);</pre>
+<div class="ann">The escape hatch, previewed here and explained fully in
+<a href="lesson-2-building-text.html">part 2</a>: one mutable buffer, appended three times, turned into a string
+once at the end.</div>
+
+<pre>String var = <span class="s">"ja"</span>;
+<span class="k">final</span> String constant = <span class="s">"ja"</span>;
+<span class="s">"java"</span> == <span class="s">"ja"</span> + <span class="s">"va"</span>       <span class="c">// compile-time join</span>
+<span class="s">"java"</span> == var + <span class="s">"va"</span>        <span class="c">// run-time join</span>
+<span class="s">"java"</span> == constant + <span class="s">"va"</span>   <span class="c">// final local = constant -> compile-time join</span></pre>
+<div class="ann">The constant-folding experiment from §3.5. The only difference between the last two lines is the
+word <code>final</code> — and it flips the answer.</div>
+
+<h3>Real output <span class="sources">(JDK 1.8.0_411)</span></h3>
+<pre>a == b:          true
+a == c:          false
+a.equals(c):     true
+a == c.intern(): true
+s = a, s2 = ab
+built: 012
+"java" == "ja"+"va"       : true
+"java" == var+"va"        : false
+"java" == constant+"va"   : true</pre>
+
+<div class="try"><strong>Predict the output, then run it.</strong>
+<pre>String x = <span class="k">new</span> String(<span class="s">"hi"</span>);
+String y = x.intern();
+System.out.println(x == y);            <span class="c">// ?</span>
+System.out.println(y == <span class="s">"hi"</span>);        <span class="c">// ?</span>
+System.out.println(x.equals(<span class="s">"hi"</span>));   <span class="c">// ?</span></pre>
+<em>Hint: how many objects with the letters "hi" exist after line 1, and which one does <code>intern()</code> hand
+back?</em></div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+
+<div class="pitfall"><strong>1. Comparing text with <code>==</code>.</strong> It works by luck for literals and
+fails for anything read from input, a file, a DB, or built with <code>new</code>. Use <code>equals</code>. Always.</div>
+
+<div class="pitfall"><strong>2. Throwing away the result.</strong> <code>s.trim();</code> or
+<code>s.toUpperCase();</code> on their own do nothing at all. You must write <code>s = s.trim();</code>. Strings
+never change in place.</div>
+
+<div class="pitfall"><strong>3. <code>new String("hi")</code>.</strong> Pointless. It creates a second object with
+identical letters and opts out of pooling. Just write <code>"hi"</code>.</div>
+
+<div class="pitfall"><strong>4. <code>NullPointerException</code> from <code>equals</code>.</strong>
+<code>input.equals("yes")</code> explodes if <code>input</code> is null. Flip it —
+<code>"yes".equals(input)</code> — or use <code>Objects.equals(input, "yes")</code>.</div>
+
+<div class="pitfall"><strong>5. Over-using <code>intern()</code>.</strong> Interning thousands of
+<em>dynamic</em> strings by hand bloats the intern table and slows it down. Trust the compiler; reach for
+<code>intern()</code> only with a measurement in hand.</div>
+
+<div class="pitfall"><strong>6. Passwords and secrets in a <code>String</code>.</strong> You cannot erase one. It
+stays in memory until the GC happens to collect it, and it may show up in a heap dump. Use <code>char[]</code> and
+overwrite it — see <a href="lesson-3-characters-and-encoding.html">part 3</a>
+<span class="sources">(Oracle, <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/security/crypto/CryptoSpec.html">JCA Reference Guide</a>)</span>.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>A <code>String</code> is a <code>final</code> class wrapping a <code>private final</code> array of letters that is never written to and never handed out. That is <strong>immutability</strong>.</li>
+  <li>Immutability buys four things: safe sharing, free thread safety, a safe map key, and a cached hash code.</li>
+  <li>Every "editing" method returns a <strong>new</strong> string. Write <code>s = s.trim()</code>, never a bare <code>s.trim()</code>.</li>
+  <li>Literals are <strong>pooled</strong> — one shared object per distinct text. <code>new String(...)</code> deliberately opts out; <code>intern()</code> opts back in.</li>
+  <li><strong><code>==</code> asks "same object"; <code>equals</code> asks "same letters".</strong> For text, use <code>equals</code>.</li>
+  <li>Joins of constants are folded at <em>compile</em> time and pooled; joins involving variables happen at <em>run</em> time and are not.</li>
+  <li>Since Java 9 the letters are stored as a <code>byte[]</code> plus a coder flag (compact strings) — same behaviour, about half the memory.</li>
+</ul>
+
+<hr/>
+<h2>Reference — the identity rules at a glance</h2>
+<table>
+<thead><tr><th>Expression</th><th>Result</th><th>Because</th></tr></thead>
+<tbody>
+<tr><td><code>"hi" == "hi"</code></td><td>true</td><td>Both literals share the pooled object</td></tr>
+<tr><td><code>"hi" == new String("hi")</code></td><td>false</td><td><code>new</code> forces a separate object</td></tr>
+<tr><td><code>"hi".equals(new String("hi"))</code></td><td>true</td><td>Same characters</td></tr>
+<tr><td><code>"hi" == new String("hi").intern()</code></td><td>true</td><td><code>intern()</code> returns the pooled object</td></tr>
+<tr><td><code>"ab" == "a" + "b"</code></td><td>true</td><td>Constant expression, folded at compile time</td></tr>
+<tr><td><code>"ab" == x + "b"</code> where <code>x = "a"</code></td><td>false</td><td>Joined at run time → new object</td></tr>
+<tr><td><code>"ab" == f + "b"</code> where <code>final f = "a"</code></td><td>true</td><td>A <code>final</code> local literal is a constant</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Immutable</dt><dd>Cannot be changed after it is created. Operations return new objects instead.</dd>
+  <dt>Literal</dt><dd>Text written directly in source code between double quotes, e.g. <code>"hello"</code>.</dd>
+  <dt>String pool (intern table)</dt><dd>A JVM-managed table holding one shared instance per distinct literal.</dd>
+  <dt>intern()</dt><dd>Returns the pool's shared instance equal to this string, adding it if it is not there yet.</dd>
+  <dt>Reference</dt><dd>The arrow a variable holds, pointing at an object on the heap.</dd>
+  <dt>Constant folding</dt><dd>The compiler evaluating an expression made only of constants, before the program runs.</dd>
+  <dt>Compact strings</dt><dd>Java 9+ storage using one byte per character for Latin-1 text (JEP 254).</dd>
+  <dt>Defensive copy</dt><dd>Copying a mutable object before sharing it. Never needed for strings.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p>
+<a href="https://docs.oracle.com/javase/8/docs/api/java/lang/String.html">Oracle — <code>java.lang.String</code></a>:
+read just the class description at the top and notice two things — the class is <code>final</code>, and the first
+sentence is the immutability guarantee. Then
+<a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-3.html#jls-3.10.5">JLS SE 21 §3.10.5 — String Literals</a>,
+which is the actual rule behind every <code>==</code> puzzle in this lesson.
+</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>java.lang.String</em> API (Java SE 8);
+Oracle, <em>Java Language Specification</em> SE 21 §3.10.5 and SE 8 §15.28;
+Oracle, <em>Java SE 7 Performance Enhancements</em> (interned strings moved to the heap);
+OpenJDK <a href="https://openjdk.org/jeps/254">JEP 254 — Compact Strings</a>;
+Oracle, <em>JCA Reference Guide</em>. Code compiled and run on JDK 1.8.0_411.
+Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+<p class="nav" style="margin-top:2rem">Next:
+  <a href="lesson-2-building-text.html"><strong>Part 2 — Building text</strong></a> ·
+  <a href="lesson-3-characters-and-encoding.html">Part 3 — Characters, bytes &amp; encoding</a>
+</p>
+
+</body>
+</html>

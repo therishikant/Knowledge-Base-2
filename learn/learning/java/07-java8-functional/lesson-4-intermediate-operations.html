@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Intermediate Operations — Java 8 &amp; Functional, Part 4 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  h4{font-size:1rem;margin:1.1rem 0 .2rem;color:#4a4639}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem;line-height:1.9}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Intermediate Operations — the Middle of the Pipeline</h1>
+<p class="crumb">Java › Java 8 &amp; functional cluster · lesson 7, <strong>part 4 of 9</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — every lazy operation, one at a time, with verified output</p>
+
+<p class="nav"><strong>Java 8 &amp; functional cluster:</strong>
+  <a href="lesson.html">1. Lambdas</a> ·
+  <a href="lesson-2-functional-interfaces.html">2. Functional interfaces &amp; method refs</a> ·
+  <a href="lesson-3-stream-pipeline.html">3. How a stream actually runs</a> ·
+  <strong>4. Intermediate operations</strong> ·
+  <a href="lesson-5-terminal-operations.html">5. Terminal operations &amp; reduce</a> ·
+  <a href="lesson-6-collectors-and-groupingby.html">6. Collectors &amp; groupingBy</a> ·
+  <a href="lesson-7-optional.html">7. Optional</a> ·
+  <a href="lesson-8-default-methods-and-java-time.html">8. default methods &amp; java.time</a> ·
+  <a href="lesson-9-stream-recall-playbook.html">9. Recall &amp; interview playbook</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> There are only <strong>eleven</strong> intermediate operations you will ever use, and each one answers
+a single plain-English question: <em>keep which ones?</em> (<code>filter</code>), <em>turn each into what?</em> (<code>map</code>),
+<em>flatten what?</em> (<code>flatMap</code>), <em>remove repeats</em> (<code>distinct</code>), <em>in what order?</em>
+(<code>sorted</code>), <em>how many / from where?</em> (<code>limit</code>, <code>skip</code>), plus the primitive bridge
+(<code>mapToInt</code>, <code>boxed</code>, <code>mapToObj</code>) and the debug hook (<code>peek</code>).
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+<a href="lesson-3-stream-pipeline.html">Part 3</a> gave you the execution model: these operations are lazy, they are fused, and they
+run one element at a time. This part is the <strong>catalogue</strong>. Every entry follows the same template — the question it
+answers, its signature, a worked example with real output, and the gotcha. Read it once end-to-end, then use it as a lookup.
+</p>
+<div class="callout">
+<strong>Remember the identification rule.</strong> All of these return a <code>Stream</code>. That is <em>why</em> they are
+intermediate, and it is also why they chain. If you ever cannot remember whether something is intermediate, ask "could I put
+another <code>.map()</code> after it?"
+</div>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+<p>
+Pre-Java-8 code expressed every one of these as loop scaffolding. "Keep the adults" was an <code>if</code> inside a
+<code>for</code>. "Get their names" was a second <code>for</code> filling a second list. "Drop duplicates" was a
+<code>HashSet</code> you remembered to create. "Take the top three" was a counter and a <code>break</code>.
+</p>
+<p>
+Every one of those is a <em>named idea</em> that had no name in the language. Giving them names does three things: the code says
+what it means, the library can optimise across them (fusion, short-circuiting, parallel splitting), and — most relevant to you —
+<strong>problems become compositional</strong>. "Top 3 distinct salaries" stops being a loop you must design and becomes
+<code>distinct().sorted(reverseOrder()).limit(3)</code>, which you can assemble from pieces you already know.
+</p>
+
+<h2><span class="n">§3</span>How it works — the catalogue</h2>
+
+<figure>
+<svg viewBox="0 0 800 300" width="100%" role="img" aria-label="Intermediate operations grouped by what they do to the element count and element type">
+  <style>
+    .g1{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.5}.g2{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.5}
+    .g3{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.5}.g4{fill:#f7f0f7;stroke:#6b3f7a;stroke-width:1.5}
+    .t{font:bold 12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .m{font:11.5px "SF Mono",Menlo,monospace;fill:#3f3b34}
+    .c{font:11.5px Georgia,serif;fill:#6b675e;font-style:italic}
+  </style>
+  <rect class="g1" x="20" y="25" width="370" height="115" rx="8"/>
+  <text class="t" x="40" y="50">CHANGE THE ELEMENTS (count stays)</text>
+  <text class="m" x="40" y="76">map         T -&gt; R        one in, one out</text>
+  <text class="m" x="40" y="96">mapToInt    T -&gt; int      cross to IntStream</text>
+  <text class="m" x="40" y="116">boxed       int -&gt; Integer  cross back</text>
+
+  <rect class="g2" x="410" y="25" width="370" height="115" rx="8"/>
+  <text class="t" x="430" y="50">CHANGE HOW MANY (type stays)</text>
+  <text class="m" x="430" y="76">filter      keep matching</text>
+  <text class="m" x="430" y="96">distinct    drop repeats (equals/hashCode)</text>
+  <text class="m" x="430" y="116">limit/skip  take first n / drop first n</text>
+
+  <rect class="g3" x="20" y="160" width="370" height="95" rx="8"/>
+  <text class="t" x="40" y="185">CHANGE BOTH</text>
+  <text class="m" x="40" y="211">flatMap     T -&gt; Stream&lt;R&gt;, then flattened</text>
+  <text class="c" x="40" y="233">one element can become 0, 1 or many</text>
+
+  <rect class="g4" x="410" y="160" width="370" height="95" rx="8"/>
+  <text class="t" x="430" y="185">CHANGE NEITHER</text>
+  <text class="m" x="430" y="211">sorted      reorder</text>
+  <text class="m" x="430" y="231">peek        look, for debugging only</text>
+
+  <text class="c" x="20" y="285">Four questions cover all eleven operations: what are the elements · how many · both · neither.</text>
+</svg>
+<figcaption>A frame for recall: every intermediate operation changes the element type, the element count, both, or neither.</figcaption>
+</figure>
+
+<hr/>
+
+<h3>1. <code>filter</code> — keep which ones?</h3>
+<pre>Stream&lt;T&gt; filter(Predicate&lt;? <span class="k">super</span> T&gt; p)</pre>
+<pre>names.stream().filter(n -&gt; n.contains(<span class="s">"a"</span>))   <span class="c">// [ann, carol, dave]</span></pre>
+<div class="ann">
+Keeps elements where the predicate is <code>true</code>. Stateless, lazy, never changes the type. Chain several
+<code>filter</code>s freely — <code>.filter(a).filter(b)</code> is the same as <code>.filter(a.and(b))</code> and costs the same,
+because of fusion. Put the cheapest or most selective filter first.
+</div>
+<div class="pitfall"><code>filter</code> does <strong>not</strong> remove from the original list. If you want to actually mutate a
+collection, that is <code>list.removeIf(predicate)</code> — a different method, added in Java 8 to <code>Collection</code>.</div>
+
+<h3>2. <code>map</code> — turn each one into what?</h3>
+<pre>&lt;R&gt; Stream&lt;R&gt; map(Function&lt;? <span class="k">super</span> T, ? <span class="k">extends</span> R&gt; f)</pre>
+<pre>names.stream().map(String::length)   <span class="c">// [3, 3, 5, 4, 4]</span></pre>
+<div class="ann">
+Exactly one output per input, so the count never changes and the type usually does. This is where method references shine:
+<code>map(String::toUpperCase)</code>, <code>map(Employee::getName)</code>, <code>map(Integer::parseInt)</code>.
+</div>
+<div class="pitfall"><strong>The classic no-op.</strong> <code>map(s -&gt; s.trim())</code> works because <code>trim</code> returns a
+new string. <code>map(s -&gt; { s.trim(); return s; })</code> does nothing, because <code>String</code> is immutable. Same trap with
+<code>forEach(s -&gt; s.toUpperCase())</code>.</div>
+
+<h3>3. <code>flatMap</code> — one becomes many, then flatten</h3>
+<pre>&lt;R&gt; Stream&lt;R&gt; flatMap(Function&lt;? <span class="k">super</span> T, ? <span class="k">extends</span> Stream&lt;? <span class="k">extends</span> R&gt;&gt; f)</pre>
+<p>This is the operation people find hardest, and it is nearly always one of these two situations.</p>
+
+<h4>Situation A — a list of lists</h4>
+<pre>List&lt;List&lt;Integer&gt;&gt; nested = [[1,2],[3,4],[5]];
+nested.stream().map(List::stream)      <span class="c">// Stream&lt;Stream&lt;Integer&gt;&gt;  ← nested, useless</span>
+nested.stream().flatMap(List::stream)  <span class="c">// Stream&lt;Integer&gt;          → [1, 2, 3, 4, 5]</span></pre>
+
+<h4>Situation B — one item explodes into several</h4>
+<pre>Stream.of(<span class="s">"a b"</span>, <span class="s">"c d"</span>)
+      .flatMap(x -&gt; Arrays.stream(x.split(<span class="s">" "</span>)))   <span class="c">// [a, b, c, d]</span></pre>
+
+<figure>
+<svg viewBox="0 0 800 230" width="100%" role="img" aria-label="map produces a stream of streams while flatMap produces one flat stream">
+  <style>
+    .bx{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}.bad{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.4}
+    .good{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.tb{font:bold 12px Georgia,serif;fill:#2b2b28}
+    .c{font:11.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#fm);fill:none}
+  </style>
+  <defs><marker id="fm" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+  <rect class="bx" x="20" y="60" width="150" height="90" rx="6"/>
+  <text class="tb" x="38" y="84">input</text>
+  <text class="t" x="38" y="108">[1,2]</text>
+  <text class="t" x="38" y="128">[3,4]</text>
+
+  <rect class="bad" x="250" y="30" width="230" height="75" rx="6"/>
+  <text class="tb" x="268" y="52">.map(List::stream)</text>
+  <text class="t" x="268" y="76">Stream&lt;Stream&lt;Integer&gt;&gt;</text>
+  <text class="c" x="268" y="94">still nested — you cannot sum this</text>
+
+  <rect class="good" x="250" y="125" width="230" height="75" rx="6"/>
+  <text class="tb" x="268" y="147">.flatMap(List::stream)</text>
+  <text class="t" x="268" y="171">Stream&lt;Integer&gt;</text>
+  <text class="c" x="268" y="189">1, 2, 3, 4 — one flat level</text>
+
+  <line class="a" x1="172" y1="90" x2="248" y2="68"/>
+  <line class="a" x1="172" y1="120" x2="248" y2="160"/>
+
+  <text class="c" x="520" y="90">map:     T -&gt; R        (R may itself be a stream)</text>
+  <text class="c" x="520" y="112">flatMap: T -&gt; Stream&lt;R&gt;  and the stream is spliced in</text>
+  <text class="c" x="520" y="150">Rule: if your mapper already returns a</text>
+  <text class="c" x="520" y="170">Stream, a List or an Optional, you want flatMap.</text>
+</svg>
+<figcaption><code>map</code> wraps, <code>flatMap</code> splices. <span class="sources">(Per <a href="https://docs.oracle.com/javase/8/docs/api/java/util/stream/Stream.html#flatMap-java.util.function.Function-">Oracle <code>Stream.flatMap</code> javadoc</a>.)</span></figcaption>
+</figure>
+<div class="idiom"><strong>The one-line rule for <code>flatMap</code>:</strong> <em>if your mapper function already returns a
+collection, a stream or an <code>Optional</code>, use <code>flatMap</code>; otherwise use <code>map</code>.</em> That single sentence
+resolves it every time.</div>
+<div class="pitfall">A <code>flatMap</code> mapper that returns <code>null</code> throws a
+<code>NullPointerException</code>. Return <code>Stream.empty()</code> to contribute nothing.</div>
+
+<h3>4. <code>distinct</code> — drop repeats</h3>
+<pre>Stream&lt;T&gt; distinct()</pre>
+<pre>Stream.of(1,2,2,3,1).distinct()   <span class="c">// [1, 2, 3]</span></pre>
+<div class="ann">Uses <code>equals</code>/<code>hashCode</code>, not <code>==</code>. For your own classes this silently does nothing
+useful unless you implemented both — see
+<a href="../08-collections-and-equality/lesson-3-equality-and-ordering.html">equality &amp; ordering</a>. It is
+<strong>stateful</strong>: it holds every distinct element seen so far, so it costs memory on large inputs. It keeps the
+<em>first</em> occurrence.</div>
+<div class="callout"><strong>"Distinct by one field" does not exist as a method.</strong> The usual answers are
+<code>collect(toMap(Employee::getDept, e -&gt; e, (a,b) -&gt; a)).values()</code>, or a stateful-filter trick with a
+<code>Set</code> (works sequentially only). This is a frequent interview follow-up — see
+<a href="lesson-9-stream-recall-playbook.html">part 9</a>.</div>
+
+<h3>5. <code>sorted</code> — in what order?</h3>
+<pre>Stream&lt;T&gt; sorted()                              <span class="c">// natural order; T must be Comparable</span>
+Stream&lt;T&gt; sorted(Comparator&lt;? <span class="k">super</span> T&gt; cmp)      <span class="c">// your order</span></pre>
+<pre>names.stream().sorted()                                      <span class="c">// [ann, bob, carol, dave, erin]</span>
+names.stream().sorted(comparing(String::length)
+                      .thenComparing(naturalOrder()))        <span class="c">// [ann, bob, dave, erin, carol]</span></pre>
+<div class="ann">
+Stable — equal elements keep their original relative order, which is what makes <code>thenComparing</code> meaningful.
+<code>sorted()</code> with no argument throws <code>ClassCastException</code> at run time if the elements are not
+<code>Comparable</code>. Build comparators with the kit from <a href="lesson-2-functional-interfaces.html">part 2</a>:
+<code>comparing</code>, <code>thenComparing</code>, <code>reversed</code>, <code>nullsFirst</code>.
+</div>
+<div class="pitfall"><strong>Stateful and expensive.</strong> <code>sorted</code> buffers the entire stream before emitting
+anything, so it never terminates on an infinite stream and it kills short-circuiting upstream. Always
+<code>filter</code> before you <code>sort</code>, never after.</div>
+
+<h3>6–7. <code>limit</code> and <code>skip</code> — how many, and from where?</h3>
+<pre>Stream&lt;T&gt; limit(<span class="k">long</span> maxSize)   <span class="c">// take the first n — SHORT-CIRCUITS</span>
+Stream&lt;T&gt; skip(<span class="k">long</span> n)         <span class="c">// drop the first n</span></pre>
+<pre>names.stream().limit(2)   <span class="c">// [ann, bob]</span>
+names.stream().skip(3)    <span class="c">// [dave, erin]</span></pre>
+<div class="ann">
+Together they do pagination: <code>.skip(page * size).limit(size)</code>. <code>limit</code> is the operation that tames infinite
+sources. "Second highest salary" is <code>.distinct().sorted(reverseOrder()).skip(1).findFirst()</code> — the
+<code>skip(1)</code> is doing the real work there.
+</div>
+
+<h3>8. <code>peek</code> — look without changing (debug only)</h3>
+<pre>Stream&lt;T&gt; peek(Consumer&lt;? <span class="k">super</span> T&gt; action)</pre>
+<div class="pitfall"><strong>Debugging tool, not a processing step.</strong> Because it is lazy, <code>peek</code> never sees
+short-circuited elements, and the javadoc explicitly allows an implementation to <em>skip it entirely</em> when the element count
+can be computed without traversal (e.g. <code>count()</code> on a sized source). Putting logic in <code>peek</code> produces bugs
+that appear only in production.</div>
+
+<h3>9–11. The primitive bridge</h3>
+<table>
+  <thead><tr><th>Method</th><th>From → to</th><th>Why you need it</th></tr></thead>
+  <tbody>
+  <tr><td><code>mapToInt</code> / <code>mapToLong</code> / <code>mapToDouble</code></td><td><code>Stream&lt;T&gt;</code> → <code>IntStream</code></td><td>to use <code>sum()</code>, <code>average()</code>, <code>max()</code>, <code>summaryStatistics()</code></td></tr>
+  <tr><td><code>boxed</code></td><td><code>IntStream</code> → <code>Stream&lt;Integer&gt;</code></td><td>to use <code>collect(toList())</code> or any <code>Collectors</code></td></tr>
+  <tr><td><code>mapToObj</code></td><td><code>IntStream</code> → <code>Stream&lt;R&gt;</code></td><td>turning numbers or chars into objects</td></tr>
+  <tr><td><code>asLongStream</code> / <code>asDoubleStream</code></td><td>widen the primitive</td><td>avoid overflow before summing</td></tr>
+  </tbody>
+</table>
+<pre>names.stream().mapToInt(String::length).sum()        <span class="c">// 19</span>
+IntStream.range(0,4).boxed().collect(toList())       <span class="c">// [0, 1, 2, 3]</span>
+<span class="s">"hello"</span>.chars().mapToObj(c -&gt; (<span class="k">char</span>) c)              <span class="c">// [h, e, l, l, o]</span></pre>
+<div class="ann">
+The <code>chars()</code> line is worth memorising outright: <code>String.chars()</code> gives an <code>IntStream</code> of
+<em>code points</em>, so without <code>mapToObj(c -&gt; (char) c)</code> you get a list of numbers like <code>[104, 101, …]</code>.
+Every character-frequency interview question starts with this exact line.
+</div>
+
+<h3>Operations added after Java 8 (know they exist)</h3>
+<table>
+  <thead><tr><th>Operation</th><th>Since</th><th>What it does</th></tr></thead>
+  <tbody>
+  <tr><td><code>takeWhile(p)</code></td><td>9</td><td>take from the start while the predicate holds, then stop (short-circuits)</td></tr>
+  <tr><td><code>dropWhile(p)</code></td><td>9</td><td>skip the leading run that matches, keep everything after</td></tr>
+  <tr><td><code>Stream.ofNullable(x)</code></td><td>9</td><td>a stream of 0 or 1 elements — pairs beautifully with <code>flatMap</code></td></tr>
+  <tr><td><code>Stream.iterate(seed, hasNext, next)</code></td><td>9</td><td>a finite <code>iterate</code>, like a <code>for</code> loop</td></tr>
+  <tr><td><code>mapMulti</code></td><td>16</td><td>a faster <code>flatMap</code> for one-to-many without creating streams</td></tr>
+  </tbody>
+</table>
+<div class="callout"><strong>Interview framing:</strong> <code>filter</code> tests every element; <code>takeWhile</code> stops at the
+first failure. On <code>[2,4,5,6]</code> with "is even": <code>filter</code> gives <code>[2,4,6]</code>,
+<code>takeWhile</code> gives <code>[2,4]</code>. The demo code in this cluster is compiled on JDK 8, so these are described but not
+run here.</div>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong>Order matters for correctness:</strong> <code>filter</code> then <code>skip</code> ≠ <code>skip</code> then
+      <code>filter</code> (proved below).</li>
+  <li><strong>Order matters for speed:</strong> <code>filter</code> → <code>map</code> → <code>sorted</code> → <code>limit</code>.
+      Cut elements early, do expensive mapping on fewer items, sort last.</li>
+  <li><strong>Reach for <code>flatMap</code></strong> whenever a field is itself a list: orders → line items, users → roles,
+      sentences → words.</li>
+  <li><strong>Reach for <code>mapToInt</code></strong> the moment you want <code>sum</code>/<code>average</code>.</li>
+  <li><strong>Reach for <code>limit</code></strong> immediately after any infinite source.</li>
+</ul>
+<div class="idiom"><strong>Idiom — the canonical order.</strong>
+<pre>source
+  .filter(...)      <span class="c">// 1 shrink first: everything downstream gets cheaper</span>
+  .map(...)         <span class="c">// 2 transform the survivors</span>
+  .distinct()       <span class="c">// 3 stateful ops after shrinking</span>
+  .sorted(...)      <span class="c">// 4 the most expensive step, on the fewest elements</span>
+  .limit(10)        <span class="c">// 5 cut to size</span>
+  .collect(...);    <span class="c">// 6 terminal</span></pre></div>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>Picture a conveyor belt in a factory, with stations along it. Each station does exactly one job:</p>
+<ul>
+  <li><strong><code>filter</code></strong> — a person who throws the bad apples off the belt.</li>
+  <li><strong><code>map</code></strong> — a machine that slices each apple. Same number of items, different items.</li>
+  <li><strong><code>flatMap</code></strong> — a machine that opens each <em>crate</em> and puts the apples inside onto the belt.
+      One thing in, many things out.</li>
+  <li><strong><code>distinct</code></strong> — someone with a notebook who removes any apple identical to one already seen.</li>
+  <li><strong><code>sorted</code></strong> — the only station that must collect <em>everything</em> into a pile first, arrange it,
+      and then put it back. That is why it is slow and why it cannot work on a belt that never ends.</li>
+  <li><strong><code>limit</code>/<code>skip</code></strong> — a counter: "stop after ten" or "ignore the first ten".</li>
+  <li><strong><code>peek</code></strong> — an inspector with a clipboard who only writes things down.</li>
+</ul>
+<p>
+Naive question: <em>"why does the order of the stations matter?"</em> Because removing the bad apples before the expensive slicing
+machine means you slice fewer apples. And "throw out bad ones, then ignore the first ten" is obviously different from "ignore the
+first ten, then throw out bad ones" — the same stations, a different result.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson-2-functional-interfaces.html">part 2</a>:</strong> <code>filter</code> takes a
+      <code>Predicate</code>, <code>map</code> a <code>Function</code>, <code>peek</code> a <code>Consumer</code>,
+      <code>sorted</code> a <code>Comparator</code>.</li>
+  <li><strong>← <a href="lesson-3-stream-pipeline.html">part 3</a>:</strong> stateless vs stateful explains why
+      <code>sorted</code>/<code>distinct</code> behave differently from <code>filter</code>/<code>map</code>.</li>
+  <li><strong>← <a href="../08-collections-and-equality/lesson-3-equality-and-ordering.html">equality &amp; ordering</a>:</strong>
+      <code>distinct</code> needs <code>equals</code>/<code>hashCode</code>; <code>sorted()</code> needs
+      <code>Comparable</code>.</li>
+  <li><strong>→ <a href="lesson-7-optional.html">part 7</a>:</strong> <code>Optional</code> has <code>map</code>,
+      <code>filter</code> and <code>flatMap</code> with the same meanings — an <code>Optional</code> is essentially a stream of at
+      most one element.</li>
+  <li><strong>Same idea elsewhere:</strong> JavaScript <code>filter</code>/<code>map</code>/<code>flatMap</code>, Python
+      <code>filter</code>/<code>map</code>/<code>itertools.chain</code>, SQL <code>WHERE</code>/<code>SELECT</code>/<code>ORDER
+      BY</code>/<code>LIMIT</code>. The names change; the four questions do not.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — verified output</h2>
+<p>All from <a href="../code/StreamOpsDemo.java">code/StreamOpsDemo.java</a> on JDK 1.8.0_411:</p>
+<pre>filter   : [ann, carol, dave]
+map      : [3, 3, 5, 4, 4]
+flatMap  : [1, 2, 3, 4, 5]
+flatMap2 : [a, b, c, d]
+distinct : [1, 2, 3]
+sorted   : [ann, bob, carol, dave, erin]
+sortedBy : [ann, bob, dave, erin, carol]
+limit    : [ann, bob]
+skip     : [dave, erin]
+mapToInt : 19
+boxed    : [0, 1, 2, 3]</pre>
+<div class="ann">
+<code>sortedBy</code> is the interesting one. The comparator was
+<code>comparing(String::length).thenComparing(naturalOrder())</code> on <code>[ann, bob, carol, dave, erin]</code>. Lengths are
+3,3,5,4,4 — so the length groups are <code>{ann,bob}</code>, <code>{dave,erin}</code>, <code>{carol}</code>, and within each group
+alphabetical order decides. Result: <code>ann, bob, dave, erin, carol</code>. Trace it yourself before reading on; that trace
+<em>is</em> the interview answer.
+</div>
+
+<h3>The ordering experiment, run for real</h3>
+<pre>filter-then-skip : [dave, erin]
+skip-then-filter : [carol, dave, erin]</pre>
+<div class="ann">
+<code>filter(len&gt;3)</code> on <code>[ann,bob,carol,dave,erin]</code> gives <code>[carol,dave,erin]</code>; then
+<code>skip(1)</code> drops <code>carol</code>. The other way round, <code>skip(1)</code> drops <code>ann</code> first, leaving
+<code>[bob,carol,dave,erin]</code>, and the filter then drops <code>bob</code>. Two operations, two orders, two answers.
+</div>
+
+<div class="try"><strong>Build it yourself.</strong> Given <code>List&lt;String&gt; words</code>, write one pipeline for each:
+<ol>
+  <li>the 3 longest distinct words, longest first;</li>
+  <li>all distinct letters used across every word, sorted;</li>
+  <li>the total number of characters in words starting with <code>"a"</code>.</li>
+</ol>
+<em>Answers:</em>
+<pre>words.stream().distinct().sorted(comparing(String::length).reversed()).limit(3)
+words.stream().flatMap(w -&gt; w.chars().mapToObj(c -&gt; (<span class="k">char</span>) c)).distinct().sorted()
+words.stream().filter(w -&gt; w.startsWith(<span class="s">"a"</span>)).mapToInt(String::length).sum()</pre>
+</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong><code>sorted()</code> before <code>filter()</code>.</strong> You sort elements you are about to throw
+away. Correctness is fine; performance is not.</div>
+<div class="pitfall"><strong><code>distinct()</code> on a class without <code>equals</code>/<code>hashCode</code>.</strong> Every
+object looks unique and nothing is removed. Silent, not an error.</div>
+<div class="pitfall"><strong>Using <code>map</code> where <code>flatMap</code> is needed.</strong> You get
+<code>Stream&lt;Stream&lt;T&gt;&gt;</code> or <code>Stream&lt;List&lt;T&gt;&gt;</code> and the next line will not compile. The compiler
+error is the clue: read your mapper's return type.</div>
+<div class="pitfall"><strong>Logic inside <code>peek</code>.</strong> It may not run. Use <code>map</code> or
+<code>forEach</code>.</div>
+<div class="pitfall"><strong><code>sorted()</code> or <code>distinct()</code> on an infinite stream.</strong> Hangs forever. Put
+<code>limit</code> before them.</div>
+<div class="pitfall"><strong>Expecting <code>IntStream</code> to have <code>collect(toList())</code>.</strong> It does not — call
+<code>.boxed()</code> first. This exact compile error wastes interview minutes.</div>
+<div class="pitfall"><strong>A stateful lambda inside <code>filter</code>.</strong> The "first duplicate" trick
+<code>filter(x -&gt; !seen.add(x))</code> works sequentially but violates the stream contract and breaks in parallel. Mention this
+caveat if you use it in an interview — it turns a hack into a demonstration of understanding.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>Every intermediate operation returns a <code>Stream</code>, is lazy, and chains.</li>
+  <li><strong>Element-changing:</strong> <code>map</code>, <code>mapToInt</code>, <code>boxed</code>, <code>mapToObj</code>.</li>
+  <li><strong>Count-changing:</strong> <code>filter</code>, <code>distinct</code>, <code>limit</code>, <code>skip</code>.</li>
+  <li><strong>Both:</strong> <code>flatMap</code> — use it whenever the mapper already returns a stream/collection.</li>
+  <li><strong>Neither:</strong> <code>sorted</code> (reorders), <code>peek</code> (debug only).</li>
+  <li><strong>Stateful</strong>: <code>sorted</code>, <code>distinct</code>, <code>limit</code>, <code>skip</code> — they buffer or
+      count, so keep them late and never on an infinite stream (except <code>limit</code>).</li>
+  <li>Canonical order: <strong>filter → map → distinct → sorted → limit</strong>.</li>
+  <li>Post-8 additions worth naming: <code>takeWhile</code>, <code>dropWhile</code>, <code>Stream.ofNullable</code>,
+      three-arg <code>iterate</code>, <code>mapMulti</code>.</li>
+</ul>
+
+<hr/>
+<h2>Reference — intermediate operations card</h2>
+<pre>OPERATION      SIGNATURE                      QUESTION IT ANSWERS      STATE
+filter         Predicate&lt;T&gt;  -&gt; Stream&lt;T&gt;     keep which?              stateless
+map            Function&lt;T,R&gt; -&gt; Stream&lt;R&gt;     each becomes what?       stateless
+flatMap        T -&gt; Stream&lt;R&gt; -&gt; Stream&lt;R&gt;    flatten what?            stateless
+distinct       ()            -&gt; Stream&lt;T&gt;     remove repeats           STATEFUL
+sorted         ()/Comparator -&gt; Stream&lt;T&gt;     what order?              STATEFUL (buffers all)
+limit          long          -&gt; Stream&lt;T&gt;     first n                  short-circuits
+skip           long          -&gt; Stream&lt;T&gt;     drop first n             STATEFUL
+peek           Consumer&lt;T&gt;   -&gt; Stream&lt;T&gt;     debug only               stateless
+mapToInt       ToIntFunction -&gt; IntStream     need sum/average         stateless
+boxed          ()            -&gt; Stream&lt;Integer&gt; need Collectors        stateless
+mapToObj       IntFunction&lt;R&gt;-&gt; Stream&lt;R&gt;     numbers -&gt; objects       stateless
+
+JAVA 9+        takeWhile · dropWhile · Stream.ofNullable · iterate(seed,hasNext,next)
+JAVA 16+       mapMulti</pre>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt><code>filter</code></dt><dd>Keeps elements matching a predicate.</dd>
+  <dt><code>map</code></dt><dd>Transforms each element one-to-one.</dd>
+  <dt><code>flatMap</code></dt><dd>Maps each element to a stream and splices those streams into one.</dd>
+  <dt><code>distinct</code></dt><dd>Removes duplicates using <code>equals</code>/<code>hashCode</code>.</dd>
+  <dt><code>sorted</code></dt><dd>Reorders; stable; buffers the whole stream.</dd>
+  <dt><code>limit</code> / <code>skip</code></dt><dd>Take the first n / drop the first n.</dd>
+  <dt><code>peek</code></dt><dd>Observes elements as they pass; for debugging only.</dd>
+  <dt>Primitive bridge</dt><dd><code>mapToInt</code>, <code>boxed</code>, <code>mapToObj</code> — moving between object and primitive streams.</dd>
+  <dt>Stable sort</dt><dd>Equal elements keep their original relative order.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/8/docs/api/java/util/stream/Stream.html">Oracle — <code>java.util.stream.Stream</code>
+javadoc</a>. Read the method summary once from top to bottom; with the four-question frame above it is short, and the
+<code>flatMap</code> and <code>peek</code> entries contain the exact warnings quoted in this lesson.</p>
+
+<p class="nav" style="margin-top:2rem">← <a href="lesson-3-stream-pipeline.html">Part 3 — How a stream actually runs</a> ·
+Next: <a href="lesson-5-terminal-operations.html">Part 5 — Terminal operations &amp; reduce</a> →</p>
+<p class="sources">Sources: Oracle, <code>java.util.stream.Stream</code> and <code>IntStream</code> javadocs (SE 8); Oracle,
+<code>java.util.stream</code> package summary. All outputs produced by running <code>StreamOpsDemo.java</code> on JDK 1.8.0_411.
+Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

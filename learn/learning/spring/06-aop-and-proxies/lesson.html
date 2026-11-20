@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AOP &amp; Proxies — Spring</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    padding:.55rem .85rem;background:#f4f0e6;border:1px solid var(--rule);border-radius:6px;margin-bottom:1.6rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{text-decoration:none;font-weight:600} .nav a:hover{text-decoration:underline}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner h3{margin:0 0 .5rem;color:var(--accent2);font-size:1.05rem}
+  .flow-steps{background:#f4f0e6;border-left:4px solid var(--accent2);padding:.8rem 1.1rem;border-radius:0 6px 6px 0;margin:1rem 0;font-size:.93rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem} .flow-steps li{margin:.3rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <a href="../05-configuration-and-component-model/lesson.html">← 05 Configuration &amp; Component Model</a>
+  <span><a href="../overview.html">Spring Map</a> · Lesson 6 of 18</span>
+  <a href="../07-spring-boot-and-autoconfiguration/lesson.html">07 Spring Boot &amp; Auto-Configuration →</a>
+</nav>
+
+<h1>AOP &amp; Proxies</h1>
+<p class="crumb"><a href="../overview.html">Spring</a> › lesson 6 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — how Box 4 wraps your bean and why Rule 2 ("Who You Call") governs everything</p>
+
+<div class="tldr">
+<strong>Summary —</strong> Spring AOP (Aspect-Oriented Programming) lets you attach cross-cutting plumbing (like <code>@Transactional</code>, <code>@Async</code>, <code>@Cacheable</code>, security checks, and timing) without polluting your business methods. There is zero magic: during startup, Box 4 (<code>BeanPostProcessor</code>) generates a wrapper class in memory (a <strong>Proxy</strong>) that holds a reference <code>target</code> to your real object, and stores the <strong>Proxy</strong> in Box 3 (<code>singletonObjects</code>). When another bean calls your service, it actually calls the Proxy first—which explains both how AOP works and why calling <code>this.someMethod()</code> from inside the same class completely bypasses it!
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the Map</h2>
+<p>
+Lesson 4 introduced Box 4's assembly-line hook: <code>BeanPostProcessor.postProcessAfterInitialization(bean, name)</code> can return a <em>wrapper object</em> instead of your raw bean. This lesson opens that wrapper, writes out its exact Java code, and shows what happens at both <strong>Startup (Phase 1)</strong> and <strong>Request Time (Phase 2)</strong>.
+</p>
+
+<div class="map-banner">
+  <h3>📍 You Are Here on the 6-Box Map: Phase 1 (Box 4 Wraps Bean) + Phase 2 (Request Calls Proxy)</h3>
+  <figure style="margin:.6rem 0 .2rem">
+  <svg viewBox="0 0 780 190" width="100%" role="img" aria-label="6-Box Map highlighting Box 4 AOP Proxy creation at startup and invocation during requests">
+    <style>
+      .dim{fill:#f4f0e6;stroke:#b5afa3;stroke-width:1.2}
+      .here{fill:#fff8ee;stroke:#7a1f1f;stroke-width:2.6}
+      .here2{fill:#eefaf4;stroke:#1f6b4d;stroke-width:2.2}
+      .phase{font:bold 11px Georgia,serif;fill:#6b675e;letter-spacing:.04em}
+      .bt{font:bold 11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+      .bs{font:10.5px Georgia,serif;fill:#3f3b34}
+      .arr{stroke:#6b675e;stroke-width:1.4;marker-end:url(#m6a);fill:none}
+    </style>
+    <defs><marker id="m6a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+    <text class="phase" x="12" y="16">PHASE 1: STARTUP (Wrap in Box 4, Store in Box 3)</text>
+    <text class="phase" x="505" y="16">PHASE 2: HTTP REQUEST (Call Proxy)</text>
+
+    <!-- Box 1 & 2 -->
+    <rect class="dim" x="10" y="26" width="145" height="92" rx="5"/>
+    <text class="bt" x="18" y="44">Box 1 &amp; 2</text>
+    <text class="bs" x="18" y="62">Environment +</text>
+    <text class="bs" x="18" y="76">beanDefinitionMap</text>
+    <text class="bs" x="18" y="96" style="font-style:italic">Recipes ready</text>
+
+    <path class="arr" d="M155,72 L172,72"/>
+
+    <!-- Box 3 -->
+    <rect class="here2" x="174" y="26" width="140" height="92" rx="5"/>
+    <text class="bt" x="182" y="44" style="fill:#1f6b4d">Box 3: Warehouse</text>
+    <text class="bs" x="182" y="62">singletonObjects</text>
+    <text class="bs" x="182" y="78" style="font-weight:bold">Stores the PROXY</text>
+    <text class="bs" x="182" y="94">(not raw target!)</text>
+
+    <path class="arr" d="M314,58 L334,58"/>
+    <path class="arr" d="M334,86 L314,86"/>
+
+    <!-- Box 4 (Highlighted) -->
+    <rect class="here" x="336" y="22" width="152" height="100" rx="6"/>
+    <text class="bt" x="345" y="41" style="fill:#7a1f1f">★ Box 4: BPP &amp; AOP</text>
+    <text class="bs" x="345" y="59" style="font-weight:bold">Wraps raw bean in</text>
+    <text class="bs" x="345" y="74" style="font-weight:bold">BookService$$Proxy</text>
+    <text class="bs" x="345" y="90">after @PostConstruct</text>
+    <text class="bs" x="345" y="108" style="fill:#7a1f1f;font-weight:bold">YOU ARE HERE</text>
+
+    <path class="arr" d="M488,72 L505,72"/>
+
+    <!-- Box 5 & 6 (Highlighted for Phase 2) -->
+    <rect class="here" x="507" y="22" width="260" height="100" rx="6"/>
+    <text class="bt" x="517" y="41" style="fill:#7a1f1f">★ Phase 2: Box 6 Calls Proxy</text>
+    <text class="bs" x="517" y="59">Controller → <strong>Proxy.place()</strong></text>
+    <text class="bs" x="517" y="75">1. Proxy opens DB tx in ThreadLocal</text>
+    <text class="bs" x="517" y="91">2. Proxy calls <strong>target.place()</strong></text>
+    <text class="bs" x="517" y="107">3. Proxy commits/rolls back tx</text>
+
+    <text class="bs" x="12" y="144"><strong>Right before this (Phase 1):</strong> Box 3 called <code>new BookService()</code>, injected dependencies, and ran <code>@PostConstruct</code> on the raw target object.</text>
+    <text class="bs" x="12" y="162"><strong>Right now (Box 4):</strong> <code>AnnotationAwareAspectJAutoProxyCreator</code> sees <code>@Transactional</code> / matching <code>@Aspect</code> pointcuts and wraps the raw object in a Proxy before Box 3 puts it into <code>singletonObjects</code>.</text>
+    <text class="bs" x="12" y="180"><strong>During Phase 2 (Requests):</strong> Every bean that injected <code>BookService</code> holds a pointer to the <strong>Proxy</strong>, so every external call runs the Proxy's interceptor chain first.</text>
+  </svg>
+  </figure>
+</div>
+
+<h2><span class="n">§2</span>Why it exists — the tangling &amp; scattering problem</h2>
+<p>
+Suppose your business rule in <code>BookService.place(Cart cart)</code> is one line of code. Then your team lead asks you to add permission checking, logging, latency metrics, and a database transaction. Without AOP, look at what you have to write by hand in plain Java:
+</p>
+<pre><span class="c">// What you WANTED to write (1 line of business logic):</span>
+<span class="k">public</span> Order place(Cart cart) {
+    <span class="k">return</span> orders.save(Order.from(cart));
+}
+
+<span class="c">// What you HAD to write by hand without AOP (18 lines of plumbing around 1 line of business logic):</span>
+<span class="k">public</span> Order place(Cart cart) {
+    <span class="k">if</span> (!security.hasRole(<span class="s">"USER"</span>)) <span class="k">throw new</span> AccessDeniedException(); <span class="c">// 1. security</span>
+    log.info(<span class="s">"Calling place({})"</span>, cart);                              <span class="c">// 2. logging</span>
+    <span class="k">long</span> t0 = System.nanoTime();                                      <span class="c">// 3. timing</span>
+    Connection conn = dataSource.getConnection();                     <span class="c">// 4. transaction</span>
+    conn.setAutoCommit(<span class="k">false</span>);
+    <span class="k">try</span> {
+        Order o = orders.save(Order.from(cart));                      <span class="c">// ★ THE ONLY BUSINESS LINE!</span>
+        conn.commit();
+        <span class="k">return</span> o;
+    } <span class="k">catch</span> (RuntimeException e) {
+        conn.rollback();
+        <span class="k">throw</span> e;
+    } <span class="k">finally</span> {
+        conn.close();
+        metrics.record(<span class="s">"place"</span>, System.nanoTime() - t0);
+    }
+}</pre>
+<p>
+Two disasters just happened:
+</p>
+<ul>
+  <li><strong>Tangling:</strong> Four unrelated infrastructure concerns are braided inside one method.</li>
+  <li><strong>Scattering:</strong> You have 200 service methods in your app, so that exact <code>try / commit / catch / rollback / finally</code> block is copy-pasted 200 times.</li>
+</ul>
+
+<h2><span class="n">§3</span>How it works (Level 1 → Level 2 Zoom)</h2>
+
+<h3>Start with Plain Java Data Structures First: What is a Proxy?</h3>
+<p>
+Forget the word "bytecode" for a moment. If you wanted to run transaction code before and after <code>BookService.place(cart)</code> without touching <code>BookService.java</code>, how would you write it in plain Java? You would write a <strong>subclass wrapper</strong> that holds a pointer (<code>target</code>) to the real <code>BookService</code>!
+</p>
+<p>
+<strong>This is the exact Java class that Box 4 generates in memory at startup:</strong>
+</p>
+<pre><span class="c">// 1. Your real class (the TARGET)</span>
+<span class="k">public class</span> BookService {
+    <span class="an">@Transactional</span>
+    <span class="k">public</span> Order place(Cart cart) {
+        <span class="k">return</span> orders.save(Order.from(cart));
+    }
+}
+
+<span class="c">// 2. The wrapper class Spring generates in memory inside Box 4 (the PROXY)</span>
+<span class="k">public class</span> BookService$$SpringCGLIB$$0 <span class="k">extends</span> BookService {
+
+    <span class="k">private final</span> BookService target; <span class="c">// ← points to your real BookService object!</span>
+    <span class="k">private final</span> TransactionManager txManager;
+
+    <span class="an">@Override</span>
+    <span class="k">public</span> Order place(Cart cart) {
+        TransactionStatus tx = txManager.begin(); <span class="c">// ① Runs BEFORE target (binds Connection to ThreadLocal)</span>
+        <span class="k">try</span> {
+            Order result = target.place(cart);    <span class="c">// ② Delegates to the REAL object!</span>
+            txManager.commit(tx);                 <span class="c">// ③ Runs AFTER target returns normally</span>
+            <span class="k">return</span> result;
+        } <span class="k">catch</span> (RuntimeException ex) {
+            txManager.rollback(tx);               <span class="c">// ④ Runs on exception</span>
+            <span class="k">throw</span> ex;
+        }
+    }
+}</pre>
+<p>
+And what does Box 3 (<code>singletonObjects</code>) store under the key <code>"bookService"</code>?
+</p>
+<pre>BookService rawTarget = <span class="k">new</span> BookService(repo);
+BookService proxy     = <span class="k">new</span> BookService$$SpringCGLIB$$0(rawTarget, txManager);
+
+<span class="c">// Box 3 stores the PROXY, not the raw target!</span>
+singletonObjects.put(<span class="s">"bookService"</span>, proxy);</pre>
+<div class="idiom"><strong>Zero magic:</strong> Your <code>OrderController</code> asked for a <code>BookService</code>. Because <code>BookService$$SpringCGLIB$$0 extends BookService</code>, it <em>is</em> a <code>BookService</code>! So Spring injects the <strong>Proxy</strong> into <code>OrderController</code>. Your raw <code>BookService</code> object sits privately inside <code>proxy.target</code>.</div>
+
+<div class="flow-steps">
+  <strong>Step-by-step control flow (Startup → Request):</strong>
+  <ol>
+    <li><strong>Step 1 (Startup — Box 3 Instantiation):</strong> Spring creates the raw target object (<code>new BookService()</code>), injects its fields/constructor, and runs its <code>@PostConstruct</code> method. (Notice: <strong>no proxy exists yet during <code>@PostConstruct</code>!</strong>)</li>
+    <li><strong>Step 2 (Startup — Box 4 Inspection):</strong> <code>AnnotationAwareAspectJAutoProxyCreator</code> (a <code>BeanPostProcessor</code>) inspects the bean in <code>postProcessAfterInitialization</code>. Does any method match an <code>@Aspect</code> pointcut or carry <code>@Transactional</code> / <code>@Async</code> / <code>@Cacheable</code>?</li>
+    <li><strong>Step 3 (Startup — Box 4 Wrapping → Box 3 Storage):</strong> Yes! It generates <code>BookService$$SpringCGLIB$$0</code> wrapping the raw target, and hands that Proxy to Box 3's <code>singletonObjects</code> map.</li>
+    <li><strong>Step 4 (Request — Caller invokes Proxy):</strong> An HTTP request arrives in Box 6. <code>OrderController</code> calls <code>bookService.place(cart)</code>. Because <code>OrderController</code> holds the Proxy, execution enters <code>BookService$$SpringCGLIB$$0.place()</code>.</li>
+    <li><strong>Step 5 (Request — Interceptor Chain → Target):</strong> The Proxy runs every matching advice in order (e.g., Security → Logging → Transaction open), calls <code>target.place(cart)</code> on your real object, and unwinds back out (Transaction commit → Logging → return to Controller).</li>
+  </ol>
+</div>
+
+<h3>Two ways Box 4 builds the Proxy: JDK Dynamic Proxy vs CGLIB</h3>
+<figure>
+<svg viewBox="0 0 760 320" width="100%" role="img" aria-label="JDK dynamic proxy versus CGLIB subclass proxy">
+  <style>
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}.g{fill:#eefaf4;stroke:#6db33f;stroke-width:1.4}
+    .y{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11.5px Georgia,serif;fill:#3f3b34}
+    .h{font:bold 12.5px Georgia,serif;fill:#2b2b28}.lb{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.3;marker-end:url(#m8);fill:none}
+    .d{stroke:#6b675e;stroke-width:1.2;stroke-dasharray:4 3;fill:none}
+  </style>
+  <defs><marker id="m8" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <text class="h" x="14" y="18" style="fill:#1f4d7a">Strategy 1: JDK Dynamic Proxy (implements interface)</text>
+  <rect class="b" x="14" y="28" width="350" height="140" rx="6"/>
+  <rect class="g" x="30" y="42" width="150" height="42" rx="5"/><text class="t" x="44" y="64">«interface»</text>
+  <text class="t" x="44" y="78" style="font-size:10px">BookOperations</text>
+  <rect class="y" x="200" y="42" width="148" height="42" rx="5"/><text class="t" x="214" y="62">BookServiceImpl</text><text class="lb" x="214" y="78">TARGET</text>
+  <rect class="b" x="30" y="106" width="150" height="46" rx="5"/><text class="t" x="44" y="126">class $Proxy17</text><text class="lb" x="44" y="142">implements BookOperations</text>
+  <path class="d" d="M105,106 L105,86"/><path class="d" d="M274,86 L180,86"/>
+  <path class="a" d="M180,128 L270,128"/><text class="lb" x="192" y="122">target ref</text>
+  <rect class="y" x="270" y="106" width="78" height="46" rx="5"/><text class="lb" x="282" y="134">target</text>
+  <text class="c" x="14" y="186">$Proxy17 IS-A BookOperations, NOT a BookServiceImpl.</text>
+  <text class="c" x="14" y="204" style="fill:#7a1f1f">Injecting BookServiceImpl throws ClassCastException!</text>
+
+  <text class="h" x="406" y="18" style="fill:#6db33f">Strategy 2: CGLIB Proxy (extends your class — Boot default)</text>
+  <rect class="g" x="406" y="28" width="340" height="140" rx="6"/>
+  <rect class="y" x="470" y="42" width="190" height="42" rx="5"/><text class="t" x="486" y="62">class BookService</text><text class="lb" x="486" y="78">TARGET (your concrete class)</text>
+  <rect class="g" x="426" y="106" width="286" height="46" rx="5"/>
+  <text class="t" x="438" y="126">BookService$$SpringCGLIB$$0</text><text class="lb" x="438" y="142">extends BookService + holds target ref</text>
+  <path class="d" d="M565,106 L565,86"/><text class="lb" x="572" y="100">extends</text>
+  <text class="c" x="406" y="186">Proxy IS-A BookService → injecting concrete class works!</text>
+  <text class="c" x="406" y="204" style="fill:#7a1f1f">Cannot override final classes, final methods, or private methods.</text>
+
+  <rect class="b" x="14" y="222" width="732" height="88" rx="6"/>
+  <text class="h" x="30" y="244">Why Spring Boot defaults to CGLIB (spring.aop.proxy-target-class=true)</text>
+  <text class="c" x="30" y="266">Plain Spring uses JDK proxies when a class implements an interface, and CGLIB when it doesn't.</text>
+  <text class="c" x="30" y="286">Spring Boot forces CGLIB by default so you can inject concrete classes (BookService) without ClassCastExceptions.</text>
+</svg>
+<figcaption>JDK Dynamic Proxy (built into <code>java.lang.reflect.Proxy</code>, implements interfaces only) vs CGLIB Proxy (generates a subclass that <code>extends</code> your class and overrides non-<code>final</code> methods).
+<span class="sources">(Per <a href="https://docs.spring.io/spring-framework/reference/core/aop/proxying.html">Spring Framework Reference — Proxying Mechanisms</a>.)</span></figcaption>
+</figure>
+
+<h3>★ Universal Rule 2 ("Who You Call"): External Call vs Self-Invocation</h3>
+<p>
+Now look at the single most famous bug in all of Spring. Why does <code>@Transactional</code> (or <code>@Async</code>, or <code>@Cacheable</code>) <strong>silently do nothing</strong> when method <code>A()</code> calls method <code>B()</code> inside the same class?
+</p>
+<pre><span class="an">@Service</span>
+<span class="k">public class</span> BookService {
+
+    <span class="k">public void</span> importAll(List&lt;Book&gt; books) {    <span class="c">// Notice: NO @Transactional on importAll()</span>
+        <span class="k">for</span> (Book b : books) {
+            <span class="k">this</span>.saveOne(b);                     <span class="c">// ← Calling `this.saveOne(b)`! Who is `this`?!</span>
+        }
+    }
+
+    <span class="an">@Transactional</span>
+    <span class="k">public void</span> saveOne(Book b) {                <span class="c">// ← @Transactional is SILENTLY IGNORED!</span>
+        repo.save(b);
+    }
+}</pre>
+<p>
+Trace the exact pointer on every arrow below. Remember: once the Proxy delegates to <code>target.importAll(books)</code>, execution is inside the <strong>raw <code>BookService</code> target object</strong>. Inside that method, the Java keyword <code>this</code> points to the <strong>raw target</strong>, NOT the Proxy!
+</p>
+<figure>
+<svg viewBox="0 0 760 245" width="100%" role="img" aria-label="External call through proxy versus self-invocation bypassing proxy">
+  <style>
+    .g{fill:#eefaf4;stroke:#6db33f;stroke-width:1.6}.y{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.6}
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11.5px Georgia,serif;fill:#3f3b34}
+    .lb{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .ok{stroke:#1f6b4d;stroke-width:1.8;marker-end:url(#m9);fill:none}
+    .bad{stroke:#7a1f1f;stroke-width:2;marker-end:url(#m10);fill:none;stroke-dasharray:5 3}
+  </style>
+  <defs>
+    <marker id="m9" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1f6b4d"/></marker>
+    <marker id="m10" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker>
+  </defs>
+
+  <!-- Caller -->
+  <rect class="b" x="12" y="65" width="115" height="55" rx="5"/>
+  <text class="t" x="22" y="88">Controller</text>
+  <text class="lb" x="22" y="106">(Caller)</text>
+
+  <!-- Proxy -->
+  <rect class="g" x="180" y="30" width="205" height="135" rx="6"/>
+  <text class="t" x="194" y="52" style="font-weight:bold;fill:#1f6b4d">BookService$$Proxy</text>
+  <text class="lb" x="194" y="70">(Stored in Box 3)</text>
+  <text class="t" x="194" y="95" style="font-size:11px">importAll(): no @Transactional</text>
+  <text class="t" x="194" y="115" style="font-size:11px">saveOne():   HAS tx advice!</text>
+  <text class="lb" x="194" y="142" style="fill:#7a1f1f">saveOne() on Proxy is NEVER called!</text>
+
+  <!-- Target -->
+  <rect class="y" x="450" y="30" width="295" height="135" rx="6"/>
+  <text class="t" x="466" y="52" style="font-weight:bold;fill:#7a1f1f">Raw BookService (target)</text>
+  <text class="t" x="466" y="85" style="font-size:11.5px">1. importAll() runs here</text>
+  <text class="t" x="466" y="110" style="font-size:11.5px">2. calls this.saveOne(b)</text>
+  <text class="t" x="466" y="135" style="font-size:11.5px">3. saveOne(b) runs directly on this</text>
+
+  <!-- Arrows -->
+  <path class="ok" d="M127,92 L178,92"/>
+  <text class="c" x="131" y="84" style="font-size:10px;fill:#1f6b4d">external</text>
+  <path class="ok" d="M385,85 L448,85"/>
+  <text class="c" x="392" y="77" style="font-size:10px;fill:#1f6b4d">target.importAll()</text>
+
+  <!-- Self invocation loop -->
+  <path class="bad" d="M620,115 C685,115 685,145 620,140"/>
+  <text class="c" x="450" y="192" style="fill:#7a1f1f;font-weight:bold">✗ Self-Invocation (this.saveOne()): stays inside Raw Target!</text>
+  <text class="c" x="450" y="212">Because this is the raw object, the call never goes back out through</text>
+  <text class="c" x="450" y="230">BookService$$Proxy. Zero transactions, zero @Async, zero @Cacheable.</text>
+</svg>
+<figcaption>Rule 2 ("Who You Call"): External calls hit the Proxy (<code>caller → Proxy → target</code>). Internal calls (<code>this.saveOne()</code>) go directly from <code>target</code> to <code>target</code>, completely bypassing the Proxy wrapper.</figcaption>
+</figure>
+
+<h3>The AOP Vocabulary &amp; The 5 Advice Types</h3>
+<table>
+<thead><tr><th>AOP Term</th><th>Plain-English Meaning</th><th>Concrete Example</th></tr></thead>
+<tbody>
+<tr><td><strong>Aspect</strong></td><td>A class that bundles cross-cutting logic</td><td><code>@Aspect @Component class AuditAspect</code></td></tr>
+<tr><td><strong>Join Point</strong></td><td>A place where an aspect <em>can</em> hook in</td><td>In Spring AOP: <strong>always a bean method execution</strong>.</td></tr>
+<tr><td><strong>Pointcut</strong></td><td>The filter expression choosing <em>which</em> methods to wrap</td><td><code>@annotation(Audited)</code> or <code>execution(* com.bv.service.*.*(..))</code></td></tr>
+<tr><td><strong>Advice</strong></td><td>The method in your aspect that runs Before/After/Around</td><td><code>@Around("...") Object timeIt(ProceedingJoinPoint pjp)</code></td></tr>
+<tr><td><strong>Target</strong></td><td>Your real, unwrapped Java instance</td><td><code>new BookService()</code> inside <code>proxy.target</code></td></tr>
+<tr><td><strong>Weaving</strong></td><td>Creating the wrapper around the target</td><td>Spring AOP weaves at <strong>runtime inside Box 4</strong> (AspectJ weaves into <code>.class</code> bytecode).</td></tr>
+</tbody></table>
+
+<pre><span class="an">@Aspect</span>
+<span class="an">@Component</span> <span class="c">// ← Must be a bean in Box 2/3, or Spring ignores @Aspect!</span>
+<span class="k">public class</span> LoggingAndTimingAspect {
+
+    <span class="an">@Before</span>(<span class="s">"@annotation(Audited)"</span>)
+    <span class="k">public void</span> logEntry(JoinPoint jp) { <span class="c">/* runs BEFORE target method */</span> }
+
+    <span class="an">@AfterReturning</span>(pointcut = <span class="s">"@annotation(Audited)"</span>, returning = <span class="s">"res"</span>)
+    <span class="k">public void</span> logSuccess(Object res) { <span class="c">/* runs ONLY when target returns normally */</span> }
+
+    <span class="an">@AfterThrowing</span>(pointcut = <span class="s">"@annotation(Audited)"</span>, throwing = <span class="s">"ex"</span>)
+    <span class="k">public void</span> logFailure(Exception ex) { <span class="c">/* runs ONLY when target throws (cannot swallow exception) */</span> }
+
+    <span class="an">@After</span>(<span class="s">"@annotation(Audited)"</span>)
+    <span class="k">public void</span> cleanup() { <span class="c">/* runs in a `finally` block (success OR exception) */</span> }
+
+    <span class="an">@Around</span>(<span class="s">"@annotation(Audited)"</span>)
+    <span class="k">public</span> Object measure(ProceedingJoinPoint pjp) <span class="k">throws</span> Throwable {
+        <span class="k">long</span> t0 = System.nanoTime();
+        <span class="k">try</span> {
+            <span class="k">return</span> pjp.proceed(); <span class="c">// ← Calls next advice / target.place()!</span>
+        } <span class="k">finally</span> {
+            metrics.record(pjp.getSignature().getName(), System.nanoTime() - t0);
+        }
+    }
+}</pre>
+
+<h2><span class="n">§4</span>When to use — Decision Table</h2>
+<table>
+<thead><tr><th>Problem you are solving</th><th>Best Tool</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Transactions, caching, async threads, method security, retries</td><td>Built-in Spring annotations (<code>@Transactional</code>, <code>@Cacheable</code>, <code>@Async</code>, <code>@PreAuthorize</code>, <code>@Retryable</code>)</td><td>Already written, battle-tested Box 4 proxies. Don't reinvent them.</td></tr>
+<tr><td>Custom policy across many service methods (idempotency locks, audit logs, tenant check)</td><td>Custom <code>@Aspect</code> + custom marker annotation (e.g., <code>@Idempotent</code>)</td><td>Explicit at the call site, works on any bean layer (service, repository, message listener).</td></tr>
+<tr><td>HTTP-only concern (CORS, auth headers, request ID logging)</td><td>Servlet <code>Filter</code> (Box 5) or <code>HandlerInterceptor</code> (Box 6)</td><td>Simpler than AOP when you only care about incoming HTTP requests.</td></tr>
+<tr><td>Advising <code>private</code> methods, constructors, fields, or objects created with <code>new</code></td><td>Compile-time / Load-time <strong>AspectJ</strong> bytecode weaving</td><td>Spring AOP proxies only intercept non-private methods on Spring beans in Box 3/4.</td></tr>
+</tbody></table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine the school principal's office. The principal (<strong>the Target</strong>) only wants to do principal work—she doesn't want to check visitor passes, start a stopwatch, or write in a logbook every time someone walks in.
+</p>
+<p>
+So the school puts a <strong>Secretary's Desk (the Proxy)</strong> right outside the principal's door. In fact, when anyone asks the school directory (<strong>Box 3</strong>) for the principal's room number, it gives them the <strong>Secretary's Desk</strong>!
+</p>
+<p>
+When a teacher (<strong>Controller</strong>) visits the principal, they must talk to the Secretary first. The Secretary checks their pass, starts a timer, opens the inner door, lets the principal answer the question, and stops the timer on the way out.
+</p>
+<p>
+<strong>Why does <code>this.saveOne()</code> fail?</strong> Suppose the principal is already sitting <em>inside</em> her private office (<code>importAll</code>) and walks over to her own filing cabinet (<code>this.saveOne</code>). Did she walk out of her office, past the Secretary's desk, and back in? <strong>No!</strong> She stayed inside her room the whole time. The Secretary never saw her move, so no pass was checked and no timer was started.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← Lesson 04 (Bean Lifecycle):</strong> <code>AnnotationAwareAspectJAutoProxyCreator</code> is a <code>BeanPostProcessor</code> running in Box 4's <code>postProcessAfterInitialization</code> step—<em>after</em> constructor injection and <code>@PostConstruct</code>.</li>
+  <li><strong>← <a href="../../java/04-jvm-execution-engine/lesson.html">java/04-jvm-execution-engine</a> &amp; <a href="../../java/05-type-system-and-oop/lesson.html">java/05-type-system-and-oop</a>:</strong> CGLIB works because non-<code>final</code> methods in Java use virtual dispatch (<code>invokevirtual</code>); <code>private</code> and <code>final</code> methods cannot be overridden by a subclass.</li>
+  <li><strong>→ Lesson 12 (Transactions):</strong> <code>@Transactional</code> is literally an <code>@Around</code> advice on a Box 4 proxy that stores a JDBC <code>Connection</code> in Box 6's <code>ThreadLocal</code>.</li>
+  <li><strong>→ Lesson 13 (Security) &amp; Lesson 16 (Async/Caching):</strong> <code>@PreAuthorize</code>, <code>@Async</code>, and <code>@Cacheable</code> all use this exact Box 4 proxy mechanism and share the exact same self-invocation rules.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Code Dissection &amp; Interview Derivation</h2>
+
+<h3>Code Dissection: A Redis Idempotency Aspect</h3>
+<pre><span class="an">@Retention</span>(RUNTIME) <span class="an">@Target</span>(METHOD)
+<span class="k">public</span> <span class="an">@interface</span> Idempotent { <span class="k">long</span> ttlSeconds() <span class="k">default</span> 300; }
+
+<span class="an">@Aspect</span>
+<span class="an">@Component</span>
+<span class="an">@Order</span>(Ordered.HIGHEST_PRECEDENCE + 10)                       <span class="c">// ① Outer wrapper: run BEFORE @Transactional!</span>
+<span class="k">public class</span> IdempotencyAspect {
+
+    <span class="k">private final</span> StringRedisTemplate redis;
+    <span class="k">public</span> IdempotencyAspect(StringRedisTemplate redis) { <span class="k">this</span>.redis = redis; }
+
+    <span class="an">@Around</span>(<span class="s">"@annotation(idempotent)"</span>)                       <span class="c">// ② Matches method &amp; binds annotation instance</span>
+    <span class="k">public</span> Object guard(ProceedingJoinPoint pjp, Idempotent idempotent) <span class="k">throws</span> Throwable {
+        String key = RequestContext.idempotencyKey();
+        <span class="k">if</span> (key == <span class="k">null</span>) <span class="k">return</span> pjp.proceed();
+
+        Boolean firstTime = redis.opsForValue()               <span class="c">// ③ Atomic Redis SET NX before DB tx opens</span>
+            .setIfAbsent(<span class="s">"idem:"</span> + key, <span class="s">"1"</span>, Duration.ofSeconds(idempotent.ttlSeconds()));
+        <span class="k">if</span> (Boolean.FALSE.equals(firstTime)) {
+            <span class="k">throw new</span> DuplicateRequestException(key);         <span class="c">// ④ Aborts call; target never runs</span>
+        }
+        <span class="k">try</span> {
+            <span class="k">return</span> pjp.proceed();                             <span class="c">// ⑤ Calls next interceptor (@Transactional) → target</span>
+        } <span class="k">catch</span> (Throwable ex) {
+            redis.delete(<span class="s">"idem:"</span> + key);                      <span class="c">// ⑥ Target failed → clear lock so user can retry</span>
+            <span class="k">throw</span> ex;
+        }
+    }
+}</pre>
+<div class="ann"><strong>Chunk-by-chunk dissection:</strong>
+<strong>①</strong> <code>@Order</code> controls the onion layers when multiple aspects wrap the same method. Lower number = outer layer. Because <code>@Transactional</code> defaults to <code>Ordered.LOWEST_PRECEDENCE</code> (innermost), setting <code>HIGHEST_PRECEDENCE + 10</code> ensures we check Redis <em>outside</em> the database transaction—without holding a precious DB connection during a Redis network call!
+<strong>②</strong> Writing <code>@annotation(idempotent)</code> (matching the parameter name <code>idempotent</code>) both matches the method and passes the annotation object into <code>guard()</code> so we can read <code>idempotent.ttlSeconds()</code>.
+<strong>⑤</strong> Calling <code>return pjp.proceed()</code> is mandatory if you want the target method to execute. Forget <code>return</code> and the caller receives <code>null</code>!</div>
+
+<div class="try"><strong>Try this / Predict the output:</strong>
+Suppose <code>OrderService.place()</code> has both <code>@Retryable(maxAttempts = 3)</code> and <code>@Transactional</code>. What happens if <code>@Retryable</code> has a <em>higher</em> order number (meaning it sits <strong>inside</strong> <code>@Transactional</code>) and attempt #1 fails with a database constraint error?
+<br/><em>Answer:</em> The outer <code>@Transactional</code> proxy opened <strong>one</strong> transaction before attempt #1. When attempt #1 throws an exception, attempts #2 and #3 run inside the <em>same</em> already-broken transaction (which is marked rollback-only)! Outer aspects must always have a <strong>lower</strong> <code>@Order</code> number so each retry starts a fresh transaction.</div>
+
+<h3>How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead><tr><th>Classic Interview Question</th><th>Which Box / Rule to Check</th><th>10-Second Derived Answer</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>"Why does <code>@Transactional</code> or <code>@Async</code> not work when called from another method in the same class?"</strong></td>
+  <td><strong>Rule 2 (Who You Call)</strong> + <strong>Box 4</strong></td>
+  <td>Box 3 stores the <code>Proxy</code>, which wraps the raw <code>target</code>. External callers call the <code>Proxy</code>. Inside the target, <code>this</code> is the raw <code>target</code>, so <code>this.methodB()</code> never passes through the <code>Proxy</code>. Fix by extracting <code>methodB()</code> into a separate bean or injecting self-proxy.</td>
+</tr>
+<tr>
+  <td><strong>"Why does <code>@Transactional</code> on a <code>private</code> or <code>final</code> method silently fail?"</strong></td>
+  <td><strong>Box 4 (CGLIB subclass)</strong></td>
+  <td>Spring Boot builds AOP proxies using CGLIB (<code>class Service$$Proxy extends Service</code>). In Java, a subclass cannot override a <code>private</code> or <code>final</code> method, so the proxy cannot intercept the call.</td>
+</tr>
+<tr>
+  <td><strong>"Why didn't <code>@Transactional</code> work inside my <code>@PostConstruct</code> method?"</strong></td>
+  <td><strong>Rule 1 (Order of Steps)</strong> + <strong>Box 3 → Box 4</strong></td>
+  <td>During startup, <code>@PostConstruct</code> runs on the raw target object <em>before</em> Box 4's <code>postProcessAfterInitialization</code> wraps the bean in an AOP proxy! At the moment <code>@PostConstruct</code> runs, no proxy exists yet. Use <code>ApplicationReadyEvent</code> or <code>ApplicationRunner</code> instead.</td>
+</tr>
+<tr>
+  <td><strong>"What is the difference between JDK Dynamic Proxy and CGLIB Proxy?"</strong></td>
+  <td><strong>Box 4</strong></td>
+  <td>JDK Dynamic Proxy implements the target's interfaces (<code>implements Foo</code>), so it cannot be cast to the concrete class. CGLIB generates a subclass (<code>extends FooImpl</code>) and overrides non-final methods. Spring Boot defaults to CGLIB (<code>proxy-target-class=true</code>).</td>
+</tr>
+<tr>
+  <td><strong>"What is the difference between a Servlet <code>Filter</code>, a Spring MVC <code>HandlerInterceptor</code>, and a Spring AOP <code>@Aspect</code>?"</strong></td>
+  <td><strong>Box 5 vs Box 6 vs Box 4</strong></td>
+  <td>A <code>Filter</code> sits in Box 5 (Tomcat container, sees raw <code>HttpServletRequest</code> before MVC). A <code>HandlerInterceptor</code> sits in Box 6 (<code>DispatcherServlet</code>, sees the matched <code>@Controller</code> handler). An <code>@Aspect</code> sits in Box 4 (wraps any Spring bean method—even background jobs with no HTTP request).</td>
+</tr>
+</tbody></table>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Self-invocation (<code>this.b()</code>).</strong> Calling another method on <code>this</code> stays inside the raw <code>target</code> object and bypasses the Box 4 proxy completely. Every proxy-based annotation (<code>@Transactional</code>, <code>@Async</code>, <code>@Cacheable</code>, <code>@PreAuthorize</code>, <code>@Retryable</code>) is silently skipped.</div>
+<div class="pitfall"><strong>Putting <code>@Transactional</code> or <code>@Cacheable</code> on <code>private</code>, <code>final</code>, or <code>static</code> methods.</strong> CGLIB proxies work by overriding instance methods in a generated subclass. Java forbids overriding <code>private</code>, <code>final</code>, or <code>static</code> methods, so the proxy never intercepts them.</div>
+<div class="pitfall"><strong>Forgetting <code>return pjp.proceed()</code> inside <code>@Around</code> advice.</strong> If you forget <code>pjp.proceed()</code>, the target method never runs. If you call <code>pjp.proceed()</code> but forget <code>return</code>, your service method runs and saves to the DB, but returns <code>null</code> to the controller!</div>
+<div class="pitfall"><strong>Writing <code>@Aspect</code> on a class without <code>@Component</code> (or <code>@Bean</code>).</strong> <code>@Aspect</code> is not a stereotype annotation! Box 2A's <code>@ComponentScan</code> ignores <code>@Aspect</code> unless the class is also registered as a bean in Box 2.</div>
+<div class="pitfall"><strong>Wrong <code>@Order</code> between <code>@Retryable</code> / <code>@Cacheable</code> and <code>@Transactional</code>.</strong> Without explicit ordering, a retry aspect might run *inside* a doomed transaction, or a cache aspect might cache uncommitted data before the transaction commits. Lower <code>@Order</code> = outer wrapper.</div>
+
+<h2><span class="n">§9</span>Recap, Reference &amp; Glossary</h2>
+<ul class="recap">
+  <li><strong>Box 4 (<code>BeanPostProcessor</code>) creates AOP proxies</strong> in <code>postProcessAfterInitialization</code> (after <code>@PostConstruct</code>) and stores the <strong>Proxy</strong> in Box 3 (<code>singletonObjects</code>).</li>
+  <li><strong>A Proxy is just a generated wrapper class</strong> holding a pointer <code>target</code> to your real instance.</li>
+  <li><strong>Two proxy mechanisms:</strong> JDK Dynamic Proxy (implements interfaces) vs CGLIB (extends your class; Spring Boot's default).</li>
+  <li><strong>Universal Rule 2 ("Who You Call"):</strong> External calls hit the Proxy (<code>caller → Proxy → target</code>); internal calls (<code>this.b()</code>) hit the raw <code>target</code> directly and bypass all aspects.</li>
+  <li><strong>Five advice types:</strong> <code>@Before</code>, <code>@AfterReturning</code>, <code>@AfterThrowing</code>, <code>@After</code> (finally), and <code>@Around</code> (wraps call via <code>ProceedingJoinPoint.proceed()</code>).</li>
+  <li><strong><code>@Order</code> controls aspect nesting:</strong> lower number = outer layer (runs first on the way in, last on the way out).</li>
+</ul>
+
+<h2>Reference — Quick Cheat-Sheet</h2>
+<table>
+<thead><tr><th>You want to…</th><th>Reach for</th><th>Key Rule to Remember</th></tr></thead>
+<tbody>
+<tr><td>Run logic before a method</td><td><code>@Before</code></td><td>Cannot stop execution unless it throws an exception.</td></tr>
+<tr><td>Wrap, time, cache, or retry a method</td><td><code>@Around</code> + <code>return pjp.proceed()</code></td><td>Must return the result of <code>pjp.proceed()</code>.</td></tr>
+<tr><td>Match methods with a custom annotation</td><td><code>@Around("@annotation(myAnno)")</code></td><td>Safer than package globs when classes move.</td></tr>
+<tr><td>Fix self-invocation (<code>this.b()</code>)</td><td>Move <code>b()</code> to a second <code>@Service</code> bean</td><td>Now <code>a()</code> calls the second bean's Proxy in Box 3!</td></tr>
+<tr><td>Control order of multiple aspects</td><td><code>@Order(10)</code></td><td>Lower number = outer wrapper (runs before <code>@Transactional</code>).</td></tr>
+<tr><td>Check if a bean is an AOP proxy at runtime</td><td><code>AopUtils.isAopProxy(bean)</code></td><td>Or print <code>bean.getClass().getName()</code> to see <code>$$SpringCGLIB$$0</code>.</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Proxy (Box 4 wrapper)</dt><dd>The runtime-generated wrapper class stored in Box 3 (<code>singletonObjects</code>) that runs aspect advice before and after delegating to <code>target</code>.</dd>
+  <dt>Target object</dt><dd>Your real, unwrapped Java instance (<code>new BookService()</code>) held inside the Proxy.</dd>
+  <dt>Self-invocation</dt><dd>When a method on <code>target</code> calls <code>this.anotherMethod()</code>, staying inside the raw object and bypassing the Proxy.</dd>
+  <dt>JDK dynamic proxy</dt><dd>A proxy built with <code>java.lang.reflect.Proxy</code> that implements the target's interfaces.</dd>
+  <dt>CGLIB proxy</dt><dd>A proxy built by generating a bytecode subclass (<code>extends BookService</code>) that overrides non-<code>final</code>, non-<code>private</code> methods. Default in Spring Boot.</dd>
+  <dt>Aspect</dt><dd>A Spring bean annotated with <code>@Aspect</code> that combines pointcuts (where) and advice (what to run).</dd>
+  <dt>Join point</dt><dd>A candidate point in program execution; in Spring AOP, always a bean method execution.</dd>
+  <dt>Pointcut</dt><dd>A predicate expression (like <code>@annotation(...)</code> or <code>execution(...)</code>) that matches join points.</dd>
+  <dt>Advice</dt><dd>The interceptor logic (<code>@Before</code>, <code>@After</code>, <code>@Around</code>, etc.) executed by the Proxy when a matched method is called.</dd>
+  <dt>ProceedingJoinPoint</dt><dd>The handle passed to <code>@Around</code> advice whose <code>.proceed()</code> method advances down the interceptor chain to the target.</dd>
+</dl>
+
+<h2>Official Documentation &amp; Primary Sources</h2>
+<p>
+Read <a href="https://docs.spring.io/spring-framework/reference/core/aop.html">Spring Framework Reference — Aspect Oriented Programming with Spring</a> and <a href="https://docs.spring.io/spring-framework/reference/core/aop/proxying.html">Proxying Mechanisms</a> (which includes the official diagram of self-invocation).
+</p>
+<p class="sources" style="margin-top:2rem">Sources: <a href="https://docs.spring.io/spring-framework/reference/core/aop.html">Spring Framework Reference — AOP Concepts &amp; @AspectJ Support</a>; <a href="https://docs.spring.io/spring-framework/reference/core/aop/proxying.html">Spring Framework Reference — Understanding AOP Proxies</a>. Targeting Spring Framework 6.x / Spring Boot 3.x. Authored per Knowledge-Base-2 <code>rules/03-teaching.md</code> and <code>rules/topic-styles/framework.md</code>.</p>
+
+</body>
+</html>

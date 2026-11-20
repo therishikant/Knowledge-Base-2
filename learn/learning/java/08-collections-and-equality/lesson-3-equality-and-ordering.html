@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Equality &amp; Ordering — Collections, Part 3 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .step{display:flex;gap:.8rem;margin:.9rem 0} .step .num{flex:0 0 2rem;height:2rem;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.95rem}
+  .step .body{flex:1} .step .body strong{display:block}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Equality &amp; Ordering</h1>
+<p class="crumb">Java › collections cluster · lesson 8, <strong>part 3 of 3</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the two rules that make every collection work</p>
+
+<p class="nav"><strong>Collections cluster:</strong>
+  <a href="lesson.html">1. Lists, sets &amp; queues</a> ·
+  <a href="lesson-2-maps-and-hashing.html">2. Maps &amp; how hashing works</a> ·
+  <strong>3. Equality &amp; ordering</strong>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> Parts 1 and 2 quietly assumed two things: that Java knows when two of your objects are
+"the same", and that it knows how to put them in order. Neither is automatic. <strong>equals + hashCode</strong> define
+sameness; <strong>Comparable / Comparator</strong> define order. Get them wrong and your object silently disappears from a
+set, or a sort throws at random.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+This is the lesson that makes the other two actually work. A <code>Set</code> promises "no duplicates" — but <em>what is a
+duplicate?</em> A <code>HashMap</code> promises "find the value for this key" — but <em>which key counts as the same key?</em>
+A <code>TreeMap</code> promises sorted keys — but <em>sorted how?</em> Those answers do not come from the collection. They
+come from <strong>your class</strong>.
+</p>
+<p>
+It is also the highest-value lesson for interviews and for real bugs. "Why isn't my object found in the set?" is the single
+most common Java collections question, and the answer is always here.
+</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+
+<h3>Two different meanings of "same"</h3>
+<p>Hold two £10 notes. Are they "the same"? It depends what you mean:</p>
+<ul>
+  <li><strong>The same object</strong> — literally the one item, the same piece of paper. In Java that is <code>==</code>: are these two references pointing at the same spot on the heap?</li>
+  <li><strong>The same value</strong> — different paper, same worth, interchangeable for your purpose. In Java that is <code>equals</code>.</li>
+</ul>
+<p>Java cannot guess which one you mean, so it gives you both and lets you define the second.</p>
+
+<h3>What Java does if you say nothing</h3>
+<p>
+Every class inherits <code>equals</code> and <code>hashCode</code> from <code>Object</code>. The inherited versions are
+<strong>identity-based</strong>: <code>equals</code> is just <code>==</code>, and <code>hashCode</code> is derived from the
+object's identity. So two separately built objects holding exactly the same data are, by default, <em>not equal</em>
+<span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#equals-java.lang.Object-">Oracle — Object.equals</a>)</span>.
+</p>
+<pre>Point a = <span class="k">new</span> Point(1,2), b = <span class="k">new</span> Point(1,2);
+a == b        <span class="c">// false — two different objects</span>
+a.equals(b)   <span class="c">// false too, unless Point overrides equals</span></pre>
+<p>
+That default is right for things with an identity — a <code>Thread</code>, a database connection, a running order. It is
+<em>wrong</em> for <strong>value objects</strong> like a point, a money amount, an email address, an ID. For those, two
+instances carrying the same data should be treated as one.
+</p>
+
+<h3>Why <code>hashCode</code> has to come along for the ride</h3>
+<p>
+From <a href="lesson-2-maps-and-hashing.html">Part 2</a>, a hash lookup does two things: use <code>hashCode</code> to pick a
+bucket, then use <code>equals</code> inside that bucket. If you override only <code>equals</code>, the lookup goes to the
+<em>wrong bucket first</em> — and never even reaches your clever <code>equals</code>. The object is there, in the set, and
+yet <code>contains</code> says false. Hence the contract.
+</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>The lookup path, and where it breaks</h3>
+<figure>
+<svg viewBox="0 0 770 300" width="100%" role="img" aria-label="Why equals needs hashCode">
+  <style>
+    .ok{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.5}.bad{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.5}
+    .n{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.3}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .lbl{font:12.5px Georgia,serif;fill:#2b2b28;font-weight:bold}
+    .a{stroke:#1f6b4d;stroke-width:1.5;marker-end:url(#g);fill:none}
+    .x{stroke:#7a1f1f;stroke-width:1.5;marker-end:url(#r);fill:none}
+  </style>
+  <defs>
+    <marker id="g" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1f6b4d"/></marker>
+    <marker id="r" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker>
+  </defs>
+
+  <text class="lbl" x="20" y="22">BOTH overridden — it works</text>
+  <rect class="ok" x="20" y="34" width="150" height="44" rx="5"/><text class="t" x="28" y="54">new Point(1,2)</text><text class="c" x="28" y="70">the one you look up</text>
+  <rect class="ok" x="205" y="34" width="150" height="44" rx="5"/><text class="t" x="214" y="54">hashCode()</text><text class="c" x="214" y="70">= 1026 → bucket 2</text>
+  <rect class="n"  x="390" y="34" width="140" height="44" rx="5"/><text class="t" x="430" y="54">bucket 2</text><text class="c" x="398" y="70">holds (1,2)</text>
+  <rect class="ok" x="565" y="34" width="185" height="44" rx="5"/><text class="t" x="574" y="54">equals() → true</text><text class="c" x="574" y="70">FOUND</text>
+  <line class="a" x1="170" y1="56" x2="203" y2="56"/><line class="a" x1="355" y1="56" x2="388" y2="56"/><line class="a" x1="530" y1="56" x2="563" y2="56"/>
+
+  <text class="lbl" x="20" y="150">equals only, no hashCode — it silently fails</text>
+  <rect class="bad" x="20" y="162" width="150" height="44" rx="5"/><text class="t" x="28" y="182">new Point(1,2)</text><text class="c" x="28" y="198">the one you look up</text>
+  <rect class="bad" x="205" y="162" width="150" height="44" rx="5"/><text class="t" x="214" y="182">hashCode()</text><text class="c" x="214" y="198">identity → bucket 9</text>
+  <rect class="n"  x="390" y="162" width="140" height="44" rx="5"/><text class="t" x="430" y="182">bucket 9</text><text class="c" x="416" y="198">empty</text>
+  <rect class="bad" x="565" y="162" width="185" height="44" rx="5"/><text class="t" x="574" y="182">stop → false</text><text class="c" x="574" y="198">equals never runs</text>
+  <line class="x" x1="170" y1="184" x2="203" y2="184"/><line class="x" x1="355" y1="184" x2="388" y2="184"/><line class="x" x1="530" y1="184" x2="563" y2="184"/>
+
+  <rect class="n" x="390" y="238" width="140" height="44" rx="5"/><text class="t" x="430" y="258">bucket 2</text><text class="c" x="398" y="274">(1,2) sits here</text>
+  <line class="x" x1="460" y1="236" x2="460" y2="208" stroke-dasharray="4 3"/>
+  <text class="c" x="545" y="266">the object is in the set —</text>
+  <text class="c" x="545" y="282">the search simply never looks here</text>
+</svg>
+<figcaption>Same object, same <code>equals</code>. The only difference is <code>hashCode</code>, and it decides whether the
+search ever reaches the right bucket. The failure is silent: no exception, just <code>false</code>.</figcaption>
+</figure>
+
+<h3>The <code>equals</code> contract — five rules</h3>
+<p>These are not style advice. The collections rely on them, and <code>Object</code>'s own docs state them
+<span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#equals-java.lang.Object-">Oracle — Object.equals</a>)</span>:</p>
+<table>
+<thead><tr><th>Rule</th><th>Means</th><th>Typically broken by</th></tr></thead>
+<tbody>
+<tr><td><strong>Reflexive</strong></td><td><code>x.equals(x)</code> is true</td><td>almost nobody</td></tr>
+<tr><td><strong>Symmetric</strong></td><td><code>x.equals(y)</code> ⇔ <code>y.equals(x)</code></td><td>letting a subclass equal its parent, or a <code>String</code>-accepting equals</td></tr>
+<tr><td><strong>Transitive</strong></td><td>x=y and y=z ⇒ x=z</td><td>adding a field in a subclass and comparing it</td></tr>
+<tr><td><strong>Consistent</strong></td><td>same answer every time, unless the data changed</td><td>comparing mutable fields, or a network/clock call</td></tr>
+<tr><td><strong>Null-safe</strong></td><td><code>x.equals(null)</code> is <code>false</code>, never a crash</td><td>casting before checking the type</td></tr>
+</tbody></table>
+
+<h3>The <code>hashCode</code> contract — three rules</h3>
+<ol>
+  <li><strong>Consistent.</strong> Called twice on an unchanged object, it returns the same number.</li>
+  <li><strong>Equal ⇒ same hash.</strong> If <code>a.equals(b)</code>, then <code>a.hashCode() == b.hashCode()</code>. <em>This is the one that breaks collections.</em></li>
+  <li><strong>Unequal objects <em>may</em> share a hash</strong> — allowed, but spreading them out improves performance.</li>
+</ol>
+<div class="callout"><strong>Read the arrow carefully.</strong> Equal ⇒ same hash. The reverse is <em>not</em> required:
+same hash does <strong>not</strong> mean equal. You saw that in Part 2 — <code>"Aa"</code> and <code>"BB"</code> share hash
+2112 and are still different keys. That is why the bucket is only step one, and <code>equals</code> is step two
+<span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#hashCode--">Oracle — Object.hashCode</a>)</span>.</div>
+
+<h3>How to write them (the boring, correct shape)</h3>
+<pre>@Override <span class="k">public</span> boolean equals(Object o) {
+    <span class="k">if</span> (<span class="k">this</span> == o) <span class="k">return</span> <span class="k">true</span>;                 <span class="c">// 1 fast path for the same object</span>
+    <span class="k">if</span> (!(o <span class="k">instanceof</span> Point)) <span class="k">return</span> <span class="k">false</span>;    <span class="c">// 2 handles null AND the wrong type</span>
+    Point p = (Point) o;                        <span class="c">// 3 safe: the check above passed</span>
+    <span class="k">return</span> x == p.x &amp;&amp; y == p.y;                <span class="c">// 4 compare the fields that define identity</span>
+}
+
+@Override <span class="k">public</span> int hashCode() {
+    <span class="k">return</span> Objects.hash(x, y);                  <span class="c">// 5 the SAME fields, in any order</span>
+}</pre>
+<div class="ann">
+<strong>Line 1</strong> is purely a speed shortcut. <strong>Line 2</strong> earns its keep twice over:
+<code>instanceof</code> is <code>false</code> for <code>null</code>, so the null rule is handled free, and it blocks the
+<code>ClassCastException</code> that a blind cast on line 3 would cause. <strong>Line 4</strong> is the actual decision —
+and choosing <em>which</em> fields belong here is a design choice, not a mechanical one (an entity usually compares only its
+ID; a value object compares everything). <strong>Line 5</strong> must use the same field list, or rule 2 of the hash contract
+breaks. For objects, use <code>Objects.equals(a, b)</code> on line 4 so <code>null</code> fields do not blow up.
+</div>
+<div class="idiom"><strong>Idiom — let the language do it.</strong> On Java 16+, a <code>record</code> generates a correct
+<code>equals</code>, <code>hashCode</code> and <code>toString</code> from its components, and its fields are final, so it is
+immutable by construction — the perfect map key. <code>record Point(int x, int y) {}</code> replaces the entire block above.
+Before records, let your IDE or Lombok generate it; hand-written versions rot when someone adds a field. See
+<a href="../12-modern-java-9-to-21/lesson.html">lesson 12</a>.</div>
+
+<h3>Mutability: the quiet killer</h3>
+<p>
+A hash collection computes the bucket <strong>once</strong>, when you insert. It does not watch your object afterwards. So if
+you change a field that feeds <code>hashCode</code>, the entry is now sitting in a bucket that no longer matches its hash:
+the map cannot find it, and it cannot be removed either — it just occupies memory. You will see this happen in §7.
+</p>
+<div class="callout"><strong>Rule:</strong> keys and set elements should be <strong>immutable</strong>, or at least never
+mutated in their equality fields while stored. This is exactly why <code>String</code> makes such a good key.</div>
+
+<h3>Ordering — two different tools</h3>
+<table>
+<thead><tr><th></th><th><code>Comparable</code></th><th><code>Comparator</code></th></tr></thead>
+<tbody>
+<tr><td>Lives</td><td>inside the class</td><td>outside, as a separate object</td></tr>
+<tr><td>Method</td><td><code>compareTo(other)</code></td><td><code>compare(a, b)</code></td></tr>
+<tr><td>How many</td><td>exactly one — the "natural" order</td><td>as many as you like</td></tr>
+<tr><td>Use when</td><td>there is one obvious order (numbers, dates, text)</td><td>order depends on the situation, or you cannot edit the class</td></tr>
+<tr><td>Example</td><td><code>String</code>, <code>Integer</code>, <code>LocalDate</code></td><td>by name · by age · by name then age · reversed</td></tr>
+</tbody></table>
+<p>Both return an <code>int</code>, and only its <em>sign</em> matters: <strong>negative</strong> = first argument comes
+first, <strong>zero</strong> = tie, <strong>positive</strong> = second comes first.</p>
+<pre><span class="c">// Java 8 comparators read like a sentence</span>
+list.sort(Comparator.comparing(User::getName)
+                    .thenComparing(User::getAge)
+                    .reversed());
+
+Comparator.comparing(User::getName, Comparator.nullsFirst(Comparator.naturalOrder()));</pre>
+<div class="idiom"><strong>Idiom:</strong> always use <code>Integer.compare(a, b)</code>, never <code>a - b</code>. The
+subtraction overflows for large or negative values and silently returns the wrong sign — a bug that hides for years and then
+corrupts a sort.</div>
+
+<h3>When ordering and equality disagree</h3>
+<p>
+A sorted collection does <em>not</em> call <code>equals</code> at all. <code>TreeSet</code> and <code>TreeMap</code> decide
+duplicates purely by "did <code>compareTo</code> return 0?". So if the two disagree, the same two objects are "one thing" to
+a <code>TreeSet</code> and "two things" to a <code>HashSet</code>. The JDK is upfront about this: it recommends ordering be
+<em>consistent with equals</em>, and names <code>BigDecimal</code> as a deliberate exception
+<span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/api/java/lang/Comparable.html">Oracle — Comparable</a>)</span>.
+You will see the real numbers in §7.
+</p>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong>Override both</strong> for any <em>value object</em> — money, coordinates, IDs, DTOs, anything you will put in a set, use as a map key, or compare in a test.</li>
+  <li><strong>Override neither</strong> for things with a real identity — threads, connections, mutable JPA entities mid-transaction, anything where "two of these are never interchangeable".</li>
+  <li><strong>Implement <code>Comparable</code></strong> when one order is obviously <em>the</em> order for the type, and you own the class.</li>
+  <li><strong>Pass a <code>Comparator</code></strong> for everything else: sorting a table by whichever column the user clicked, ordering a third-party class, or any second/third ordering.</li>
+  <li><strong>Use a <code>record</code></strong> (Java 16+) whenever the class is "just data" — it hands you a correct, immutable implementation for free.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Think about identical twins. Are they "the same person"? If you ask "is this literally the same human standing in front of
+me?" — no. That question is <code>==</code>. If you ask "do these two match on everything I care about: same birthday, same
+face, same height?" — yes. That question is <code>equals</code>.
+</p>
+<p>
+Now picture a huge school where students are sorted into rooms by the first letter of their name. To find a student you go
+to their room and then check faces. The room number comes from the <em>name</em>; the face check decides who it actually is.
+</p>
+<p>
+Here is the disaster. Suppose you teach the school that twins count as the same person (you changed <code>equals</code>) but
+you forget to teach it that twins must go to the same room (you forgot <code>hashCode</code>). Now twin A is in room 3 and
+twin B is sent to room 9. You look in room 9, find it empty, and declare "no such student" — while the student sits happily
+in room 3. Nothing crashed. The answer was just wrong.
+</p>
+<p>
+And ordering? That is the school lining students up. <code>Comparable</code> is the school's own default line-up rule —
+alphabetical, say. <code>Comparator</code> is you saying "no, today line up by height", which you can change any time
+without rewriting the school rules.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson-2-maps-and-hashing.html">Part 2:</a></strong> this is the contract that the whole hashing machine stands on.</li>
+  <li><strong>← <a href="../05-type-system-and-oop/lesson.html">type system &amp; OOP:</a></strong> <code>equals</code>/<code>hashCode</code>/<code>toString</code> live on <code>Object</code>, so every class already has them — you are always <em>overriding</em>, never inventing.</li>
+  <li><strong>→ <a href="../09-strings/lesson.html">strings:</a></strong> <code>==</code> vs <code>equals</code> on strings is this lesson applied to one class, plus the string pool making <code>==</code> look like it works.</li>
+  <li><strong>→ <a href="../12-modern-java-9-to-21/lesson.html">modern Java:</a></strong> <code>record</code> is the language saying "this pattern was so common we made it a keyword".</li>
+  <li><strong>→ <a href="../07-java8-functional/lesson.html">streams:</a></strong> <code>distinct()</code> uses <code>equals</code>/<code>hashCode</code>; <code>sorted()</code> and <code>min</code>/<code>max</code> use comparators.</li>
+  <li><strong>→ <a href="../13-application-architecture/lesson.html">architecture:</a></strong> "entity vs value object" is a Domain-Driven Design idea, and the choice shows up right here, in what <code>equals</code> compares.</li>
+  <li><strong>Same idea elsewhere:</strong> Python has <code>__eq__</code>/<code>__hash__</code> with the identical rule; C# has <code>Equals</code>/<code>GetHashCode</code>; C++ needs <code>operator==</code> plus <code>std::hash</code>. The contract is universal, not Java trivia.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — one file, dissected</h2>
+<p>Run on <strong>JDK 1.8</strong>. Every output block is copied from a real run of
+<a href="../code/CollectionsDemo.java">code/CollectionsDemo.java</a>.</p>
+
+<h3>A — both methods overridden: it just works</h3>
+<pre>Set&lt;Point&gt; good = <span class="k">new</span> HashSet&lt;Point&gt;();
+good.add(<span class="k">new</span> Point(1, 2));
+good.contains(<span class="k">new</span> Point(1, 2));   <span class="c">// a DIFFERENT object, judged equal</span></pre>
+<pre>contains a fresh (1,2)? true
+equal objects share a hash? true</pre>
+<div class="ann">The object you look up was never inserted — it is a brand-new instance. It is found because
+<code>hashCode</code> sends the search to the same bucket and <code>equals</code> confirms the match there. The second line
+is the contract itself, verified.</div>
+
+<h3>B — the same class minus <code>hashCode</code></h3>
+<pre><span class="k">static final class</span> BrokenPoint {
+    <span class="k">final</span> int x, y;
+    @Override <span class="k">public</span> boolean equals(Object o) { <span class="c">/* identical to Point */</span> }
+    <span class="c">// no hashCode — inherits Object's identity hash</span>
+}</pre>
+<pre>equals says equal?      true
+contains a fresh (1,2)? false</pre>
+<div class="ann">
+<strong>Stare at those two lines together.</strong> The class <em>knows</em> the two objects are equal — line one proves it.
+The set still says no. Nothing threw. No warning at compile time. The lookup went to the identity-hash bucket, found it
+empty, and stopped — exactly the lower path in the diagram in §3.
+<br/><br/>
+This is why "override one, override both" is stated as a hard rule rather than a suggestion. In real code the symptom
+appears far from the cause: a duplicate row in the database, a cache that never hits, a <code>distinct()</code> that does
+nothing.
+</div>
+
+<h3>C — mutating a key after inserting it</h3>
+<pre>MutablePoint key = <span class="k">new</span> MutablePoint(1, 2);
+mutable.add(key);
+key.x = 99;                  <span class="c">// the hash changed; the entry did not move</span>
+mutable.contains(key);</pre>
+<pre>contains(the very same object)? false
+set is not empty though, size = 1</pre>
+<div class="ann">
+This one is worse than B, and it is the clearest proof that the bucket is computed <em>once</em>. We are not asking about a
+copy here — we are handing the set <strong>the exact same object it is holding</strong>, and it says no. Its new hash points
+at a different bucket, and nothing lives there.
+<br/><br/>
+The entry is now unreachable: you cannot <code>get</code> it, you cannot <code>remove</code> it, but <code>size()</code>
+still counts it and the garbage collector still keeps it alive. A slow leak that no stack trace will ever point to. Make
+your keys immutable.
+</div>
+
+<h3>D — one natural order, many external orders</h3>
+<pre>Collections.sort(words);                              <span class="c">// natural: String implements Comparable</span>
+Collections.sort(words, String.CASE_INSENSITIVE_ORDER); <span class="c">// external rule, passed in</span>
+
+Collections.sort(users, Comparator.comparing(User::getName)
+                                  .thenComparing(User::getAge));</pre>
+<pre>natural order    = [Fig, apple, pear]
+case-insensitive = [apple, Fig, pear]
+name, then age   = [ana/25, ana/30, bob/25]</pre>
+<div class="ann">
+Line 1 looks wrong until you remember how text sorts: <code>String</code>'s natural order is by character code, and every
+capital letter sorts before every lowercase one, so <code>"Fig"</code> beats <code>"apple"</code>. The class only gets
+<em>one</em> natural order, and that is it.
+<br/><br/>
+Line 2 shows the escape hatch: pass a different rule and get a different answer, without touching <code>String</code>.
+Line 3 shows <code>thenComparing</code> acting as the tie-breaker — the two <code>ana</code>s tie on name, so age decides,
+and 25 lands before 30.
+</div>
+
+<h3>E — when <code>compareTo</code> and <code>equals</code> disagree</h3>
+<pre>BigDecimal a = <span class="k">new</span> BigDecimal(<span class="s">"1.0"</span>), b = <span class="k">new</span> BigDecimal(<span class="s">"1.00"</span>);</pre>
+<pre>a.equals(b)?       false
+a.compareTo(b)==0? true
+HashSet size = 2  (uses equals)
+TreeSet size = 1  (uses compareTo)</pre>
+<div class="ann">
+The same two values, put into two sets, give two different sizes. <code>BigDecimal.equals</code> compares value <em>and
+scale</em>, so <code>1.0</code> ≠ <code>1.00</code>; <code>compareTo</code> compares numeric value only, so they tie.
+<code>HashSet</code> asks <code>equals</code> and keeps both. <code>TreeSet</code> asks <code>compareTo</code>, sees a tie,
+and treats the second as a duplicate.
+<br/><br/>
+Neither set is buggy — they are asking different questions. The lesson is that "duplicate" is defined by the collection you
+chose, so keep your own classes <em>consistent</em> between the two unless, like <code>BigDecimal</code>, you have a very
+deliberate reason not to.
+</div>
+
+<div class="try"><strong>Predict the output, then run it.</strong>
+(1) Give <code>Point</code> a <code>hashCode()</code> that returns a constant <code>1</code>. Does <code>contains</code> now
+work? Is the contract broken? Time 100,000 lookups and explain what you traded away.
+(2) Build a <code>TreeSet&lt;Point&gt;</code> with no <code>Comparator</code>. What happens at the first <code>add</code>, and
+why is the message about <code>Comparable</code> rather than <code>equals</code>?
+(3) Write a <code>Comparator&lt;User&gt;</code> as <code>(a, b) -&gt; a.getAge() - b.getAge()</code> and feed it ages
+<code>Integer.MIN_VALUE</code> and <code>1</code>. Does the sort come out right? Now redo it with
+<code>Integer.compare</code>.</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Overriding one and not the other.</strong> The number-one Java collections bug. Objects vanish
+from sets and maps, with no exception to point at the cause.</div>
+<div class="pitfall"><strong>Writing <code>public boolean equals(Point p)</code>.</strong> That is an <em>overload</em>, not
+an override — the parameter must be <code>Object</code>. Collections call the <code>Object</code> version, so yours never
+runs. Always write <code>@Override</code>; the compiler will catch it.</div>
+<div class="pitfall"><strong>Using mutable fields in <code>equals</code>/<code>hashCode</code>.</strong> Change one after
+inserting and the entry is stranded, as in §7C.</div>
+<div class="pitfall"><strong><code>getClass() != o.getClass()</code> vs <code>instanceof</code>.</strong> The strict version
+keeps symmetry but breaks for proxies and subclasses (think Hibernate); <code>instanceof</code> is lenient but can break
+symmetry with subclasses. Simplest escape: make value classes <code>final</code> (or records) and stop worrying.</div>
+<div class="pitfall"><strong><code>a - b</code> inside a comparator.</strong> Overflows and returns the wrong sign for
+extreme values. Use <code>Integer.compare</code>.</div>
+<div class="pitfall"><strong>An inconsistent comparator.</strong> If your <code>compare</code> contradicts itself, Java's
+sort may throw <code>IllegalArgumentException: Comparison method violates its general contract!</code> — usually only on
+large inputs, in production, never in your tests.</div>
+<div class="pitfall"><strong>Assuming <code>TreeSet</code> uses <code>equals</code>.</strong> It uses
+<code>compareTo</code>/<code>compare</code> only. See §7E.</div>
+<div class="pitfall"><strong>Putting a JPA entity with a generated ID into a <code>HashSet</code> before it is saved.</strong>
+Its ID (and so its hash) changes on persist, and the entity goes missing — the real-world version of §7C.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li><code>==</code> asks "the same object?"; <code>equals</code> asks "the same value?". <code>Object</code>'s default makes them identical.</li>
+  <li><strong>Override both or neither</strong>, always using the <em>same fields</em>.</li>
+  <li>The contract: <code>equals</code> is reflexive, symmetric, transitive, consistent, null-safe; <strong>equal ⇒ same hashCode</strong> (never the other way round).</li>
+  <li><code>hashCode</code> picks the bucket, <code>equals</code> picks the entry. Break the first and the second never runs.</li>
+  <li>Hash collections compute the bucket <strong>once, at insert</strong> → keys must be immutable.</li>
+  <li><code>Comparable</code> = one natural order inside the class; <code>Comparator</code> = any number of external orders, chainable with <code>thenComparing</code>/<code>reversed</code>.</li>
+  <li>Sorted collections judge duplicates with <code>compareTo</code>, <em>not</em> <code>equals</code> — keep them consistent (<code>BigDecimal</code> shows the cost when they are not).</li>
+  <li><code>Integer.compare</code>, never <code>a - b</code>. <code>record</code> (Java 16+) when the class is just data.</li>
+</ul>
+
+<hr/>
+<h2>Reference — quick table</h2>
+<table>
+<thead><tr><th>Question</th><th>Answer</th></tr></thead>
+<tbody>
+<tr><td>Does <code>ArrayList.contains</code> use <code>equals</code>?</td><td>Yes — it scans and calls <code>equals</code> (no hashing).</td></tr>
+<tr><td>Does <code>HashSet</code> use <code>hashCode</code>?</td><td>Yes — bucket first, then <code>equals</code>.</td></tr>
+<tr><td>Does <code>TreeSet</code> use <code>equals</code>?</td><td><strong>No</strong> — only <code>compareTo</code>/<code>compare</code>.</td></tr>
+<tr><td>Does <code>Arrays.sort</code> use <code>equals</code>?</td><td>No — <code>compareTo</code>/<code>compare</code> only.</td></tr>
+<tr><td>Must unequal objects have different hashes?</td><td>No. Allowed to collide; just slower.</td></tr>
+<tr><td>Safe field types for a key?</td><td><code>final</code> primitives and immutables (<code>String</code>, <code>Integer</code>, <code>LocalDate</code>, enums).</td></tr>
+<tr><td>Fastest correct helpers?</td><td><code>Objects.equals(a,b)</code>, <code>Objects.hash(...)</code>, <code>Integer.compare(a,b)</code>.</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Reference equality (<code>==</code>)</dt><dd>Do two references point at the same object?</dd>
+  <dt>Value equality (<code>equals</code>)</dt><dd>Do two objects carry the same meaningful data?</dd>
+  <dt>Value object</dt><dd>A class defined entirely by its data (money, point, ID) — should override both methods.</dd>
+  <dt>Entity</dt><dd>A class with its own identity that outlives its data (user, order) — usually compares by ID, or not at all.</dd>
+  <dt>Identity hash code</dt><dd><code>Object</code>'s default hash, derived from the object itself, not its fields.</dd>
+  <dt>Natural order</dt><dd>The single order a class defines for itself via <code>Comparable.compareTo</code>.</dd>
+  <dt>Comparator</dt><dd>An external ordering rule you pass in; many can exist per class.</dd>
+  <dt>Consistent with equals</dt><dd><code>compareTo</code> returns 0 exactly when <code>equals</code> returns true. Recommended, not enforced.</dd>
+  <dt>Stable sort</dt><dd>A sort that keeps the original order of tied elements — Java's object sorts are stable.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#hashCode--">Oracle — <code>Object.hashCode</code></a>.
+It is three short bullet points. Memorise them; they settle most "why isn't it in the set?" arguments on the spot. Then skim
+<a href="https://docs.oracle.com/javase/8/docs/api/java/lang/Comparable.html">Comparable</a> for the "consistent with equals"
+paragraph.</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle Java SE 8 API docs for <code>Object</code> (<code>equals</code>,
+<code>hashCode</code>), <code>Comparable</code>, <code>Comparator</code>, <code>BigDecimal</code>, <code>TreeSet</code>;
+Bloch, <em>Effective Java</em> (Items 10–14). All output captured by running
+<a href="../code/CollectionsDemo.java">CollectionsDemo.java</a> on JDK 1.8.0_411. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

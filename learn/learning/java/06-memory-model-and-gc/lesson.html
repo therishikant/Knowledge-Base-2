@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Where Your Data Lives — Memory, Part 1 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Where Your Data Lives</h1>
+<p class="crumb">Java › memory cluster · lesson 6, <strong>part 1 of 3</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the stack, the heap, and what a variable really holds</p>
+
+<p class="nav"><strong>Memory cluster:</strong>
+  <strong>1. Where your data lives</strong> ·
+  <a href="lesson-2-garbage-collection.html">2. How garbage collection works</a> ·
+  <a href="lesson-3-collectors-leaks-and-tuning.html">3. Collectors, leaks &amp; tuning</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> A Java variable holds one of two things: a <strong>value</strong> (a number, a character, a
+<code>true</code>/<code>false</code>) or an <strong>arrow</strong> that points to an object. Values and arrows live on a small, fast,
+per-thread area called the <strong>stack</strong>. The objects they point at live in one big shared area called the
+<strong>heap</strong>. Almost every confusing thing in Java — "why did my object change?", "is Java pass-by-reference?",
+"why is my copy not really a copy?" — becomes obvious once you can see which box holds a value and which box holds an arrow.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+Lesson 3 (<a href="../03-jvm-runtime-data-areas/lesson.html">runtime data areas</a>) gave you the <em>map</em> of JVM memory:
+heap, method area, stacks, PC. Lesson 5 (<a href="../05-type-system-and-oop/lesson.html">type system &amp; OOP</a>) taught you that
+Java has two kinds of types: primitives and reference types.
+</p>
+<p>
+This lesson joins the two. It answers one plain question — <strong>when I write a line of code, where does each piece of data
+actually sit?</strong> That question is the base for everything that follows: part 2 explains how the JVM cleans the heap, part 3
+explains how to pick a cleaner and how to find leaks. It is also the base for collections, strings, and threads.
+</p>
+<p>
+Because this is a big area, lesson 6 is split into three parts, the same way the JVM was split into four:
+</p>
+<table>
+  <thead><tr><th>Part</th><th>Question it answers</th></tr></thead>
+  <tbody>
+    <tr><td><strong>1 — Where your data lives</strong> (this one)</td><td>What does a variable hold? Where do objects sit? What does "copy" mean?</td></tr>
+    <tr><td><a href="lesson-2-garbage-collection.html">2 — How garbage collection works</a></td><td>Who deletes objects, and how does it know which ones are dead?</td></tr>
+    <tr><td><a href="lesson-3-collectors-leaks-and-tuning.html">3 — Collectors, leaks &amp; tuning</a></td><td>Which collector should I use? Why did my app still run out of memory?</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+
+<h3>A program has two very different kinds of data</h3>
+<p>Think about what a running method needs:</p>
+<ul>
+  <li><strong>Scratch data.</strong> A loop counter. A temporary sum. The argument you were given. This data belongs to
+  <em>one</em> method call, on <em>one</em> thread, and it is useless the moment the method returns.</li>
+  <li><strong>Real data.</strong> A <code>Customer</code>. A <code>List</code> of orders. These must stay alive after the method
+  that made them returns, because they get handed to other methods, stored in fields, or shared with other threads.</li>
+</ul>
+<p>
+These two kinds want opposite things. Scratch data wants to be <em>cheap and instantly thrown away</em>. Real data wants to
+<em>outlive</em> the method that made it. One single memory area cannot be good at both jobs. So the JVM uses two:
+a <strong>stack</strong> per thread for scratch data, and one shared <strong>heap</strong> for real objects
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html">JVM Spec SE 21, §2.5</a>)</span>.
+</p>
+
+<h3>Why not just put everything on the heap?</h3>
+<p>
+Because stack memory is almost free. The stack is a simple pile. Calling a method pushes one block on top; returning pops it off.
+No search, no bookkeeping, no cleaner thread. Heap memory is slower to manage: objects there have different sizes, live for
+different lengths of time, and somebody has to notice when they become garbage. So the JVM keeps the cheap area for the data
+that is cheap to handle.
+</p>
+
+<h3>Why not just put everything on the stack?</h3>
+<p>
+Because a stack frame dies when the method returns. If an object lived inside the frame, this would be a disaster:
+</p>
+<pre><span class="k">static</span> Customer load() {
+    Customer c = <span class="k">new</span> Customer(<span class="s">"Asha"</span>);
+    <span class="k">return</span> c;      <span class="c">// the frame is about to be destroyed...</span>
+}                     <span class="c">// ...but the Customer must survive!</span></pre>
+<p>
+The object must outlive the call, so it cannot live inside the call's frame. It goes to the heap, and the method returns an
+<em>arrow</em> to it. That is the whole reason the heap exists.
+</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>3.1 The one rule for variables</h3>
+<p>Every Java variable is a small labelled box. What goes in the box depends only on its type:</p>
+<table>
+  <thead><tr><th>If the type is…</th><th>The box holds…</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td>a <strong>primitive</strong> (<code>int</code>, <code>long</code>, <code>double</code>, <code>char</code>, <code>boolean</code>, <code>byte</code>, <code>short</code>, <code>float</code>)</td>
+        <td>the <strong>value itself</strong></td><td><code>int age = 30;</code> → the box contains <code>30</code></td></tr>
+    <tr><td>anything else — a class, an interface, an array, <code>String</code>, a boxed <code>Integer</code></td>
+        <td>an <strong>arrow</strong> to an object on the heap (or <code>null</code>, meaning "arrow pointing nowhere")</td>
+        <td><code>String s = "hi";</code> → the box contains an arrow</td></tr>
+  </tbody>
+</table>
+<p>
+That is it. There is no third case. Java has exactly two shapes of data
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-4.html">JLS SE 21, §4.1 — types are divided into primitive types and reference types</a>)</span>.
+</p>
+<div class="callout">
+<strong>Vocabulary note.</strong> The official word for "arrow" is <strong>reference</strong>. In C it would be called a pointer, but
+Java's references are safer: you cannot do arithmetic on them, and you cannot make one point at a random address.
+</div>
+
+<h3>3.2 The stack: one private desk per thread</h3>
+<p>
+Each thread gets its own stack. A stack is a pile of <strong>frames</strong>, and <strong>one frame = one method call</strong>.
+A frame holds that call's parameters and local variables, plus the bookkeeping needed to return to the caller.
+</p>
+<p>
+The stack only does two things: <em>push</em> a frame when a method is called, and <em>pop</em> it when the method returns.
+Popping is the cleanup. Nothing has to be searched, and no garbage collector is involved. This is why a local <code>int</code>
+costs essentially nothing.
+</p>
+
+<figure>
+<svg viewBox="0 0 760 290" width="100%" role="img" aria-label="A stack of frames growing as methods are called">
+  <style>
+    .f{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .fg{fill:#f7f5ef;stroke:#bdb7aa;stroke-width:1.2;stroke-dasharray:4 3}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .ar{stroke:#7a1f1f;stroke-width:1.5;marker-end:url(#ar1);fill:none}
+  </style>
+  <defs><marker id="ar1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker></defs>
+
+  <text class="t" x="20" y="24" style="font-weight:bold">1. main() runs</text>
+  <rect class="f" x="20" y="180" width="180" height="46" rx="5"/><text class="t" x="34" y="208">main()</text>
+  <text class="c" x="20" y="248">one frame</text>
+
+  <text class="t" x="250" y="24" style="font-weight:bold">2. main() calls total()</text>
+  <rect class="f" x="250" y="180" width="180" height="46" rx="5"/><text class="t" x="264" y="208">main()</text>
+  <rect class="f" x="250" y="128" width="180" height="46" rx="5"/><text class="t" x="264" y="156">total()  &lt;- running</text>
+  <text class="c" x="250" y="248">pushed on top</text>
+
+  <text class="t" x="480" y="24" style="font-weight:bold">3. total() calls add()</text>
+  <rect class="f" x="480" y="180" width="180" height="46" rx="5"/><text class="t" x="494" y="208">main()</text>
+  <rect class="f" x="480" y="128" width="180" height="46" rx="5"/><text class="t" x="494" y="156">total()</text>
+  <rect class="f" x="480" y="76" width="180" height="46" rx="5"/><text class="t" x="494" y="104">add()  &lt;- running</text>
+  <text class="c" x="480" y="248">grows upward</text>
+  <rect class="fg" x="470" y="38" width="210" height="26" rx="5"/>
+  <text class="c" x="482" y="56">too deep -&gt; StackOverflowError</text>
+
+  <line class="ar" x1="210" y1="200" x2="245" y2="200"/>
+  <line class="ar" x1="440" y1="200" x2="475" y2="200"/>
+</svg>
+<figcaption>A thread's stack grows with every call and shrinks with every return. Each frame is one call's private workspace
+(JVM Spec §2.5.2 and §2.6).</figcaption>
+</figure>
+
+<p>Two consequences you will meet in real life:</p>
+<ul>
+  <li><strong>Deep recursion crashes.</strong> Each call pushes a frame. Recursion with no stopping condition keeps pushing until
+  the stack is full, and you get <code>StackOverflowError</code> <span class="sources">(JVM Spec §2.5.2)</span>.</li>
+  <li><strong>Threads are not free.</strong> Every thread needs its own stack (commonly around 512 KB–1 MB of reserved space),
+  which is one reason you cannot simply start a hundred thousand platform threads. That is exactly the problem virtual threads
+  (lessons 11–12) were created to solve.</li>
+</ul>
+
+<h3>3.3 The heap: one shared warehouse</h3>
+<p>
+Every object you create with <code>new</code> goes on the heap. So does every array, and every <code>String</code>. The heap is
+shared by all threads, which is both its superpower (threads can hand objects to each other) and its danger (two threads editing
+the same object need rules — lesson 11).
+</p>
+<p>
+The heap is also the <strong>only</strong> area the garbage collector cleans
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html">JVM Spec §2.5.3</a>)</span>. That is
+part 2 of this cluster.
+</p>
+
+<h3>3.4 Putting it together — one picture</h3>
+<p>Read this code, then read the picture under it:</p>
+<pre><span class="k">class</span> Engine { <span class="k">int</span> horsepower; }
+
+<span class="k">static</span> <span class="k">void</span> demo() {
+    <span class="k">int</span> speed = 60;                        <span class="c">// value, on the stack</span>
+    Engine e1 = <span class="k">new</span> Engine();             <span class="c">// arrow on stack, object on heap</span>
+    e1.horsepower = 150;
+    Engine e2 = e1;                         <span class="c">// SECOND arrow to the SAME object</span>
+}</pre>
+
+<figure>
+<svg viewBox="0 0 760 330" width="100%" role="img" aria-label="Stack frame with a primitive and two references pointing to one heap object, plus class data in metaspace">
+  <style>
+    .st{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .hp{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .mt{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .ar{stroke:#7a1f1f;stroke-width:1.5;marker-end:url(#ar2);fill:none}
+    .ag{stroke:#1f6b4d;stroke-width:1.3;marker-end:url(#ar3);fill:none;stroke-dasharray:5 3}
+  </style>
+  <defs>
+    <marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker>
+    <marker id="ar3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1f6b4d"/></marker>
+  </defs>
+
+  <text class="t" x="20" y="22" style="font-weight:bold">STACK — thread "main"</text>
+  <rect class="st" x="20" y="34" width="290" height="150" rx="6"/>
+  <text class="c" x="34" y="54">frame: demo()</text>
+  <rect class="st" x="34" y="62" width="262" height="34" rx="4"/>
+  <text class="t" x="46" y="84">speed</text><text class="t" x="170" y="84">60</text>
+  <rect class="st" x="34" y="100" width="262" height="34" rx="4"/>
+  <text class="t" x="46" y="122">e1</text><text class="t" x="170" y="122">[arrow]</text>
+  <rect class="st" x="34" y="138" width="262" height="34" rx="4"/>
+  <text class="t" x="46" y="160">e2</text><text class="t" x="170" y="160">[arrow]</text>
+  <text class="c" x="20" y="204">popped the instant demo() returns</text>
+
+  <text class="t" x="450" y="22" style="font-weight:bold">HEAP — shared by all threads</text>
+  <rect class="hp" x="450" y="34" width="290" height="110" rx="6"/>
+  <text class="c" x="464" y="54">one Engine object</text>
+  <rect class="hp" x="464" y="62" width="262" height="30" rx="4"/>
+  <text class="t" x="476" y="83">header (type, lock, hash, age)</text>
+  <rect class="hp" x="464" y="96" width="262" height="30" rx="4"/>
+  <text class="t" x="476" y="117">horsepower = 150</text>
+  <text class="c" x="450" y="164">lives until nothing points at it</text>
+
+  <line class="ar" x1="300" y1="117" x2="446" y2="92"/>
+  <line class="ar" x1="300" y1="155" x2="446" y2="106"/>
+
+  <text class="t" x="450" y="214" style="font-weight:bold">METASPACE — class info</text>
+  <rect class="mt" x="450" y="226" width="290" height="70" rx="6"/>
+  <text class="t" x="464" y="250">class Engine</text>
+  <text class="c" x="464" y="272">field list, method bytecode, constants</text>
+  <line class="ag" x1="520" y1="146" x2="520" y2="222"/>
+  <text class="c" x="530" y="190">the header points to its class</text>
+</svg>
+<figcaption><code>speed</code> holds a value. <code>e1</code> and <code>e2</code> hold arrows — two arrows, <em>one</em> object.
+Class-level information is not in the heap at all; it sits in the method area / Metaspace (JVM Spec §2.5.4–§2.5.5).</figcaption>
+</figure>
+
+<h3>3.5 What is actually inside an object</h3>
+<p>An object on the heap is not only your fields. HotSpot stores each object as:</p>
+<ul>
+  <li>a <strong>header</strong> — a few bytes of JVM bookkeeping: which class this is, lock state, identity hash code, GC age;</li>
+  <li>your <strong>fields</strong>, laid out by the JVM (it may reorder them and add padding so each field sits on a tidy boundary);</li>
+  <li>for arrays only, an extra <strong>length</strong> field.</li>
+</ul>
+<p>
+So an object with one <code>int</code> field costs far more than 4 bytes. This is the real reason people say
+"<code>ArrayList&lt;Integer&gt;</code> is heavy compared to <code>int[]</code>": the <code>int[]</code> is one object holding packed
+numbers, while the list holds arrows to many separate <code>Integer</code> objects, each with its own header.
+</p>
+
+<h3>3.6 A lookup table: what lives where</h3>
+<table>
+  <thead><tr><th>Code</th><th>Where the box is</th><th>What the box holds</th></tr></thead>
+  <tbody>
+    <tr><td><code>int i = 5;</code> inside a method</td><td>stack frame</td><td>the value <code>5</code></td></tr>
+    <tr><td><code>Engine e = new Engine();</code> inside a method</td><td>stack frame</td><td>an arrow; the <code>Engine</code> itself is on the heap</td></tr>
+    <tr><td><code>class Car { int year; }</code></td><td>inside the <code>Car</code> object, on the heap</td><td>the value of <code>year</code></td></tr>
+    <tr><td><code>class Car { Engine engine; }</code></td><td>inside the <code>Car</code> object, on the heap</td><td>an arrow to a separate heap object</td></tr>
+    <tr><td><code>static Config CONFIG;</code></td><td>with the class data (Metaspace)</td><td>an arrow to a heap object — and it is a <strong>GC root</strong> (part 2)</td></tr>
+    <tr><td><code>int[] nums = new int[3];</code></td><td>stack frame holds the arrow</td><td>one heap object holding three packed <code>int</code>s</td></tr>
+    <tr><td><code>Engine[] fleet = new Engine[3];</code></td><td>stack frame holds the arrow</td><td>one heap object holding <strong>three arrows</strong> (all <code>null</code> at first)</td></tr>
+    <tr><td><code>String s = "hello";</code></td><td>stack frame holds the arrow</td><td>a shared, pooled <code>String</code> object on the heap (lesson 9)</td></tr>
+  </tbody>
+</table>
+<div class="callout">
+<strong>The useful simplification.</strong> "Primitives on the stack, objects on the heap" is a good first model — but notice row 3:
+a primitive <em>field</em> lives inside its object on the heap. The precise rule is: <strong>locals live in the frame; fields live
+inside their object; objects live on the heap.</strong>
+</div>
+
+<h3>3.7 Pass-by-value — the question every interviewer asks</h3>
+<p>
+Java is <strong>always pass-by-value</strong>. There are no exceptions. The confusion comes from forgetting what the value
+<em>is</em>: for a reference variable, the value is <em>the arrow</em>, not the object.
+</p>
+<p>When you call a method, the JVM <strong>copies what is in the box</strong> into the new frame. So:</p>
+<table>
+  <thead><tr><th>Case</th><th>What gets copied</th><th>Can the method affect the caller?</th></tr></thead>
+  <tbody>
+    <tr><td><code>void f(int n) { n = 999; }</code></td><td>the number</td><td><strong>No.</strong> The caller's number is untouched.</td></tr>
+    <tr><td><code>void f(Engine e) { e.hp = 999; }</code></td><td>the arrow</td><td><strong>Yes.</strong> The copied arrow leads to the same object, and the method edits that object.</td></tr>
+    <tr><td><code>void f(Engine e) { e = new Engine(); }</code></td><td>the arrow</td><td><strong>No.</strong> It only re-aimed its own copy of the arrow.</td></tr>
+  </tbody>
+</table>
+
+<figure>
+<svg viewBox="0 0 760 270" width="100%" role="img" aria-label="Three cases of passing arguments: primitive copy, mutation through a copied reference, and reassigning the parameter">
+  <style>
+    .st{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.3}
+    .hp{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.3}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .ar{stroke:#7a1f1f;stroke-width:1.4;marker-end:url(#ar4);fill:none}
+    .no{stroke:#9a9a92;stroke-width:1.4;marker-end:url(#ar5);fill:none;stroke-dasharray:4 3}
+  </style>
+  <defs>
+    <marker id="ar4" markerWidth="8" markerHeight="8" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker>
+    <marker id="ar5" markerWidth="8" markerHeight="8" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#9a9a92"/></marker>
+  </defs>
+
+  <text class="t" x="15" y="20" style="font-weight:bold">A. primitive</text>
+  <rect class="st" x="15" y="32" width="215" height="30" rx="4"/><text class="t" x="25" y="52">caller:  n = 10</text>
+  <rect class="st" x="15" y="76" width="215" height="30" rx="4"/><text class="t" x="25" y="96">method:  n = 10 -&gt; 999</text>
+  <text class="c" x="15" y="130">separate boxes;</text><text class="c" x="15" y="146">caller still sees 10</text>
+
+  <text class="t" x="275" y="20" style="font-weight:bold">B. edit through the arrow</text>
+  <rect class="st" x="275" y="32" width="150" height="30" rx="4"/><text class="t" x="285" y="52">caller:  e</text>
+  <rect class="st" x="275" y="76" width="150" height="30" rx="4"/><text class="t" x="285" y="96">method:  e</text>
+  <rect class="hp" x="470" y="46" width="120" height="46" rx="5"/><text class="t" x="482" y="74">hp = 999</text>
+  <line class="ar" x1="425" y1="47" x2="466" y2="62"/>
+  <line class="ar" x1="425" y1="91" x2="466" y2="78"/>
+  <text class="c" x="275" y="130">both arrows -&gt; one object,</text><text class="c" x="275" y="146">so the caller sees 999</text>
+
+  <text class="t" x="275" y="192" style="font-weight:bold">C. re-aim the parameter</text>
+  <rect class="st" x="275" y="204" width="150" height="26" rx="4"/><text class="t" x="285" y="222">caller:  e</text>
+  <rect class="st" x="275" y="234" width="150" height="26" rx="4"/><text class="t" x="285" y="252">method:  e</text>
+  <rect class="hp" x="470" y="198" width="120" height="28" rx="5"/><text class="t" x="482" y="217">hp = 100</text>
+  <rect class="hp" x="620" y="234" width="125" height="28" rx="5"/><text class="t" x="630" y="253">new Engine(999)</text>
+  <line class="ar" x1="425" y1="217" x2="466" y2="213"/>
+  <line class="no" x1="425" y1="248" x2="616" y2="248"/>
+  <text class="c" x="610" y="214">caller never learns</text>
+  <text class="c" x="610" y="228">about the new one</text>
+</svg>
+<figcaption>Pass-by-value, three ways. The method always gets a <em>copy of the box</em>. Copying an arrow still leads to the same
+object (B) — but replacing the copy changes nothing for the caller (C). Verified by <code>MemoryDemo2</code> in §7.</figcaption>
+</figure>
+
+<div class="idiom"><strong>How to say it in an interview:</strong> "Java is strictly pass-by-value. For reference types the value being
+passed is the reference itself, so the callee can mutate the shared object but can never rebind the caller's variable."</div>
+
+<h3>3.8 Shallow copy vs deep copy</h3>
+<p>Same idea, one level up. Suppose a <code>Car</code> has an <code>Engine</code>:</p>
+<ul>
+  <li>A <strong>shallow copy</strong> makes a new <code>Car</code> box and copies the fields <em>as they are</em>. The engine field
+  is an arrow, so the copy gets the same arrow — both cars share one engine.</li>
+  <li>A <strong>deep copy</strong> makes a new <code>Car</code> <em>and</em> a new <code>Engine</code> for it. Nothing is shared.</li>
+</ul>
+
+<figure>
+<svg viewBox="0 0 760 200" width="100%" role="img" aria-label="Shallow copy shares the inner object while deep copy duplicates it">
+  <style>
+    .o{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.3}
+    .i{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.3}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .ar{stroke:#7a1f1f;stroke-width:1.4;marker-end:url(#ar6);fill:none}
+  </style>
+  <defs><marker id="ar6" markerWidth="8" markerHeight="8" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker></defs>
+
+  <text class="t" x="15" y="20" style="font-weight:bold">SHALLOW — engine is shared</text>
+  <rect class="o" x="15" y="32" width="130" height="32" rx="4"/><text class="t" x="26" y="53">original</text>
+  <rect class="o" x="15" y="86" width="130" height="32" rx="4"/><text class="t" x="26" y="107">copy</text>
+  <rect class="i" x="205" y="56" width="140" height="40" rx="5"/><text class="t" x="217" y="81">Engine hp=500</text>
+  <line class="ar" x1="145" y1="48" x2="201" y2="66"/>
+  <line class="ar" x1="145" y1="102" x2="201" y2="86"/>
+  <text class="c" x="15" y="146">edit the copy's engine and</text>
+  <text class="c" x="15" y="162">the original changes too</text>
+
+  <text class="t" x="420" y="20" style="font-weight:bold">DEEP — each owns one</text>
+  <rect class="o" x="420" y="32" width="130" height="32" rx="4"/><text class="t" x="431" y="53">original</text>
+  <rect class="o" x="420" y="100" width="130" height="32" rx="4"/><text class="t" x="431" y="121">copy</text>
+  <rect class="i" x="605" y="30" width="140" height="36" rx="5"/><text class="t" x="617" y="53">Engine hp=150</text>
+  <rect class="i" x="605" y="98" width="140" height="36" rx="5"/><text class="t" x="617" y="121">Engine hp=1</text>
+  <line class="ar" x1="550" y1="48" x2="601" y2="48"/>
+  <line class="ar" x1="550" y1="116" x2="601" y2="116"/>
+  <text class="c" x="420" y="162">edits are independent</text>
+</svg>
+<figcaption>A "copy" is only as deep as you make it. <code>Object.clone()</code> and <code>Arrays.copyOf</code> are both
+<strong>shallow</strong> <span class="sources">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#clone()">Object.clone() javadoc</a>)</span>.</figcaption>
+</figure>
+
+<div class="idiom"><strong>The modern way out.</strong> Deep copying is fiddly and easy to get wrong. The idiomatic fix is to make the
+inner object <strong>immutable</strong> — if nobody can change the <code>Engine</code>, sharing it is perfectly safe and copying is
+pointless. This is why <code>String</code>, <code>LocalDate</code> and records exist. Covered in lessons 8, 9 and 12.</div>
+
+<h3>3.9 Why <code>==</code> lies to you</h3>
+<p>Now the classic trap is obvious. <code>==</code> compares <strong>what is in the boxes</strong>:</p>
+<ul>
+  <li>for primitives that is the values, so <code>==</code> means "same number". Correct.</li>
+  <li>for references that is the arrows, so <code>==</code> means "<em>same object</em>", not "same contents".</li>
+</ul>
+<p>
+To compare contents you need <code>equals</code>. This is the root of <code>new String("a") == new String("a")</code> being
+<code>false</code>, and of the <code>Integer</code> caching surprises. We return to both in lesson 8 (equality) and lesson 9 (strings).
+</p>
+
+<h2><span class="n">§4</span>When to use this knowledge</h2>
+<ul>
+  <li><strong>Debugging "it changed by itself".</strong> A value changed in a place you never touched? Someone else holds an arrow to
+  the same object. Draw the boxes and arrows and you will find them.</li>
+  <li><strong>Designing APIs.</strong> If you return your internal <code>List</code> field, the caller can modify your object's
+  insides. Return an unmodifiable view or a copy. The same applies to constructor arguments you store.</li>
+  <li><strong>Writing <code>equals</code>/<code>hashCode</code>.</strong> You are literally deciding "when should two different heap
+  objects count as the same thing?"</li>
+  <li><strong>Reading errors.</strong> <code>StackOverflowError</code> = too many frames (usually bad recursion).
+  <code>OutOfMemoryError: Java heap space</code> = too many live objects. Different area, different cause, different fix.</li>
+  <li><strong>Sizing a service.</strong> Threads cost stack; caches and sessions cost heap.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine you work at a big warehouse. On your <strong>desk</strong> you keep small notes. Some notes have a number written straight
+on them: "60". Other notes just say "<em>box 42, aisle 7</em>".
+</p>
+<p>
+The <strong>desk</strong> is the stack. It is yours alone, it is small, and when you finish a job you sweep the whole desk clean in
+one motion. The <strong>warehouse</strong> is the heap. It is huge, everyone shares it, and the real boxes are there.
+</p>
+<p>Now everything follows:</p>
+<ul>
+  <li>If you photocopy a note that says "60" and scribble "999" on the copy, the first note still says 60. (Primitives.)</li>
+  <li>If you photocopy a note that says "box 42" and hand it to a friend, your friend walks to the <em>same box 42</em> and can paint
+  it red. Your box is now red. (Objects.)</li>
+  <li>If your friend crosses out their copy and writes "box 99" instead, your note still says "box 42". They changed their paper,
+  not yours. (Re-assigning a parameter.)</li>
+  <li>Copying the <em>note</em> is a shallow copy. Walking to the warehouse and building a second identical box is a deep copy.</li>
+</ul>
+<p>And the naive question — <em>why not keep everything on the desk?</em> — answers itself: because the desk gets swept clean when
+you finish, and some things have to survive the sweep.</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← lesson 3 (runtime data areas):</strong> the formal map of these areas, and frames in detail.</li>
+  <li><strong>← lesson 5 (type system):</strong> primitive vs reference types; this lesson is that split seen from memory's side.</li>
+  <li><strong>→ <a href="lesson-2-garbage-collection.html">part 2</a>:</strong> once you know arrows exist, GC is simply "delete anything no arrow can reach".</li>
+  <li><strong>→ lesson 8 (collections &amp; equality):</strong> every collection is a box of arrows; <code>equals</code>/<code>hashCode</code> define object identity.</li>
+  <li><strong>→ lesson 9 (strings):</strong> the string pool is deliberate arrow-sharing, made safe by immutability.</li>
+  <li><strong>→ lesson 11 (concurrency):</strong> shared heap objects are why threads need rules. Note the name clash — the
+  <em>Java Memory Model</em> there is about <em>when one thread sees another thread's writes</em>, not about where data lives.</li>
+  <li><strong>Same idea elsewhere:</strong> Python, JavaScript, C# and Go all pass references by value in exactly this way.
+  C/C++ let you choose (<code>&amp;</code> gives true pass-by-reference). Rust makes ownership of the "box" part of the type system.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — one file, dissected</h2>
+<p>Full source: <a href="../code/MemoryDemo2.java">code/MemoryDemo2.java</a>. Compiled and run on JDK 1.8.0_411.</p>
+
+<h3>Chunk 1 — primitives copy the value</h3>
+<pre><span class="k">int</span> a = 10;
+<span class="k">int</span> b = a;   <span class="c">// copies the number 10 into a new box</span>
+b = 20;</pre>
+<div class="ann">Two boxes, two numbers. Changing <code>b</code> cannot possibly reach <code>a</code>. Output: <code>a = 10, b = 20</code>.</div>
+
+<h3>Chunk 2 — references copy the arrow</h3>
+<pre>Engine e1 = <span class="k">new</span> Engine(100);
+Engine e2 = e1;            <span class="c">// copies the ARROW, not the object</span>
+e2.horsepower = 250;</pre>
+<div class="ann">One object, two arrows. <code>e1.horsepower</code> is now 250, and <code>e1 == e2</code> is <code>true</code>.
+<strong>Gotcha:</strong> people read line 2 as "make me another engine". It creates nothing — there is no <code>new</code> on that
+line, and <strong>only <code>new</code> creates objects</strong>.</div>
+
+<h3>Chunk 3 — the three passing cases</h3>
+<pre><span class="k">static</span> <span class="k">void</span> changeNumber(<span class="k">int</span> n)         { n = 999; }
+<span class="k">static</span> <span class="k">void</span> changeInside(Engine e)      { e.horsepower = 999; }   <span class="c">// follows the arrow</span>
+<span class="k">static</span> <span class="k">void</span> pointSomewhereElse(Engine e) { e = <span class="k">new</span> Engine(999); }  <span class="c">// re-aims its own copy</span></pre>
+<div class="ann">These three one-liners <em>are</em> the pass-by-value answer. <code>changeInside</code> works because the copied arrow leads
+to the caller's object. <code>pointSomewhereElse</code> does nothing visible because it only overwrote its own box — and the
+<code>new Engine(999)</code> it made becomes garbage the moment the method returns (part 2).</div>
+
+<h3>Chunk 4 — shallow vs deep</h3>
+<pre>Car shallowCopy() { <span class="k">return</span> <span class="k">new</span> Car(name, <span class="k">this</span>.engine); }               <span class="c">// shares the engine</span>
+Car deepCopy()    { <span class="k">return</span> <span class="k">new</span> Car(name, <span class="k">new</span> Engine(engine.horsepower)); } <span class="c">// own engine</span></pre>
+<div class="ann">Spot the difference: the deep version has a second <code>new</code>. That one keyword is the entire difference between
+"shares" and "owns". <strong>Alternative:</strong> make <code>Engine</code> immutable and you can delete <code>deepCopy</code> entirely.</div>
+
+<h3>Chunk 5 — arrays hold arrows too</h3>
+<pre>Engine[] garage = { <span class="k">new</span> Engine(100), <span class="k">new</span> Engine(200) };
+Engine[] copy = Arrays.copyOf(garage, garage.length);
+copy[0].horsepower = 777;</pre>
+<div class="ann">The array object itself is new (<code>garage == copy</code> is <code>false</code>), but its slots were filled with
+<em>copies of the arrows</em>, so <code>garage[0] == copy[0]</code> is <code>true</code> and the edit is visible through both.
+<code>Arrays.copyOf</code>, <code>clone()</code>, <code>List.copyOf</code> and <code>new ArrayList&lt;&gt;(other)</code> are all shallow.</div>
+
+<h3>Real output <span class="sources">(JDK 1.8.0_411)</span></h3>
+<pre>--- 1. primitives copy the value ---
+a = 10, b = 20
+
+--- 2. references copy the arrow, not the object ---
+e1.horsepower = 250
+e1 == e2 ? true
+
+--- 3. Java always passes by value ---
+after changeNumber(n), n = 10
+after changeInside(e3), hp = 999
+after pointSomewhereElse(e4), hp = 100
+
+--- 4. shallow vs deep copy ---
+after editing shallow copy, original hp = 500
+after editing deep copy,    original hp = 500
+
+--- 5. arrays hold arrows too ---
+garage[0].horsepower = 777
+garage[0] == copy[0] ? true
+garage    == copy    ? false</pre>
+<div class="ann">Read the two lines in section 4 together. The shallow edit pushed the original to 500. The deep edit then set the
+<em>copy</em> to 1 and the original <strong>stayed at 500</strong> — proof that the deep copy owns a different <code>Engine</code>.</div>
+
+<div class="try"><strong>Predict, then run.</strong> (1) Add <code>static void swap(Engine x, Engine y)</code> that swaps its two
+parameters, and call it. Does the caller see a swap? Why not? (2) Make <code>horsepower</code> <code>final</code> — which methods stop
+compiling, and what does that tell you about immutability? (3) Write <code>static int sum(int... nums)</code> and pass it an
+<code>int[]</code> — is the array copied, or shared?</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>"Java is pass-by-reference for objects."</strong> No. It passes a <em>copy of the reference</em>. The test:
+can a method make the caller's variable point at a different object? In Java, never.</div>
+<div class="pitfall"><strong>Assuming <code>=</code> copies an object.</strong> <code>b = a</code> only copies an arrow. If you wanted a
+second object, you must write <code>new</code>.</div>
+<div class="pitfall"><strong>Thinking <code>clone()</code> is deep.</strong> <code>Object.clone()</code> copies fields as they are, so
+every reference field stays shared. The same goes for <code>Arrays.copyOf</code> and collection copy constructors.</div>
+<div class="pitfall"><strong>Leaking your internals.</strong> <code>return this.items;</code> hands the caller an arrow straight into your
+object. Return <code>Collections.unmodifiableList(items)</code> or a copy instead.</div>
+<div class="pitfall"><strong>Using <code>==</code> on <code>String</code>, <code>Integer</code> or any object.</strong> It asks "same object?",
+which is almost never your question. Use <code>equals</code> (or <code>Objects.equals</code> for null safety).</div>
+<div class="pitfall"><strong>Confusing the two errors.</strong> <code>StackOverflowError</code> → look at recursion.
+<code>OutOfMemoryError</code> → look at what is being kept alive on the heap.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>A variable is a box. Primitive boxes hold <strong>values</strong>; reference boxes hold <strong>arrows</strong> (or <code>null</code>).</li>
+  <li><strong>Stack</strong> = one per thread, a pile of frames, one frame per call, popped on return — free cleanup, no GC.</li>
+  <li><strong>Heap</strong> = one shared area for every <code>new</code> object and array — the only area the GC cleans.</li>
+  <li>Locals live in the frame; <strong>fields live inside their object</strong>; class and <code>static</code> data lives with the class in Metaspace.</li>
+  <li>An object = header + fields (+ length for arrays), which is why many tiny objects cost more than one packed array.</li>
+  <li>Java is <strong>always pass-by-value</strong>: a method can mutate a shared object through a copied arrow, but can never rebind the caller's variable.</li>
+  <li><strong>Shallow copy</strong> copies the arrows; <strong>deep copy</strong> rebuilds what they point at; immutability makes the question disappear.</li>
+  <li><code>==</code> compares boxes (same object); <code>equals</code> compares contents.</li>
+  <li>Too many frames → <code>StackOverflowError</code>. Too many live objects → <code>OutOfMemoryError: Java heap space</code>.</li>
+</ul>
+
+<hr/>
+<h2>Reference — quick answers</h2>
+<table>
+  <thead><tr><th>Question</th><th>Answer</th></tr></thead>
+  <tbody>
+    <tr><td>What creates a heap object?</td><td>Only <code>new</code>, a string literal, an array initializer, autoboxing, or a <code>clone()</code>/reflection call that does one of those.</td></tr>
+    <tr><td>Is Java pass-by-reference?</td><td>No — pass-by-value, where a reference's value is the reference.</td></tr>
+    <tr><td>Is <code>clone()</code> deep?</td><td>No, shallow by default.</td></tr>
+    <tr><td>Where do <code>static</code> fields live?</td><td>With the class, in the method area / Metaspace; they act as GC roots.</td></tr>
+    <tr><td>Where do string literals live?</td><td>On the heap, in the string pool (moved out of PermGen in Java 7).</td></tr>
+    <tr><td>Why does one <code>int</code> field cost more than 4 bytes?</td><td>Object header plus alignment padding.</td></tr>
+    <tr><td><code>-Xss</code></td><td>Sets the per-thread stack size.</td></tr>
+  </tbody>
+</table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Stack</dt><dd>Per-thread memory holding one frame per active method call; cleared by returning.</dd>
+  <dt>Frame</dt><dd>One method call's private workspace: its parameters, locals, and return bookkeeping.</dd>
+  <dt>Heap</dt><dd>The shared area where every object and array lives; managed by the garbage collector.</dd>
+  <dt>Reference</dt><dd>The "arrow" a non-primitive variable holds; <code>null</code> means it points at nothing.</dd>
+  <dt>Primitive</dt><dd>One of the eight built-in value types; the variable holds the value itself.</dd>
+  <dt>Object header</dt><dd>JVM bookkeeping bytes stored in front of every object's fields (class pointer, lock, hash, GC age).</dd>
+  <dt>Pass-by-value</dt><dd>Arguments are copied into the callee's frame; for references, the arrow is what is copied.</dd>
+  <dt>Shallow copy</dt><dd>A new object whose reference fields point at the same inner objects as the original.</dd>
+  <dt>Deep copy</dt><dd>A new object with freshly built copies of everything it points at.</dd>
+  <dt>Aliasing</dt><dd>Two or more references pointing at the same object.</dd>
+  <dt>Metaspace</dt><dd>Native memory holding class metadata (the method area since Java 8).</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html">The Java Virtual Machine Specification, SE 21 — Chapter 2 (§2.5 Run-Time Data Areas, §2.6 Frames)</a>
+— the stack/heap split defined by the people who built it.</p>
+
+<p class="nav" style="margin-top:2rem">Next: <a href="lesson-2-garbage-collection.html">Part 2 — How garbage collection works</a> →</p>
+
+<p class="sources">Sources: Oracle, <em>JVM Specification SE 21</em> §2.5–§2.6; Oracle, <em>Java Language Specification SE 21</em> §4.1;
+<em>Object.clone()</em> javadoc (SE 21). Code compiled and run on JDK 1.8.0_411; the output in §7 is real program output.
+Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

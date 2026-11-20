@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>01 · Problem &amp; Philosophy — Spring &amp; Spring Boot</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58;-webkit-font-smoothing:antialiased}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.65rem;margin-bottom:1.8rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  h1{font-size:2.25rem;line-height:1.12;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .55rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.12rem;margin:1.45rem 0 .35rem}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.48}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.98rem;margin:0 0 .45rem;text-transform:uppercase;letter-spacing:.03em}
+  .flow-steps{background:#fff8ee;border:1px solid var(--rule);border-radius:6px;padding:.85rem 1.1rem;margin:1rem 0;font-size:.94rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem}
+  .flow-steps li{margin:.35rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.85rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.35rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  @media print{body{padding:1rem;max-width:100%} pre{white-space:pre-wrap} .nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../overview.html">Topic Overview (3-Level Zoom Map)</a></span>
+  <span><strong>Lesson 01 of 18</strong> · Part I: Core Container</span>
+  <span><a href="../02-ioc-container-and-beans/lesson.html">02: IoC Container &amp; Beans</a> →</span>
+</nav>
+
+<h1>Problem &amp; Philosophy</h1>
+<p class="crumb"><a href="../overview.html">Spring &amp; Spring Boot</a> › lesson 1 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — why this framework exists at all</p>
+
+<div class="tldr">
+<strong>In simple English —</strong> In a real server application, writing the business logic is easy; the painful part is
+<strong>building and connecting hundreds of objects in the right order</strong> and <strong>repeating the same plumbing code</strong>
+(opening database connections, committing/rolling back transactions, parsing HTTP URLs, converting JSON) in every single class.
+Spring's core idea is <strong>Inversion of Control (IoC)</strong>: you write plain Java classes that simply ask for what they need
+in their constructor, and Spring's machine builds them, connects them, and wraps them with transaction/security plumbing automatically.
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the 6-Box Map</h2>
+<p>
+Across this entire 18-lesson course, every piece of Spring Boot fits into <strong>one 3-Phase Timeline</strong> and
+<strong>6 Core Boxes</strong>. Before we open Box 1 or Box 2, this first lesson shows you <strong>why those 6 boxes had to be
+invented in the first place</strong>.
+</p>
+
+<div class="map-banner">
+  <div class="map-title">🧭 You Are Here: Before the 6 Boxes Exist — Why We Need the Machine</div>
+  <figure style="margin:.6rem 0 .2rem">
+  <svg viewBox="0 0 780 185" width="100%" role="img" aria-label="You are here on the 6-Box Spring Boot Map: Lesson 01 explains why all 6 boxes exist">
+    <style>
+      .ph{fill:#fff;stroke:#d9d3c7;stroke-width:1.3}
+      .bx{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.3}
+      .active{fill:#fff8ee;stroke:#7a1f1f;stroke-width:2.4}
+      .tx{font:bold 11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+      .sm{font:10.5px Georgia,serif;fill:#3f3b34}
+      .lb{font:bold 11px Georgia,serif;fill:#7a1f1f}
+      .ar{stroke:#6b675e;stroke-width:1.4;marker-end:url(#arr01);fill:none}
+    </style>
+    <defs><marker id="arr01" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+    <!-- Highlight banner at top -->
+    <rect class="active" x="8" y="6" width="764" height="36" rx="5"/>
+    <text class="lb" x="20" y="28">★ LESSON 01 (YOU ARE HERE): Write the app by hand in plain Java first → watch 4 specific pains birth the 6 Boxes below</text>
+
+    <!-- PHASE 1: STARTUP -->
+    <rect class="ph" x="8" y="50" width="465" height="126" rx="6"/>
+    <text class="lb" x="18" y="67">PHASE 1: STARTUP (SpringApplication.run)</text>
+
+    <rect class="bx" x="18" y="76" width="102" height="88" rx="5"/>
+    <text class="tx" x="25" y="94">Box 1: Env</text>
+    <text class="sm" x="25" y="110">List&lt;PropSource&gt;</text>
+    <text class="sm" x="25" y="124">+ activeProfiles</text>
+    <text class="sm" x="25" y="146" style="fill:#7a1f1f">← Pain #4</text>
+
+    <rect class="bx" x="132" y="76" width="106" height="88" rx="5"/>
+    <text class="tx" x="139" y="94">Box 2: Recipes</text>
+    <text class="sm" x="139" y="110">Map&lt;String,</text>
+    <text class="sm" x="139" y="124">BeanDefinition&gt;</text>
+    <text class="sm" x="139" y="146" style="fill:#7a1f1f">← Pain #1</text>
+
+    <rect class="bx" x="250" y="76" width="106" height="88" rx="5"/>
+    <text class="tx" x="257" y="94">Box 3: Objects</text>
+    <text class="sm" x="257" y="110">Map&lt;String,</text>
+    <text class="sm" x="257" y="124">Object&gt; cache</text>
+    <text class="sm" x="257" y="146" style="fill:#7a1f1f">← Pain #1</text>
+
+    <rect class="bx" x="368" y="76" width="96" height="88" rx="5"/>
+    <text class="tx" x="374" y="94">Box 4: Proxy</text>
+    <text class="sm" x="374" y="110">BeanPostProc</text>
+    <text class="sm" x="374" y="124">wraps target</text>
+    <text class="sm" x="374" y="146" style="fill:#7a1f1f">← Pain #2</text>
+
+    <path class="ar" d="M120,120 L130,120"/>
+    <path class="ar" d="M238,120 L248,120"/>
+    <path class="ar" d="M356,120 L366,120"/>
+
+    <!-- PHASE 2: REQUEST -->
+    <rect class="ph" x="483" y="50" width="205" height="126" rx="6"/>
+    <text class="lb" x="493" y="67">PHASE 2: HTTP REQUEST</text>
+
+    <rect class="bx" x="493" y="76" width="86" height="88" rx="5"/>
+    <text class="tx" x="499" y="94">Box 5: Web</text>
+    <text class="sm" x="499" y="110">Tomcat +</text>
+    <text class="sm" x="499" y="124">FilterChain</text>
+    <text class="sm" x="499" y="146" style="fill:#7a1f1f">← Pain #3</text>
+
+    <rect class="bx" x="591" y="76" width="88" height="88" rx="5"/>
+    <text class="tx" x="597" y="94">Box 6: MVC</text>
+    <text class="sm" x="597" y="110">Dispatcher +</text>
+    <text class="sm" x="597" y="124">ThreadLocal</text>
+    <text class="sm" x="597" y="146" style="fill:#7a1f1f">← Pain #2,#3</text>
+
+    <path class="ar" d="M579,120 L589,120"/>
+
+    <!-- PHASE 3: SHUTDOWN -->
+    <rect class="ph" x="698" y="50" width="74" height="126" rx="6"/>
+    <text class="lb" x="704" y="67">PHASE 3</text>
+    <text class="sm" x="704" y="95">Shutdown</text>
+    <text class="sm" x="704" y="111">@PreDestroy</text>
+    <text class="sm" x="704" y="127">closes pools</text>
+  </svg>
+  </figure>
+  <p style="margin:.3rem 0 0;font-size:.9rem">
+    <strong>What happens right after this lesson:</strong> In <a href="../02-ioc-container-and-beans/lesson.html">Lesson 02</a> we
+    step into Phase 1 (Startup) and build <strong>Box 2</strong> (the Recipe Map) and <strong>Box 3</strong> (the Singleton Object Warehouse) in 60 lines of plain Java.
+  </p>
+</div>
+
+<p>
+From your Java lessons you already know the building blocks under the hood:
+<a href="../../java/05-type-system-and-oop/lesson.html">interfaces &amp; polymorphism</a> (why passing an interface into a constructor lets you swap implementations),
+<a href="../../java/02-jvm-class-loader/lesson.html">class loading</a> (how Spring finds your classes on disk at startup), and
+<a href="../../java/13-application-architecture/lesson.html">SOLID principles</a> (Spring is a machine that enforces the
+<em>Dependency Inversion Principle</em>).
+</p>
+
+<h2><span class="n">§2</span>Why it exists — write BookVault in plain Java first</h2>
+<p>
+Let's build a small slice of <strong>BookVault</strong> (our course project) with <em>zero frameworks</em>: an HTTP endpoint that
+looks up a book in a relational database and returns JSON. Watch how quickly clean business code drowns in repetitive plumbing.
+</p>
+
+<h3>Step 1 — The business logic (this part is already clean!)</h3>
+<pre><span class="k">public class</span> BookService {
+    <span class="k">private final</span> BookRepository repo;
+
+    <span class="c">// Notice: BookService does NOT call "new JdbcBookRepository()".</span>
+    <span class="c">// Someone outside hands it an implementation of BookRepository.</span>
+    <span class="k">public</span> BookService(BookRepository repo) {
+        <span class="k">this</span>.repo = repo;
+    }
+
+    <span class="k">public</span> Book findById(<span class="k">long</span> id) {
+        <span class="k">return</span> repo.findById(id)
+                   .orElseThrow(() -&gt; <span class="k">new</span> BookNotFound(id));
+    }
+}</pre>
+<div class="ann"><strong>Crucial realization:</strong> <code>BookService</code> is <em>already</em> using Dependency Injection!
+Dependency Injection is just a fancy name for <strong>"pass the helper objects into the constructor instead of calling <code>new</code>
+inside the class."</strong> You do not need Spring to do Dependency Injection. You need Spring because of what happens in Steps 2, 3, and 4.</div>
+
+<h3>Step 2 — Pain #1 &amp; #4: The manual wiring &amp; config mess in <code>main()</code> / <code>init()</code></h3>
+<p>
+If <code>BookService</code> doesn't call <code>new JdbcBookRepository()</code>, <em>somebody</em> has to. In a plain Java app with
+200 classes, your startup method turns into a fragile 500-line assembly script where you must instantiate every leaf object before
+the object that needs it:
+</p>
+<pre><span class="k">public class</span> BookServlet <span class="k">extends</span> HttpServlet {
+    <span class="k">private</span> BookService service;
+    <span class="k">private</span> HikariDataSource ds;
+
+    <span class="an">@Override</span>
+    <span class="k">public void</span> init() {
+        <span class="c">// PAIN #4 (Config): Reading raw strings by hand, no type safety, no profiles</span>
+        <span class="k">this</span>.ds = <span class="k">new</span> HikariDataSource();
+        ds.setJdbcUrl(System.getProperty(<span class="s">"db.url"</span>));
+        ds.setUsername(System.getProperty(<span class="s">"db.user"</span>));
+
+        <span class="c">// PAIN #1 (Wiring): You must build objects in exact bottom-up dependency order!</span>
+        BookRepository repo = <span class="k">new</span> JdbcBookRepository(ds);
+        <span class="k">this</span>.service = <span class="k">new</span> BookService(repo);
+        <span class="c">// And who remembers to call ds.close() when the server stops?</span>
+    }
+
+    <span class="an">@Override</span>
+    <span class="k">protected void</span> doGet(HttpServletRequest req, HttpServletResponse res) <span class="k">throws</span> IOException {
+        <span class="c">// PAIN #3 (Web plumbing): Manual URL string chopping, headers, and JSON writing</span>
+        <span class="k">long</span> id = Long.parseLong(req.getPathInfo().substring(1));
+        Book b = service.findById(id);
+        res.setContentType(<span class="s">"application/json"</span>);
+        res.getWriter().write(<span class="k">new</span> ObjectMapper().writeValueAsString(b));
+    }
+}</pre>
+
+<h3>Step 3 — Pain #2: The JDBC &amp; manual transaction nightmare</h3>
+<p>
+Now look at what happens when you have to run two database updates in a single atomic transaction (for example, reserving inventory
+and charging a payment). Without a framework, you have to write this <code>try / catch / finally</code> block in <em>every single
+service method</em>:
+</p>
+<pre><span class="k">public void</span> checkout(Order order) {
+    Connection c = <span class="k">null</span>;
+    <span class="k">try</span> {
+        c = ds.getConnection();
+        c.setAutoCommit(<span class="k">false</span>);          <span class="c">// 1. start transaction</span>
+
+        inventory.reserve(c, order);     <span class="c">// ← HORRIBLE: Connection 'c' must be passed as a</span>
+        payments.charge(c, order);       <span class="c">//   parameter into EVERY business method!</span>
+
+        c.commit();                      <span class="c">// 2. commit if both succeeded</span>
+    } <span class="k">catch</span> (Exception e) {
+        <span class="k">if</span> (c != <span class="k">null</span>) <span class="k">try</span> { c.rollback(); } <span class="k">catch</span> (SQLException ignored) {}
+        <span class="k">throw new</span> RuntimeException(e);
+    } <span class="k">finally</span> {
+        <span class="k">if</span> (c != <span class="k">null</span>) <span class="k">try</span> { c.setAutoCommit(<span class="k">true</span>); c.close(); } <span class="k">catch</span> (SQLException ignored) {}
+    }
+}</pre>
+<div class="ann">Look at what went wrong here: (1) 14 lines of identical <code>try/catch/finally</code> boilerplate surround 2 lines
+of business work, and (2) the low-level JDBC <code>Connection c</code> polluted the method signature of <code>reserve()</code> and
+<code>charge()</code>! If you forget <code>c.close()</code> in one branch, your database connection pool runs dry at 2 a.m.</div>
+
+<h3>Step 4 — How those 4 Pains directly create the 6 Boxes of Spring Boot</h3>
+<div class="callout">
+<strong>Every Box in our 6-Box Map exists to delete one specific pain from the code above:</strong>
+<table style="margin:.6rem 0 0">
+<thead><tr><th>Plain-Java Pain</th><th>Which Box Removes It</th><th>What Data Structure Lives Inside That Box</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Pain #4:</strong> Reading raw <code>System.getProperty("db.url")</code> by hand</td>
+  <td><strong>Box 1 (<code>Environment</code>)</strong></td>
+  <td><code>List&lt;PropertySource&gt;</code> (an ordered list of Maps searched top-to-bottom) + <code>Set&lt;String&gt; activeProfiles</code></td>
+  <td>08</td>
+</tr>
+<tr>
+  <td><strong>Pain #1:</strong> Hand-sorting 200 <code>new</code> calls in <code>main()</code></td>
+  <td><strong>Box 2 (Recipes) &amp; Box 3 (Warehouse)</strong></td>
+  <td>Box 2: <code>Map&lt;String, BeanDefinition&gt;</code> (recipes)<br/>Box 3: <code>Map&lt;String, Object&gt; singletonObjects</code> (live objects built by recursive <code>getBean()</code>)</td>
+  <td>02, 03, 05, 07</td>
+</tr>
+<tr>
+  <td><strong>Pain #2:</strong> Repeating <code>try { setAutoCommit(false) } catch { rollback }</code> and passing <code>Connection c</code> everywhere</td>
+  <td><strong>Box 4 (Proxy Wrapper) &amp; Box 6 (<code>ThreadLocal</code>)</strong></td>
+  <td>Box 4: <code>BeanPostProcessor</code> wraps your service in a generated <strong>Proxy</strong> class that runs <code>try/commit/rollback</code>.<br/>Box 6: Stores the active <code>Connection</code> in a per-thread <code>ThreadLocal</code> variable so you don't pass <code>c</code> in method params!</td>
+  <td>04, 06, 11, 12</td>
+</tr>
+<tr>
+  <td><strong>Pain #3:</strong> Chopping URL strings and calling <code>ObjectMapper</code> in <code>doGet()</code></td>
+  <td><strong>Box 5 (Tomcat + Filters) &amp; Box 6 (<code>DispatcherServlet</code>)</strong></td>
+  <td>Box 5: Thread pool + <code>FilterChain</code>.<br/>Box 6: A single Front Controller servlet with a routing table (<code>Map&lt;PathPattern, HandlerMethod&gt;</code>).</td>
+  <td>09, 10, 13</td>
+</tr>
+</tbody></table>
+</div>
+
+<h2><span class="n">§3</span>How it works — Plain Java first, then Spring</h2>
+
+<h3>Level 1 Zoom: Inversion of Control (IoC) vs Dependency Injection (DI)</h3>
+<p>
+Interviewers love to ask: <em>"What is the difference between Inversion of Control and Dependency Injection?"</em> Let's strip away
+the academic jargon:
+</p>
+<ul>
+  <li><strong>Inversion of Control (IoC)</strong> is the broad rule: <strong>"Don't call us, we'll call you."</strong>
+    When you use a normal <em>library</em> (like <code>StringUtils</code> or <code>ArrayList</code>), <strong>your code</strong> is the boss:
+    your <code>main()</code> method runs the loop and calls the library whenever it wants. When you use a <em>framework</em> (like
+    Spring, JUnit, or Tomcat), <strong>the framework</strong> is the boss: it owns the main loop and calls your methods when an
+    event happens.</li>
+  <li><strong>Dependency Injection (DI)</strong> is <strong>one specific way</strong> to do IoC for <em>building objects</em>
+    <span class="sources">(<a href="https://martinfowler.com/articles/injection.html">Martin Fowler — Inversion of Control Containers and the Dependency Injection pattern</a>)</span>:
+    instead of `BookService` reaching out to create or look up its `BookRepository`, the outside caller <strong>pushes (injects)</strong>
+    the `BookRepository` into `BookService`'s constructor.</li>
+</ul>
+
+<figure>
+<svg viewBox="0 0 760 220" width="100%" role="img" aria-label="Library vs Framework (IoC) and Without DI vs With DI">
+  <style>
+    .b{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}.b2{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .b3{fill:#eefaf4;stroke:#6db33f;stroke-width:1.5}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11.5px Georgia,serif;fill:#3f3b34}
+    .h{font:bold 13px Georgia,serif;fill:#2b2b28}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#m1);fill:none}
+  </style>
+  <defs><marker id="m1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <text class="h" x="18" y="22">1. Without DI (Your class builds its own helpers)</text>
+  <rect class="b" x="18" y="34" width="330" height="72" rx="6"/>
+  <text class="t" x="30" y="56">class BookService {</text>
+  <text class="t" x="30" y="74">  BookRepository r = new JdbcRepo();</text>
+  <text class="c" x="30" y="94" style="fill:#7a1f1f">✗ Locked to real DB — impossible to unit test!</text>
+
+  <text class="h" x="18" y="132">2. With Plain-Java DI (Caller hands in the helper)</text>
+  <rect class="b2" x="18" y="142" width="330" height="68" rx="6"/>
+  <text class="t" x="30" y="164">BookService(BookRepository r) {</text>
+  <text class="t" x="30" y="182">  this.repo = r; }</text>
+  <text class="c" x="30" y="200" style="fill:#1f6b4d">✓ Pass FakeRepo in tests, JdbcRepo in prod!</text>
+
+  <line x1="375" y1="12" x2="375" y2="210" stroke="#d9d3c7" stroke-width="1.5"/>
+
+  <text class="h" x="398" y="22">3. What Spring Adds: Automated Container + Proxy</text>
+  <rect class="b3" x="398" y="34" width="344" height="50" rx="6"/>
+  <text class="t" x="412" y="55">Box 2 &amp; 3: ApplicationContext (The Container)</text>
+  <text class="c" x="412" y="73">Scans classes, calls new JdbcRepo(), passes it into new BookService()</text>
+
+  <path class="a" d="M570,84 L570,106"/>
+
+  <rect class="b3" x="398" y="108" width="344" height="50" rx="6"/>
+  <text class="t" x="412" y="129">Box 4: BeanPostProcessor (The Wrapper Hook)</text>
+  <text class="c" x="412" y="147">Wraps BookService inside a Transaction Proxy before storing it</text>
+
+  <path class="a" d="M570,158 L570,176"/>
+
+  <rect class="b2" x="398" y="178" width="344" height="32" rx="6"/>
+  <text class="c" x="412" y="199">Your code stays a clean POJO — zero Spring imports required!</text>
+</svg>
+<figcaption>DI is just constructor parameters. Spring's Container (Boxes 2 &amp; 3) automates calling those constructors, and Box 4
+slips a Proxy wrapper around the object so you get <code>@Transactional</code> for free.</figcaption>
+</figure>
+
+<h3>Level 2 Zoom: Step-by-Step Control Flow (Hand-Rolled vs Spring)</h3>
+<div class="flow-steps">
+  <strong>How the control flow changes when you move from plain Java to Spring:</strong>
+  <ol>
+    <li><strong>Step 1 (You write classes):</strong> You write <code>BookService(BookRepository repo)</code> and put a sticky-note annotation <code>@Service</code> on top. The annotation does <em>nothing</em> by itself — it is just a passive label in the compiled <code>.class</code> file.</li>
+    <li><strong>Step 2 (Box 2 — Recipe Scan):</strong> When <code>SpringApplication.run()</code> starts, Spring scans your package folders for classes with <code>@Component</code> / <code>@Service</code> / <code>@Repository</code> and puts a recipe (<code>BeanDefinition</code>) for each class into a <code>Map&lt;String, BeanDefinition&gt;</code>.</li>
+    <li><strong>Step 3 (Box 3 — Recursive Creation):</strong> Spring loops through the Recipe Map. To build <code>bookService</code>, it inspects its constructor via Java Reflection, sees it needs a <code>BookRepository</code>, builds <code>jdbcBookRepository</code> first, and calls <code>new BookService(jdbcBookRepository)</code>.</li>
+    <li><strong>Step 4 (Box 4 — Proxy Wrapping):</strong> Before putting <code>bookService</code> into the live warehouse (<code>Map&lt;String, Object&gt; singletonObjects</code>), Spring checks if any method has <code>@Transactional</code>. If yes, it wraps your <code>BookService</code> inside a generated <strong>Proxy</strong> object that opens and commits database transactions around your method.</li>
+  </ol>
+</div>
+
+<h3>What the exact same BookVault code looks like with Spring</h3>
+<pre><span class="an">@Service</span>                                        <span class="c">// Sticky note for Box 2: "put my recipe in the Recipe Map"</span>
+<span class="k">public class</span> BookService {
+    <span class="k">private final</span> BookRepository repo;
+
+    <span class="k">public</span> BookService(BookRepository repo) {     <span class="c">// Box 3 calls this constructor and passes the repo</span>
+        <span class="k">this</span>.repo = repo;
+    }
+
+    <span class="an">@Transactional</span>(readOnly = <span class="k">true</span>)              <span class="c">// Box 4 wraps this class in a Proxy that opens/closes the DB TX</span>
+    <span class="k">public</span> Book findById(<span class="k">long</span> id) {
+        <span class="k">return</span> repo.findById(id).orElseThrow(() -&gt; <span class="k">new</span> BookNotFound(id));
+    }
+}
+
+<span class="an">@RestController</span>                                 <span class="c">// Sticky note for Box 6: "register my methods in DispatcherServlet"</span>
+<span class="k">class</span> BookController {
+    <span class="k">private final</span> BookService service;
+    BookController(BookService service) { <span class="k">this</span>.service = service; }
+
+    <span class="an">@GetMapping</span>(<span class="s">"/books/{id}"</span>)                   <span class="c">// Box 6 parses {id} and converts the returned Book to JSON</span>
+    Book get(<span class="an">@PathVariable</span> <span class="k">long</span> id) {
+        <span class="k">return</span> service.findById(id);
+    }
+}</pre>
+<div class="conv"><strong>The POJO Principle (Why Spring beat EJB 2):</strong> Look closely at <code>BookService</code> above.
+Does it <code>extend SpringService</code>? No. Does it implement a framework interface? No. If you strip off the annotations, it
+compiles and runs as a <strong>Plain Old Java Object (POJO)</strong>. In 2002, Java's official enterprise standard (EJB 2) forced
+every class to implement bulky framework interfaces that couldn't be instantiated in a unit test. Rod Johnson created Spring
+specifically to prove that a container should serve plain Java objects, not enslave them
+<span class="sources">(<a href="https://docs.spring.io/spring-framework/reference/core/beans/introduction.html">Spring Framework Reference — Introduction to the Spring IoC Container and Beans</a>)</span>.</div>
+
+<h2><span class="n">§4</span>When to use (and when not to)</h2>
+<table>
+<thead><tr><th>Scenario</th><th>Recommendation</th><th>Why</th></tr></thead>
+<tbody>
+<tr>
+  <td>Long-lived backend service, REST/GraphQL API, batch worker, or Kafka consumer worked on by a team</td>
+  <td><strong>Use Spring Boot</strong></td>
+  <td>Boxes 1–6 save thousands of lines of wiring, transaction, security, and metrics plumbing.</td>
+</tr>
+<tr>
+  <td>Tiny 15-class CLI script or single-purpose tool</td>
+  <td><strong>Plain Java (manual DI in <code>main()</code>)</strong></td>
+  <td>With 15 classes, writing <code>new A(new B())</code> in <code>main()</code> takes 10 lines and boots in 20ms.</td>
+</tr>
+<tr>
+  <td>Reusable open-source Java library (e.g. a PDF parser or math library)</td>
+  <td><strong>Never force Spring</strong></td>
+  <td>A library should expose plain Java constructors/builders so callers can use it with or without Spring.</td>
+</tr>
+<tr>
+  <td>Ultra-low-memory serverless function needing &lt;50ms cold start</td>
+  <td><strong>Spring Boot 3 AOT / Native Image</strong>, or compile-time DI (Micronaut / Quarkus)</td>
+  <td>Standard Spring uses runtime reflection at startup; GraalVM native image or Quarkus shifts that work to build time (Lesson 15).</td>
+</tr>
+</tbody></table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine you are putting on a school play with 50 actors.
+</p>
+<p>
+In the <strong>No-Spring Play</strong>, the moment the curtain rises, every actor has to run out to the shops to buy their own
+hat, hammer together their own wooden sword, plug in the stage lights, and remember to turn the lights off before walking offstage.
+If you want to do a rehearsal in the classroom with plastic swords instead of real ones, you can't — because every actor has
+<em>"buy real metal sword from Main Street"</em> tattooed onto their arm!
+</p>
+<p>
+In the <strong>Spring Play</strong>, there is a <strong>Stage Crew</strong> (the Container). Actors aren't allowed to build their
+own props. Instead, an actor simply says: <em>"To do my scene, somebody needs to hand me a Sword."</em> Before the show starts,
+the Stage Crew reads every actor's wish list, builds all the props in the backstage warehouse, and hands each actor what they
+asked for.
+</p>
+<p>
+<em>"Wait — why does having a Stage Crew help with database transactions?"</em> Because the Stage Crew is the one handing out props,
+they can play a clever trick: before handing Actor A to Actor B, the Stage Crew puts a <strong>look-alike stunt double</strong>
+(a <strong>Proxy</strong>) in front of Actor A. Whenever anyone talks to Actor A, the stunt double secretly turns on the microphone
+first, lets Actor A speak their lines, and turns the microphone off afterwards. Actor A just acts; the stunt double handles the
+switches!
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="../../java/05-type-system-and-oop/lesson.html">java/05-type-system-and-oop</a>:</strong> Dependency Injection only works because Java interfaces let <code>BookService</code> accept any <code>BookRepository</code> (polymorphism).</li>
+  <li><strong>← <a href="../../java/13-application-architecture/lesson.html">java/13-application-architecture</a>:</strong> Spring is the runtime engine for SOLID's <em>Dependency Inversion Principle</em> (high-level policy depends on interfaces, never on low-level JDBC details).</li>
+  <li><strong>→ <a href="../02-ioc-container-and-beans/lesson.html">02-ioc-container-and-beans</a>:</strong> Next we open Boxes 2 &amp; 3 and build the Stage Crew ourselves using two <code>HashMap</code>s and Java Reflection.</li>
+  <li><strong>→ <a href="../04-bean-lifecycle-and-extension-points/lesson.html">04-bean-lifecycle</a> &amp; <a href="../06-aop-and-proxies/lesson.html">06-aop-and-proxies</a>:</strong> How Box 4 builds the stunt-double Proxy wrapper around your objects.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — runnable plain-Java DI + Proxy demo &amp; Interview Derivation</h2>
+<p>
+Let's prove two things in runnable Java 8 code with <strong>zero libraries</strong>: (1) Dependency Injection is just passing an
+interface into a constructor, and (2) a Proxy is just a wrapper class implementing the same interface.
+</p>
+
+<pre><span class="c">// Full runnable file: learn/learning/spring/code/01-no-spring/DiByHand.java</span>
+<span class="k">interface</span> BookRepository {
+    Optional&lt;Book&gt; findById(<span class="k">long</span> id);
+}
+
+<span class="c">// 1. Real implementation</span>
+<span class="k">static class</span> InMemoryBookRepository <span class="k">implements</span> BookRepository {
+    <span class="k">private final</span> Map&lt;Long, Book&gt; data = <span class="k">new</span> HashMap&lt;Long, Book&gt;();
+    InMemoryBookRepository() { data.put(1L, <span class="k">new</span> Book(1, <span class="s">"Dune"</span>, <span class="s">"Herbert"</span>)); }
+    <span class="k">public</span> Optional&lt;Book&gt; findById(<span class="k">long</span> id) { <span class="k">return</span> Optional.ofNullable(data.get(id)); }
+}
+
+<span class="c">// 2. Test Fake — zero Mockito needed!</span>
+<span class="k">static class</span> AlwaysEmptyRepository <span class="k">implements</span> BookRepository {
+    <span class="k">public</span> Optional&lt;Book&gt; findById(<span class="k">long</span> id) { <span class="k">return</span> Optional.empty(); }
+}
+
+<span class="c">// 3. Hand-written Proxy wrapper — implements the SAME interface and wraps a target!</span>
+<span class="k">static class</span> LoggingBookRepository <span class="k">implements</span> BookRepository {
+    <span class="k">private final</span> BookRepository delegate;
+    LoggingBookRepository(BookRepository delegate) { <span class="k">this</span>.delegate = delegate; }
+    <span class="k">public</span> Optional&lt;Book&gt; findById(<span class="k">long</span> id) {
+        System.out.println(<span class="s">"  [log] looking up "</span> + id);   <span class="c">// extra plumbing BEFORE</span>
+        <span class="k">return</span> delegate.findById(id);                     <span class="c">// call the real target</span>
+    }
+}
+
+<span class="c">// 4. Business class — has NO IDEA which of the 3 it was handed!</span>
+<span class="k">static class</span> BookService {
+    <span class="k">private final</span> BookRepository repo;          <span class="c">// final = immutable, thread-safe</span>
+    BookService(BookRepository repo) {          <span class="c">// &lt;-- THE injection point</span>
+        <span class="k">this</span>.repo = repo;
+    }
+    String describe(<span class="k">long</span> id) {
+        <span class="k">return</span> repo.findById(id).map(b -&gt; b.title() + <span class="s">" by "</span> + b.author()).orElse(<span class="s">"not found"</span>);
+    }
+}
+
+<span class="c">// 5. The Composition Root (in Spring, Box 3 + Box 4 do these exact 3 lines automatically)</span>
+<span class="k">public static void</span> main(String[] args) {
+    BookService real    = <span class="k">new</span> BookService(<span class="k">new</span> InMemoryBookRepository());
+    BookService test    = <span class="k">new</span> BookService(<span class="k">new</span> AlwaysEmptyRepository());
+    BookService audited = <span class="k">new</span> BookService(<span class="k">new</span> LoggingBookRepository(<span class="k">new</span> InMemoryBookRepository()));
+
+    System.out.println(real.describe(1));
+    System.out.println(test.describe(1));
+    System.out.println(audited.describe(1));
+}</pre>
+
+<h3>Verified console output</h3>
+<pre>Dune by Herbert
+not found
+  [log] looking up 1
+Dune by Herbert</pre>
+<div class="ann">
+<strong>Code Dissection (<a href="../code/01-no-spring/DiByHand.java">code/01-no-spring/DiByHand.java</a>):</strong>
+<ul>
+  <li><strong>Chunk 1–2 (Polymorphism):</strong> <code>BookService</code> only knows the interface <code>BookRepository</code>. Swapping from real storage to <code>AlwaysEmptyRepository</code> required changing <em>zero lines</em> inside <code>BookService</code>.</li>
+  <li><strong>Chunk 3 (The Proxy secret):</strong> Look at <code>new BookService(new LoggingBookRepository(new InMemoryBookRepository()))</code>. Because <code>LoggingBookRepository</code> implements <code>BookRepository</code>, <code>BookService</code> thinks it is talking directly to the repository, while the wrapper intercepts every call. In Lesson 04 and Lesson 06, you will see that Spring's <code>@Transactional</code> is literally an automated version of <code>LoggingBookRepository</code>!</li>
+</ul>
+</div>
+
+<div class="try"><strong>Try this / Predict the output:</strong>
+Open <a href="../code/01-no-spring/DiByHand.java">code/01-no-spring/DiByHand.java</a> and add a second method <code>int count()</code> to
+<code>BookRepository</code> that calls <code>findById(1)</code> internally inside <code>InMemoryBookRepository</code>.
+If <code>BookService</code> calls <code>repo.count()</code> through <code>LoggingBookRepository</code>, will <code>[log] looking up 1</code>
+be printed when <code>InMemoryBookRepository.count()</code> calls <code>this.findById(1)</code>?
+<br/><em>Answer:</em> <strong>No!</strong> Once execution is inside <code>InMemoryBookRepository</code>, calling <code>this.findById(1)</code>
+calls the raw target object directly, bypassing the outer <code>LoggingBookRepository</code> wrapper! You just discovered
+<strong>Universal Rule #2 (Who You Call: Proxy vs <code>this</code>)</strong> — the #1 Spring interview question in the world.</div>
+
+<h3>How to Think in Interviews — Derive, Don't Memorize</h3>
+<p>
+Every lesson in this course ends with a table showing how to derive classic interview answers in 10 seconds using the
+<strong>6-Box Map</strong> and the <strong>3 Universal Rules</strong> (Rule 1: Order of Steps · Rule 2: Who You Call · Rule 3: Where State Lives):
+</p>
+<table>
+<thead><tr><th>Classic Interview Question</th><th>Which Box / Rule to Picture</th><th>10-Second Derived Answer</th></tr></thead>
+<tbody>
+<tr>
+  <td><em>"What is the difference between IoC and DI?"</em></td>
+  <td><strong>Box 3 (Object Warehouse)</strong></td>
+  <td><strong>IoC</strong> is the general principle that the framework owns the flow and calls your code (Servlets and JUnit do IoC too). <strong>DI</strong> is the specific form of IoC where the container supplies an object's dependencies through its constructor instead of the object calling <code>new</code> or looking them up.</td>
+</tr>
+<tr>
+  <td><em>"Why is Dependency Injection better than the Service Locator pattern (calling <code>ctx.getBean()</code> inside your class)?"</em></td>
+  <td><strong>POJO Principle + Box 3</strong></td>
+  <td>If <code>BookService</code> calls <code>ctx.getBean(BookRepository.class)</code>, it now compiles against Spring and hides what it needs inside method bodies. With constructor DI, <code>BookService</code> has zero Spring imports and you can test it with <code>new BookService(fakeRepo)</code> in 1 millisecond.</td>
+</tr>
+<tr>
+  <td><em>"What do annotations like <code>@Service</code> or <code>@Transactional</code> actually do at runtime?"</em></td>
+  <td><strong>Box 2 (Recipes) &amp; Box 4 (Proxy Inspector)</strong></td>
+  <td>By themselves, <strong>nothing</strong> — they are passive bytecode labels. They only work because Box 2 scans for <code>@Service</code> to create recipes, and Box 4 inspects beans for <code>@Transactional</code> and wraps them in a Proxy.</td>
+</tr>
+<tr>
+  <td><em>"If I instantiate a class myself with <code>new BookService(repo)</code> inside a Spring app, why does <code>@Transactional</code> stop working on it?"</em></td>
+  <td><strong>Rule 2 (Who You Call) + Box 4</strong></td>
+  <td>Because you bypassed Box 3 and Box 4! When you call <code>new</code> yourself, Box 4's <code>BeanPostProcessor</code> never gets a chance to wrap that object in a Transaction Proxy. You are calling the raw target object directly.</td>
+</tr>
+</tbody></table>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Pitfall 1: Thinking "Spring = Annotations."</strong> Annotations are passive sticky notes. Putting
+<code>@Transactional</code> or <code>@Autowired</code> on a class that Spring did not create (for example, an object you created with
+<code>new</code>) does nothing at all, because that object never went through Box 3 and Box 4.</div>
+
+<div class="pitfall"><strong>Pitfall 2: Re-inverting control with Service Locator (<code>context.getBean()</code>).</strong>
+Injecting <code>ApplicationContext</code> into your business service and calling <code>context.getBean(PaymentGateway.class)</code>
+turns Spring back into a manual lookup dictionary. Your class's constructor now lies about what collaborators it needs, and unit
+tests must mock the entire Spring container. Always ask for the dependency directly in the constructor.</div>
+
+<div class="pitfall"><strong>Pitfall 3: Using field injection (<code>@Autowired private BookRepository repo;</code>) out of habit.</strong>
+If a field is private and has no constructor parameter, the only way to set it in a unit test is ugly reflection or booting the
+Spring container. Use a constructor with <code>private final</code> fields so your class works with plain <code>new</code>.</div>
+
+<h2><span class="n">§9</span>Recap &amp; Glossary / Reference</h2>
+<ul class="recap">
+  <li><strong>The 4 Pains of Plain Java:</strong> Manual startup wiring in topological order (Pain #1), repetitive transaction/JDBC plumbing that leaks <code>Connection</code> into method signatures (Pain #2), manual HTTP/JSON parsing (Pain #3), and raw string config (Pain #4).</li>
+  <li><strong>The 6 Boxes solve the 4 Pains:</strong> Box 1 (<code>Environment</code>), Box 2 (<code>BeanDefinition</code> Recipe Map), Box 3 (Singleton Object Warehouse), Box 4 (<code>BeanPostProcessor</code> Proxy Wrapper), Box 5 (Tomcat + FilterChain), Box 6 (<code>DispatcherServlet</code> + <code>ThreadLocal</code>).</li>
+  <li><strong>IoC vs DI:</strong> IoC = the framework calls you. DI = dependencies are handed to your constructor from outside instead of created with <code>new</code>.</li>
+  <li><strong>POJO Principle:</strong> Your business classes should remain plain Java classes with constructor injection so they can be tested with plain <code>new</code> without booting Spring.</li>
+</ul>
+
+<h3>Quick Cheat-Sheet Reference</h3>
+<table>
+<thead><tr><th>Concept</th><th>Plain-Java Equivalent</th><th>Spring Equivalent</th></tr></thead>
+<tbody>
+<tr><td><strong>Dependency Injection</strong></td><td><code>BookService(BookRepository r) { this.r = r; }</code></td><td>Exact same constructor!</td></tr>
+<tr><td><strong>Composition Root</strong></td><td><code>main()</code> calling <code>new A(new B())</code></td><td><code>ApplicationContext</code> (Boxes 2 &amp; 3)</td></tr>
+<tr><td><strong>Cross-Cutting Wrapper (Proxy)</strong></td><td><code>new LoggingRepo(new InMemoryRepo())</code></td><td><code>BeanPostProcessor</code> (Box 4) wrapping beans dynamically</td></tr>
+<tr><td><strong>Service Locator (Anti-pattern)</strong></td><td><code>GlobalRegistry.get("repo")</code></td><td><code>ctx.getBean(BookRepository.class)</code> inside business code</td></tr>
+</tbody></table>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>Inversion of Control (IoC)</dt><dd>Design principle where the framework controls the execution flow and object creation instead of application code.</dd>
+  <dt>Dependency Injection (DI)</dt><dd>A specific form of IoC where an object receives its collaborators from an external caller (ideally via constructor parameters) rather than instantiating them itself.</dd>
+  <dt>POJO (Plain Old Java Object)</dt><dd>An ordinary Java class that does not extend framework-specific base classes or implement framework-specific interfaces.</dd>
+  <dt>Bean</dt><dd>Any normal Java object whose creation, wiring, and lifecycle are managed by the Spring container (stored in Box 3).</dd>
+  <dt>Composition Root</dt><dd>The single place in an application where concrete implementations are chosen and wired together (<code>main()</code> in plain Java; <code>ApplicationContext</code> in Spring).</dd>
+  <dt>Proxy</dt><dd>A wrapper object that implements the same interface (or subclasses the same class) as your real bean, intercepting method calls to add transactions, security, or logging (created in Box 4).</dd>
+</dl>
+
+<h3>Official Documentation &amp; Primary Sources</h3>
+<p>
+Read <a href="https://docs.spring.io/spring-framework/reference/core/beans/introduction.html">Spring Framework Reference — Introduction to the Spring IoC Container and Beans</a>
+and <a href="https://martinfowler.com/articles/injection.html">Martin Fowler — Inversion of Control Containers and the Dependency Injection pattern (2004)</a>.
+</p>
+<p class="sources" style="margin-top:1.6rem">Sources: Spring Framework 6.x Reference Documentation (Core Technologies → The IoC Container);
+Spring Boot 3.x Reference Documentation; Martin Fowler (2004); Rod Johnson, <em>Expert One-on-One J2EE Design and Development</em> (2002).
+Runnable code verified on JDK 17 (<a href="../code/01-no-spring/DiByHand.java">code/01-no-spring/DiByHand.java</a>).</p>
+
+</body>
+</html>

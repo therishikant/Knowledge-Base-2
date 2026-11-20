@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Inheritance &amp; Polymorphism — Types &amp; OOP, Part 2 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Inheritance &amp; Polymorphism</h1>
+<p class="crumb">Java › type system &amp; OOP cluster · lesson 5, <strong>part 2 of 3</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — how types relate, and how one command becomes many behaviours</p>
+
+<p class="nav"><strong>Type &amp; OOP cluster:</strong>
+  <a href="lesson.html">1. What a type really is</a> ·
+  <strong>2. Inheritance &amp; polymorphism</strong> ·
+  <a href="lesson-3-generics-and-erasure.html">3. Generics &amp; erasure</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> Part 1 built one type at a time. This part connects them. <strong>Inheritance</strong> says "a Dog
+<em>is an</em> Animal" and reuses the parent's code. An <strong>interface</strong> says "this thing <em>can do</em> X" without
+caring what it is. Both exist so that <strong>polymorphism</strong> can work: you write one line of code against the general type,
+and the JVM picks the right behaviour from the real object at run time. That one trick is what lets you add new behaviour to a
+program without editing the code that uses it.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+<a href="lesson.html">Part 1</a> answered "what is one type, and how do I keep it honest?" You can now build a correct, sealed,
+self-guarding class.
+</p>
+<p>
+But a real program is never one class. It is hundreds, and they must relate to each other. The same code has to handle an email
+notification and an SMS notification. The same report has to print a credit-card payment and a UPI payment. The question this part
+answers is: <strong>how do I write code once, when "the thing" can be several different kinds of thing?</strong>
+</p>
+<p>
+This also closes the loop with <a href="../04-jvm-execution-engine/lesson.html">lesson 4</a>. Back there you saw five
+<code>invoke*</code> bytecodes and learned that <code>invokevirtual</code> picks a method by looking at the real object. That was
+the machinery. This lesson is the design idea that machinery exists to serve.
+</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+
+<h3>2.1 The problem: the growing <code>if</code>-ladder</h3>
+<p>
+Imagine you must send a notification, and there are three channels. Without polymorphism you write this:
+</p>
+<pre><span class="k">if</span> (type.equals(<span class="s">"email"</span>))      sendEmail(to, body);
+<span class="k">else if</span> (type.equals(<span class="s">"sms"</span>))  sendSms(to, body);
+<span class="k">else if</span> (type.equals(<span class="s">"push"</span>)) sendPush(to, body);</pre>
+<p>It works. Now look at what happens over a year:</p>
+<ul>
+  <li>A fourth channel arrives (WhatsApp). You must find and edit this ladder.</li>
+  <li>And the other ladder in the retry logic.</li>
+  <li>And the one in the audit logger.</li>
+  <li>And the one in the admin screen that nobody remembered.</li>
+</ul>
+<p>
+Miss one and you ship a bug. The ladder has made <em>adding a new kind of thing</em> require <em>editing existing, working,
+tested code</em> — in several places at once. That is the thing good design is trying to avoid.
+</p>
+
+<h3>2.2 The fix: let the object know its own behaviour</h3>
+<p>
+Polymorphism inverts the ladder. Instead of the caller asking "what kind are you?" and then deciding, the caller just says
+"<em>send yourself</em>", and the object does the right thing because of what it is:
+</p>
+<pre>notification.send(body);   <span class="c">// that's the whole thing</span></pre>
+<p>
+Now adding WhatsApp means writing <strong>one new class</strong>. No existing file is touched. No ladder is missed, because there
+is no ladder. This is the <strong>Open/Closed Principle</strong> — software should be open to extension, closed to modification —
+and polymorphism is how Java implements it.
+</p>
+
+<div class="callout">
+<strong>The deeper payoff: testability.</strong> If your service depends on a <code>PaymentGateway</code> interface rather than on
+<code>StripeGateway</code>, your test can hand it a fake that returns whatever you want. No network, no sandbox account, no
+flakiness. Every testing framework and every dependency-injection container — all of Spring, which you learn next — is built on
+this one capability.
+</div>
+
+<h3>2.3 Why inheritance exists, and why it is dangerous</h3>
+<p>
+Inheritance gives you two things at once, and this is the source of all the confusion around it:
+</p>
+<ol>
+  <li><strong>Subtyping</strong> — "a <code>Dog</code> may be used wherever an <code>Animal</code> is expected." This is the valuable part.</li>
+  <li><strong>Code reuse</strong> — "a <code>Dog</code> automatically gets the parent's fields and method bodies." This is the tempting part.</li>
+</ol>
+<p>
+People reach for <code>extends</code> because of #2, and then are stuck with #1 forever. The parent's internals become part of the
+child's behaviour, so changing the parent can silently break every child, in code you may not own
+<span class="sources">(Bloch, <em>Effective Java</em>, Item 18 — "inheritance violates encapsulation")</span>.
+</p>
+<p>
+That is why Java's answer evolved: use <strong>interfaces</strong> for subtyping, and <strong>composition</strong> for reuse.
+Use <code>extends</code> only when the <em>is-a</em> relationship is genuinely true and permanent.
+</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>3.1 The two type relationships</h3>
+<p>Java gives you exactly two ways to say one type relates to another:</p>
+<table>
+  <thead><tr><th></th><th><code>extends</code> (inheritance)</th><th><code>implements</code> (interface)</th></tr></thead>
+  <tbody>
+    <tr><td>Reads as</td><td>"is a kind of"</td><td>"is able to"</td></tr>
+    <tr><td>How many</td><td><strong>one</strong> parent class, ever</td><td><strong>many</strong> interfaces</td></tr>
+    <tr><td>You inherit</td><td>fields + method bodies + the contract</td><td>the contract (plus <code>default</code> bodies since Java 8)</td></tr>
+    <tr><td>Couples you to</td><td>the parent's internal design</td><td>a list of method signatures only</td></tr>
+  </tbody>
+</table>
+<p>
+Java allows only <strong>one</strong> parent class on purpose. Multiple class inheritance creates the "diamond problem": if both
+parents define <code>save()</code> with different bodies, which one runs? C++ allows it and needs complex rules. Java sidesteps the
+whole mess by letting you inherit <em>state and behaviour</em> from just one place, while implementing as many
+<em>contracts</em> as you like.
+</p>
+
+<figure>
+<svg viewBox="0 0 760 320" width="100%" role="img" aria-label="A class hierarchy: Object at the root, an abstract Notification parent, two concrete children, and an interface implemented by one of them">
+  <style>
+    .rt{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .ab{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .cl{fill:#f7f5ef;stroke:#8a8375;stroke-width:1.4}
+    .it{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .sl{stroke:#6b675e;stroke-width:1.4;marker-end:url(#ma);fill:none}
+    .ds{stroke:#1f6b4d;stroke-width:1.4;stroke-dasharray:5 3;marker-end:url(#mb);fill:none}
+  </style>
+  <defs>
+    <marker id="ma" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker>
+    <marker id="mb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1f6b4d"/></marker>
+  </defs>
+
+  <rect class="rt" x="290" y="10" width="180" height="42" rx="6"/>
+  <text class="t" x="310" y="30">java.lang.Object</text>
+  <text class="c" x="310" y="46">everything starts here</text>
+
+  <rect class="ab" x="190" y="100" width="230" height="58" rx="6"/>
+  <text class="t" x="206" y="122">abstract Notification</text>
+  <text class="c" x="206" y="140">has: to · send() · abstract channel()</text>
+
+  <rect class="it" x="500" y="100" width="230" height="58" rx="6"/>
+  <text class="t" x="516" y="122">interface Auditable</text>
+  <text class="c" x="516" y="140">auditLine() — a capability</text>
+
+  <rect class="cl" x="60" y="222" width="220" height="58" rx="6"/>
+  <text class="t" x="76" y="244">EmailNotification</text>
+  <text class="c" x="76" y="262">channel() returns "email"</text>
+
+  <rect class="cl" x="330" y="222" width="220" height="58" rx="6"/>
+  <text class="t" x="346" y="244">SmsNotification</text>
+  <text class="c" x="346" y="262">channel() returns "sms"</text>
+
+  <line class="sl" x1="305" y1="100" x2="350" y2="56"/>
+  <line class="sl" x1="600" y1="100" x2="450" y2="56"/>
+  <line class="sl" x1="170" y1="222" x2="260" y2="162"/>
+  <line class="sl" x1="440" y1="222" x2="350" y2="162"/>
+  <path class="ds" d="M550,250 C650,250 660,200 650,164"/>
+  <text class="c" x="560" y="290">SmsNotification can ALSO implement Auditable</text>
+
+  <text class="c" x="60" y="196">solid = extends (only one allowed)</text>
+  <text class="c" x="60" y="178" style="fill:#1f6b4d">dashed = implements (as many as you like)</text>
+</svg>
+<figcaption>One solid line up (a class has exactly one parent), any number of dashed lines sideways (a class can implement many
+interfaces). This shape is why an <code>Notification</code> variable can hold either child (Oracle Java Tutorials — Interfaces and
+Inheritance).</figcaption>
+</figure>
+
+<h3>3.2 Overriding — the real polymorphism</h3>
+<p>
+<strong>Overriding</strong> is a child class replacing a parent method with its own version, keeping the same name and the same
+parameters. When you call that method, the JVM ignores the declared type of your variable and uses the <strong>real class of the
+object</strong> to choose which body runs. This is called <em>dynamic dispatch</em> or <em>late binding</em>.
+</p>
+<pre>Notification n = <span class="k">new</span> SmsNotification(<span class="s">"+91-99999"</span>);
+n.send(<span class="s">"hello"</span>);     <span class="c">// declared Notification, really an Sms -> sms behaviour runs</span></pre>
+<p>
+Under the hood this is the <code>invokevirtual</code> instruction from
+<a href="../04-jvm-execution-engine/lesson.html">lesson 4</a>. Every class has a method table; <code>invokevirtual</code> looks up
+the entry in the table belonging to the object's actual class. The JIT often then optimises it away entirely — when only one
+implementation has been loaded, it inlines the method and leaves a cheap guard behind.
+</p>
+<div class="idiom">
+<strong>Always write <code>@Override</code>.</strong> It is not decoration. If your signature does not actually match a parent
+method — a typo, a wrong parameter type, <code>equals(MyType)</code> instead of <code>equals(Object)</code> — the compiler fails
+immediately instead of silently creating a brand-new method that never gets called
+<span class="sources">(Bloch, <em>Effective Java</em>, Item 40)</span>.
+</div>
+
+<h3>3.3 Overriding vs overloading vs hiding — the three look-alikes</h3>
+<p>
+These three are constantly confused, and interviewers know it. The difference is <strong>who decides, and when</strong>.
+</p>
+<table>
+  <thead><tr><th></th><th>Overriding</th><th>Overloading</th><th>Hiding</th></tr></thead>
+  <tbody>
+    <tr><td>What it is</td><td>child replaces a parent <em>instance method</em></td><td>same name, different parameter list</td><td>child declares a <em>field</em> or <em>static method</em> with the parent's name</td></tr>
+    <tr><td>Who decides</td><td>the JVM</td><td>the compiler</td><td>the compiler</td></tr>
+    <tr><td>Decided using</td><td>the <strong>real object's</strong> class</td><td>the <strong>declared</strong> types of the arguments</td><td>the <strong>declared</strong> type of the variable</td></tr>
+    <tr><td>When</td><td>run time</td><td>compile time</td><td>compile time</td></tr>
+    <tr><td>Is it polymorphism?</td><td>yes — the real kind</td><td>"compile-time polymorphism" at best</td><td>no — and it is usually a bug</td></tr>
+  </tbody>
+</table>
+
+<figure>
+<svg viewBox="0 0 760 240" width="100%" role="img" aria-label="Overriding decided at run time by the real object, overloading and hiding decided at compile time by declared types">
+  <style>
+    .rb{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.5}
+    .cb{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.5}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .h{font:12px Georgia,serif;fill:#2b2b28;font-weight:bold}
+  </style>
+  <rect class="cb" x="20" y="24" width="350" height="190" rx="8"/>
+  <text class="h" x="40" y="50">COMPILE TIME — the compiler decides</text>
+  <text class="t" x="40" y="80">describe(Object) vs describe(String)</text>
+  <text class="c" x="40" y="100">picked from the DECLARED type you wrote</text>
+  <text class="c" x="40" y="126">Object o = "text";  describe(o);</text>
+  <text class="c" x="40" y="144">→ runs describe(Object), even though</text>
+  <text class="c" x="40" y="162">   the object really is a String</text>
+  <text class="c" x="40" y="192">fields and static methods behave the same way</text>
+
+  <rect class="rb" x="400" y="24" width="340" height="190" rx="8"/>
+  <text class="h" x="420" y="50">RUN TIME — the JVM decides</text>
+  <text class="t" x="420" y="80">Child.whoAmI() overrides Parent.whoAmI()</text>
+  <text class="c" x="420" y="100">picked from the REAL object on the heap</text>
+  <text class="c" x="420" y="126">Parent p = new Child();  p.whoAmI();</text>
+  <text class="c" x="420" y="144">→ runs Child.whoAmI(), because the</text>
+  <text class="c" x="420" y="162">   object really is a Child</text>
+  <text class="c" x="420" y="192">this is invokevirtual (lesson 4)</text>
+</svg>
+<figcaption>One rule to remember: <strong>instance methods override (real type, run time); fields and <code>static</code> methods
+hide (declared type, compile time)</strong>. Mixing those up produces "wrong value" bugs that look impossible (JLS SE 21,
+§8.4.8–§8.4.9 and §15.12).</figcaption>
+</figure>
+
+<div class="pitfall">
+<strong>Never hide a field deliberately.</strong> Declaring <code>name</code> in both parent and child gives the object
+<em>two</em> fields, and which one you read depends on the type of the variable you happened to use. It compiles, it runs, and it
+produces different answers from different places. The demo in §7 prints this happening.
+</div>
+
+<h3>3.4 <code>abstract</code> classes — a base with a blank to fill</h3>
+<p>
+An <strong>abstract class</strong> is a class you cannot instantiate, because it is deliberately incomplete. It can hold fields, a
+constructor, finished methods, <em>and</em> <code>abstract</code> methods that every child must supply.
+</p>
+<p>That makes it perfect for the <strong>template method</strong> pattern: the parent fixes the sequence of steps, the children fill
+in the one step that differs.</p>
+<pre><span class="k">abstract class</span> Notification {
+    <span class="k">protected final</span> String to;              <span class="c">// shared state</span>
+
+    <span class="k">abstract</span> String channel();              <span class="c">// the blank each child fills</span>
+
+    <span class="k">final</span> String send(String body) {         <span class="c">// the fixed recipe</span>
+        <span class="k">return</span> <span class="s">"via "</span> + channel() + <span class="s">" to "</span> + to + <span class="s">": "</span> + body;
+    }
+}</pre>
+<div class="ann">Notice <code>send</code> is <code>final</code>. That is deliberate: children may change <em>one step</em>
+(<code>channel</code>), but they may not rewrite the recipe. Fixing which parts are open and which are closed is the entire skill of
+designing a class for inheritance.</div>
+
+<h3>3.5 Interfaces — a capability, not a family</h3>
+<p>
+An <strong>interface</strong> is a named list of method signatures. A class that implements it promises to provide them. No state,
+no constructor, no family relationship — just "I can do these things."
+</p>
+<p>Since Java 8 an interface may also contain:</p>
+<ul>
+  <li><strong><code>default</code> methods</strong> — a method with a body, inherited by every implementer. These exist so the JDK could add <code>forEach</code> to <code>Iterable</code> and <code>stream()</code> to <code>Collection</code> without breaking a decade of existing code.</li>
+  <li><strong><code>static</code> methods</strong> — helpers that live with the interface itself, e.g. <code>Comparator.comparing</code>.</li>
+  <li><strong>constants</strong> — any field is implicitly <code>public static final</code>.</li>
+</ul>
+<p>Java 9 added <code>private</code> interface methods, so <code>default</code> methods can share helper code.</p>
+
+<h3>3.6 Interface or abstract class? The decision table</h3>
+<table>
+  <thead><tr><th></th><th>Interface</th><th>Abstract class</th></tr></thead>
+  <tbody>
+    <tr><td>Answers the question</td><td>"<em>can</em> it do X?"</td><td>"<em>what kind</em> of thing is it?"</td></tr>
+    <tr><td>How many per class</td><td>many</td><td>exactly one</td></tr>
+    <tr><td>Instance fields</td><td>none (constants only)</td><td>yes</td></tr>
+    <tr><td>Constructor</td><td>no</td><td>yes</td></tr>
+    <tr><td>Method bodies</td><td><code>default</code> / <code>static</code> only</td><td>any</td></tr>
+    <tr><td>Access levels</td><td>public (and <code>private</code> helpers since 9)</td><td>all four</td></tr>
+    <tr><td>Unrelated classes can share it</td><td>yes — that is the point</td><td>no — they must join one family</td></tr>
+  </tbody>
+</table>
+<div class="idiom">
+<strong>Default to the interface.</strong> Reach for an abstract class only when siblings genuinely share <em>state</em> plus
+partial behaviour. A very common and good combination is both: publish the <code>interface</code> as your public type, and provide
+an <code>AbstractXxx</code> skeleton implementation for people who want the easy path — exactly how the JDK ships
+<code>List</code> + <code>AbstractList</code> <span class="sources">(Bloch, <em>Effective Java</em>, Item 20)</span>.
+</div>
+
+<h3>3.7 Composition — reuse without the family bond</h3>
+<p>
+<strong>Composition</strong> means your class holds another object in a field and delegates to it. "A Car <em>has an</em> Engine",
+not "a Car <em>is an</em> Engine".
+</p>
+<table>
+  <thead><tr><th></th><th>Inheritance (<code>extends</code>)</th><th>Composition (a field)</th></tr></thead>
+  <tbody>
+    <tr><td>Relationship</td><td>is-a</td><td>has-a</td></tr>
+    <tr><td>Fixed when</td><td>compile time, permanently</td><td>run time — you can swap the part</td></tr>
+    <tr><td>You inherit</td><td>everything, including the parent's mistakes</td><td>only the methods you choose to expose</td></tr>
+    <tr><td>Breaks when</td><td>the parent changes its internals</td><td>the part's public contract changes</td></tr>
+    <tr><td>Testing</td><td>you drag the whole parent into every test</td><td>pass in a fake part</td></tr>
+  </tbody>
+</table>
+<div class="idiom">
+<strong>"Favor composition over inheritance."</strong> The oldest reliable rule in OO design
+<span class="sources">(Gamma et al., <em>Design Patterns</em>, 1994; Bloch, <em>Effective Java</em>, Item 18)</span>. The test before
+you type <code>extends</code>: <em>"Is every single thing the parent can do also true and sensible for the child, forever?"</em>
+If you hesitate, compose.
+</div>
+<div class="callout">
+<strong>The classic cautionary tale.</strong> <code>java.util.Stack</code> extends <code>Vector</code> — so a "stack" exposes
+<code>get(int)</code>, <code>insertElementAt</code>, and <code>remove(int)</code>. You can reach into the middle of a stack, which
+defeats the entire concept. It is in the JDK forever because removing it would break compatibility. Had it <em>held</em> a
+<code>Vector</code> instead of extending one, it would have exposed only <code>push</code>, <code>pop</code> and <code>peek</code>.
+</div>
+
+<h3>3.8 Casting, <code>instanceof</code>, and why you rarely need them</h3>
+<p>
+<strong>Upcasting</strong> (child → parent) is always safe and implicit: <code>Notification n = new SmsNotification(...)</code>.
+<strong>Downcasting</strong> (parent → child) is a claim the compiler cannot verify, so it is checked at run time and throws
+<code>ClassCastException</code> if you were wrong.
+</p>
+<pre>Object box = Integer.valueOf(7);
+String bad = (String) box;      <span class="c">// compiles fine; explodes at run time</span></pre>
+<p>
+<code>instanceof</code> lets you check first. But reaching for <code>instanceof</code> plus a cast is usually a sign that
+polymorphism has been skipped: you are asking "what kind are you?" again, which is the <code>if</code>-ladder from §2.1 in disguise.
+</p>
+<div class="callout">
+<strong>Modern Java softens this.</strong> Java 16's pattern matching lets you write
+<code>if (o instanceof String s) { ... }</code> — test and bind in one step, no separate cast. Combined with <code>sealed</code>
+types and switch patterns (Java 21), this makes "check the kind" legitimate again for closed sets of types, like an AST or a state
+machine. Lesson 12 covers it. On Java 8 you still write the cast by hand.
+</div>
+
+<h3>3.9 The rules an override must obey</h3>
+<p>When you override, the compiler enforces a contract so that callers of the parent type are never surprised
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-8.html#jls-8.4.8">JLS SE 21, §8.4.8</a>)</span>:</p>
+<table>
+  <thead><tr><th>Rule</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>Same name and parameter list</td><td>otherwise it is an overload, not an override</td></tr>
+    <tr><td>Return type must be the same or a <em>subtype</em> (covariant return)</td><td>the caller's expectation still holds</td></tr>
+    <tr><td>Access may widen, never narrow (<code>protected</code> → <code>public</code> is fine; the reverse is not)</td><td>a caller who could reach the parent method must still reach the child's</td></tr>
+    <tr><td>No new or broader <em>checked</em> exceptions</td><td>the caller's <code>catch</code> blocks were written against the parent</td></tr>
+    <tr><td>Cannot override <code>final</code>, <code>static</code> or <code>private</code> methods</td><td>they are not dispatched virtually</td></tr>
+  </tbody>
+</table>
+<p>
+Behind all five sits the <strong>Liskov Substitution Principle</strong>: anywhere the parent type is expected, any child must work
+without the caller noticing. The compiler enforces the signature half; keeping the <em>behaviour</em> half is on you. A
+<code>Square</code> that extends <code>Rectangle</code> and quietly forces width to equal height compiles perfectly and still
+violates the principle.
+</p>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong>Use an interface</strong> whenever more than one implementation of a role is plausible: payment gateways, storage backends, notification channels, parsers. Also use one whenever you want to fake the dependency in a test.</li>
+  <li><strong>Use an abstract class</strong> when siblings share real state <em>and</em> a fixed sequence of steps where only a piece varies (template method).</li>
+  <li><strong>Use composition</strong> for everything else — which in practice is most of the time.</li>
+  <li><strong>Use <code>extends</code> on a concrete class</strong> only when you control both classes, the is-a is permanent, and the parent was <em>documented and designed</em> for extension.</li>
+  <li><strong>Use <code>final</code> on a class</strong> when it was not designed to be extended. "Design for inheritance, or prohibit it" <span class="sources">(Bloch, Item 19)</span>.</li>
+  <li><strong>Avoid <code>instanceof</code> chains</strong> in business logic; they are the ladder polymorphism was invented to delete.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Think about a school play. The script says "the NARRATOR walks on and says the opening line." The script does not name a person.
+Whoever is cast as narrator that night walks on and says it in their own voice. The script never changes; the performance does.
+</p>
+<p>
+That is <strong>polymorphism</strong>. "Narrator" is the type. The actual kid on stage is the object. Your code is the script, and
+it keeps working when a new kid takes the part.
+</p>
+<p>
+<strong>Inheritance</strong> is like saying "a labrador is a dog, so it already knows everything dogs know — barking, eating,
+sleeping — and it adds a few things of its own." You did not have to teach it barking again.
+</p>
+<p>
+An <strong>interface</strong> is different. It is a badge that says "I can swim." A fish can swim. A person can swim. A robot can
+swim. They are not related at all — they do not share a family — but anyone organising a swimming race only needs to see the badge.
+That is why a class can wear many badges but can only belong to one family.
+</p>
+<p>
+And <strong>composition</strong>? That is a toy car with a battery inside. The car is not a battery. It just <em>has</em> one, and
+you can swap it for a better one whenever you like. If the car had been <em>built as</em> a battery, you would be stuck with it
+forever.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="../04-jvm-execution-engine/lesson.html">jvm-execution-engine</a>:</strong> overriding <em>is</em> <code>invokevirtual</code>; interface calls are <code>invokeinterface</code>; <code>private</code>, <code>super</code> and constructors use <code>invokespecial</code>; <code>static</code> calls use <code>invokestatic</code>.</li>
+  <li><strong>← <a href="lesson.html">part 1</a>:</strong> a <code>final</code> class cannot be extended, and a <code>private</code> method cannot be overridden — the access rules from part 1 decide what part 2 can do.</li>
+  <li><strong>→ <a href="lesson-3-generics-and-erasure.html">part 3</a>:</strong> once types form a hierarchy, "a list of Dogs is not a list of Animals" becomes a real problem, and wildcards are the fix.</li>
+  <li><strong>→ <a href="../07-java8-functional/lesson.html">java8-functional</a>:</strong> a lambda is just an instance of a one-method interface; everything here underpins <code>Function</code>, <code>Predicate</code> and <code>Comparator</code>.</li>
+  <li><strong>→ <a href="../13-application-architecture/lesson.html">application-architecture</a>:</strong> "depend on interfaces, not implementations" is the whole basis of ports-and-adapters and of Spring's dependency injection.</li>
+  <li><strong>→ <a href="../12-modern-java-9-to-21/lesson.html">modern-java-9-to-21</a>:</strong> <code>sealed</code> types let you say "these are <em>all</em> the subtypes", which makes exhaustive switch patterns safe.</li>
+  <li><strong>Transfers everywhere:</strong> Kotlin, C# and TypeScript copy this model almost exactly. Go drops inheritance entirely and keeps only interfaces plus composition — which is this lesson's advice turned into a language rule.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — one file, dissected</h2>
+<p>
+Full source: <a href="../code/TypeDemo2.java">code/TypeDemo2.java</a>. Compile with <code>javac TypeDemo2.java</code>, run with
+<code>java TypeDemo2</code>. Output below is real, from JDK 1.8.0_411.
+</p>
+
+<h3>Chunk 1 — an abstract base with one blank</h3>
+<pre><span class="k">static abstract class</span> Notification {
+    <span class="k">protected final</span> String to;
+
+    Notification(String to) {
+        System.out.println(<span class="s">"   [parent ctor] Notification("</span> + to + <span class="s">")"</span>);
+        <span class="k">this</span>.to = to;
+    }
+
+    <span class="k">abstract</span> String channel();                    <span class="c">// children MUST fill this</span>
+
+    <span class="k">final</span> String send(String body) {                <span class="c">// children may NOT change this</span>
+        <span class="k">return</span> <span class="s">"via "</span> + channel() + <span class="s">" to "</span> + to + <span class="s">": "</span> + body;
+    }
+}</pre>
+<div class="ann">The print in the constructor exists to prove the ordering in the output: the parent constructor always finishes
+before the child's body starts. That is why calling an overridable method from a constructor is dangerous — the child's override
+would run while the child's own fields are still <code>null</code>.</div>
+
+<h3>Chunk 2 — the ladder, deleted</h3>
+<pre><span class="k">for</span> (Notification n : <span class="k">new</span> Notification[]{ n1, n2 })
+    System.out.println(n.send(<span class="s">"your order shipped"</span>));</pre>
+<div class="ann">One loop, no <code>if</code>, no <code>switch</code>, no type check. Two different behaviours come out. Adding a
+third channel means adding a class and nothing else — this loop is never edited again. <strong>This single loop is the entire
+argument for polymorphism;</strong> if you can explain why it needs no <code>if</code>, you understand the lesson.</div>
+
+<h3>Chunk 3 — overriding vs hiding, in the same object</h3>
+<pre><span class="k">static class</span> Parent {
+    String name = <span class="s">"parent-field"</span>;                  <span class="c">// fields HIDE</span>
+    String whoAmI()       { <span class="k">return</span> <span class="s">"Parent.whoAmI"</span>; }  <span class="c">// instance methods OVERRIDE</span>
+    <span class="k">static</span> String label() { <span class="k">return</span> <span class="s">"Parent.label"</span>; }  <span class="c">// static methods HIDE</span>
+}
+...
+Parent p = <span class="k">new</span> Child();     <span class="c">// declared Parent, really a Child</span>
+p.whoAmI();                  <span class="c">// -> Child's version  (real type wins)</span>
+p.name;                      <span class="c">// -> parent-field     (declared type wins!)</span></pre>
+<div class="ann">Same variable, same object, two opposite rules — and this is exactly the trap in interviews. The object really does
+carry <strong>two</strong> <code>name</code> fields. Which one you see depends on the type you look through, which is why
+<code>((Child) p).name</code> gives a different answer on the very next line of output.</div>
+
+<h3>Chunk 4 — overloading is frozen at compile time</h3>
+<pre><span class="k">static</span> String describe(Object o) { <span class="k">return</span> <span class="s">"describe(Object)"</span>; }
+<span class="k">static</span> String describe(String s) { <span class="k">return</span> <span class="s">"describe(String)"</span>; }
+...
+Object asObject = <span class="s">"I am really a String"</span>;
+describe(asObject);     <span class="c">// -> describe(Object), NOT describe(String)</span></pre>
+<div class="ann">The object on the heap is a <code>String</code>, but the compiler only saw a variable declared <code>Object</code>, and
+it had already made its choice before the program started. <strong>Overloading never looks at the real object.</strong> This is why
+<code>list.remove(1)</code> and <code>list.remove(Integer.valueOf(1))</code> do completely different things.</div>
+
+<h3>Chunk 5 — one class, two capabilities</h3>
+<pre><span class="k">static class</span> Invoice <span class="k">implements</span> Auditable, Archivable {
+    @Override <span class="k">public</span> String auditLine()  { <span class="k">return</span> <span class="s">"invoice "</span> + number; }
+    @Override <span class="k">public</span> String archiveKey() { <span class="k">return</span> <span class="s">"INV/"</span> + number; }
+}
+
+<span class="k">interface</span> Auditable {
+    String auditLine();
+    <span class="k">default</span> String auditLoud() { <span class="k">return</span> auditLine().toUpperCase(); }
+}</pre>
+<div class="ann"><code>Invoice</code> wears two badges at once — impossible with <code>extends</code>. The <code>default</code> method
+gives every implementer <code>auditLoud()</code> free, and the interface can be extended later without breaking anyone. That is
+exactly how Java 8 added <code>stream()</code> to every existing <code>Collection</code>.</div>
+
+<h3>Chunk 6 — composition, and a bad cast</h3>
+<pre><span class="k">static class</span> Car {
+    <span class="k">private final</span> Engine engine;                 <span class="c">// has-a, not is-a</span>
+    String drive() { <span class="k">return</span> <span class="s">"car moves because "</span> + engine.start(); }
+}
+...
+Object box = Integer.valueOf(7);
+String bad = (String) box;                      <span class="c">// ClassCastException at run time</span></pre>
+<div class="ann"><code>Car</code> exposes only <code>drive()</code>. Nothing about <code>Engine</code> leaks out, and you can hand
+in a different engine — or a fake one in a test — at any time. The cast below it is the opposite story: the compiler allows the
+claim, and the JVM punishes it.</div>
+
+<h3>Real output <span class="sources">(JDK 1.8.0_411)</span></h3>
+<pre>--- 1. constructors chain parent-first ---
+   [parent ctor] Notification(asha@example.com)
+   [child ctor]  EmailNotification
+   [parent ctor] Notification(+91-99999)
+
+--- 2. one loop, many behaviours (polymorphism) ---
+   via email to asha@example.com: your order shipped
+   via sms to +91-99999: your order shipped
+
+--- 3. overriding uses the REAL type, hiding uses the DECLARED type ---
+   p.whoAmI() -&gt; Child.whoAmI (instance -&gt; overridden)
+   p.name     -&gt; parent-field
+   ((Child) p).name -&gt; child-field
+   Parent.label()   -&gt; Parent.label (static -&gt; hidden)
+   Child.label()    -&gt; Child.label (static -&gt; hidden)
+
+--- 4. overloading is decided before the program runs ---
+   describe("literal")  -&gt; describe(String)
+   describe(asObject)   -&gt; describe(Object)
+
+--- 5. one class, two capabilities ---
+   audit   -&gt; invoice 2026-001
+   loud    -&gt; INVOICE 2026-001
+   archive -&gt; INV/2026-001
+   inv instanceof Auditable ? true
+
+--- 6. composition ---
+   car moves because engine(150hp) running
+
+--- 7. a bad cast fails at RUN time, not compile time ---
+   ClassCastException: java.lang.Integer cannot be cast to java.lang.String</pre>
+<div class="ann">Section 3 is the money shot: <strong>one variable, one object, three different answers.</strong> The method came from
+the child (run time, real type). The field came from the parent (compile time, declared type). Cast the variable and the field
+answer flips. Section 4 shows the same compile-time rule applied to overloading.</div>
+
+<div class="try"><strong>Predict, then run.</strong>
+(1) Remove <code>final</code> from <code>send</code> and override it in <code>SmsNotification</code> to drop the channel prefix.
+Which guarantee did the parent just lose?
+(2) Add <code>@Override</code> to the <code>label()</code> methods in <code>Parent</code>/<code>Child</code>. What does the compiler
+say, and what does that tell you about <code>static</code> methods?
+(3) Change <code>describe(Object)</code> to <code>describe(CharSequence)</code> and call it with a <code>String</code>. Which
+overload wins, and what rule decided it?
+(4) Make <code>Auditable</code> and <code>Archivable</code> both declare a <code>default String id()</code> and have
+<code>Invoice</code> implement both. What is the compile error, and what is the one way out?</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Using <code>extends</code> just to reuse code.</strong> You bought a permanent is-a relationship to save
+a few lines. Hold the object in a field instead and delegate.</div>
+<div class="pitfall"><strong>Forgetting <code>@Override</code>.</strong> Without it, a mistyped signature silently becomes a new
+method that is never called. <code>equals(MyType other)</code> instead of <code>equals(Object other)</code> is the classic, and it
+quietly breaks every collection.</div>
+<div class="pitfall"><strong>Hiding a field or a <code>static</code> method.</strong> It looks like overriding and behaves like the
+opposite. Rename one of them.</div>
+<div class="pitfall"><strong>Calling an overridable method from a constructor.</strong> The child's version runs before the child's
+fields are initialised, so it sees <code>null</code>s. Make it <code>private</code>, <code>static</code> or <code>final</code>.</div>
+<div class="pitfall"><strong>Deep hierarchies.</strong> Four or five levels of <code>extends</code> means nobody can predict what a
+change does. Flatten it: one abstract base at most, or interfaces plus composition.</div>
+<div class="pitfall"><strong><code>protected</code> fields.</strong> They are <code>public</code> to every subclass forever, so they
+freeze your internal representation. Prefer <code>private</code> fields plus a <code>protected</code> method if a hook is really
+needed.</div>
+<div class="pitfall"><strong><code>instanceof</code> chains over your own types.</strong> Every new subtype means hunting down every
+chain. That is the exact pain polymorphism removes.</div>
+<div class="pitfall"><strong>Breaking Liskov quietly.</strong> An override that throws
+<code>UnsupportedOperationException</code>, or narrows what the parent promised, compiles cleanly and breaks callers who only know
+the parent type.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>Polymorphism exists to delete the <code>if</code>-ladder: the caller says <em>what</em>, the object decides <em>how</em>. New behaviour = new class, no edits to existing code.</li>
+  <li><strong><code>extends</code> = is-a</strong> (one parent only, inherits state and bodies). <strong><code>implements</code> = can-do</strong> (as many as you like, contract only).</li>
+  <li><strong>Overriding</strong> is chosen by the JVM from the <strong>real object</strong> at run time — this is <code>invokevirtual</code>.</li>
+  <li><strong>Overloading</strong> is chosen by the compiler from the <strong>declared</strong> argument types, before the program runs.</li>
+  <li><strong>Fields and <code>static</code> methods hide, they do not override</strong> — they follow the declared type. Almost always a bug.</li>
+  <li><strong>Abstract class</strong> = shared state + a fixed recipe with blanks. <strong>Interface</strong> = a capability unrelated classes can share. Default to the interface.</li>
+  <li><strong>Favor composition over inheritance.</strong> Before typing <code>extends</code>, ask whether every parent behaviour is true for the child forever.</li>
+  <li>Upcasting is free and safe; downcasting is an unverified claim that throws <code>ClassCastException</code> when wrong.</li>
+  <li>An override may widen access and return a subtype, but may not narrow access or add checked exceptions — all of it serving <strong>Liskov substitution</strong>.</li>
+  <li>Always write <code>@Override</code>. It turns a silent run-time bug into a compile error.</li>
+</ul>
+
+<hr/>
+<h2>Reference — quick answers</h2>
+<table>
+  <thead><tr><th>Question</th><th>Answer</th></tr></thead>
+  <tbody>
+    <tr><td>Why no multiple class inheritance?</td><td>The diamond problem — two parents with conflicting state and bodies. Interfaces avoid it by carrying no state.</td></tr>
+    <tr><td>Can an interface have a constructor?</td><td>No. It has no state to initialise.</td></tr>
+    <tr><td>Can an abstract class have no abstract methods?</td><td>Yes — it just cannot be instantiated.</td></tr>
+    <tr><td>Can you override a <code>static</code> method?</td><td>No. You can only hide it.</td></tr>
+    <tr><td>Can you override a <code>private</code> method?</td><td>No. It is not visible to the subclass; you are declaring a new method.</td></tr>
+    <tr><td>Can an override return a different type?</td><td>Yes, if it is a subtype of the original (covariant return).</td></tr>
+    <tr><td>Can an override throw new checked exceptions?</td><td>No. Unchecked ones, yes.</td></tr>
+    <tr><td>Two interfaces, same <code>default</code> method?</td><td>Compile error. The class must override it and may call <code>Iface.super.method()</code>.</td></tr>
+    <tr><td>What does <code>super.m()</code> do?</td><td>Calls the parent's version explicitly, via <code>invokespecial</code>.</td></tr>
+    <tr><td>Which bytecode for an interface call?</td><td><code>invokeinterface</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Inheritance</dt><dd>Building a new class on an existing one with <code>extends</code>; an is-a relationship.</dd>
+  <dt>Subtype</dt><dd>A type usable anywhere its supertype is expected.</dd>
+  <dt>Polymorphism</dt><dd>One call site, many possible behaviours, selected by the real object.</dd>
+  <dt>Dynamic dispatch</dt><dd>The JVM choosing the method body at run time from the object's actual class.</dd>
+  <dt>Overriding</dt><dd>A subclass replacing a parent instance method with the same signature.</dd>
+  <dt>Overloading</dt><dd>Several methods with one name and different parameter lists; resolved by the compiler.</dd>
+  <dt>Hiding</dt><dd>A subclass declaring a field or <code>static</code> method with the parent's name; resolved by declared type.</dd>
+  <dt>Abstract class</dt><dd>A class that cannot be instantiated and may leave methods unimplemented.</dd>
+  <dt>Interface</dt><dd>A named set of method signatures a class promises to provide.</dd>
+  <dt>Default method</dt><dd>An interface method with a body, inherited by all implementers (Java 8+).</dd>
+  <dt>Composition</dt><dd>Reuse by holding another object as a field and delegating to it.</dd>
+  <dt>Upcast / downcast</dt><dd>Treating an object as its supertype (always safe) / as a subtype (checked at run time).</dd>
+  <dt>Covariant return</dt><dd>An override returning a subtype of the parent's return type.</dd>
+  <dt>Liskov Substitution Principle</dt><dd>A subtype must be usable wherever its supertype is, without surprising the caller.</dd>
+  <dt>Template method</dt><dd>A parent fixing the sequence of steps while children supply individual steps.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/tutorial/java/IandI/index.html">Oracle Java Tutorials — Interfaces and Inheritance</a>
+(the whole trail: "Defining an Interface", "Default Methods", "Overriding and Hiding Methods", "Polymorphism"), with
+<a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-8.html#jls-8.4.8">JLS SE 21, §8.4.8 — Inheritance, Overriding, and Hiding</a>
+for the exact rules.</p>
+
+<p class="nav" style="margin-top:2rem">← <a href="lesson.html">Part 1 — What a type really is</a> &nbsp;·&nbsp;
+Next: <a href="lesson-3-generics-and-erasure.html">Part 3 — Generics &amp; erasure</a> →</p>
+
+<p class="sources">Sources: Oracle, <em>Java Tutorials</em> (Interfaces and Inheritance; Polymorphism; Default Methods);
+Oracle, <em>Java Language Specification SE 21</em> §8.4.8–§8.4.9, §15.12; Bloch, <em>Effective Java</em> (Items 18, 19, 20, 40);
+Gamma et al., <em>Design Patterns</em> (1994). Code compiled and run on JDK 1.8.0_411; the output in §7 is real program output.
+Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

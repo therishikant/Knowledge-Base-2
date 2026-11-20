@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Web MVC Request Lifecycle — Spring</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:2.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    padding:.55rem .85rem;background:#f4f0e6;border:1px solid var(--rule);border-radius:6px;margin-bottom:1.8rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f8f5ec;border:1.5px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.95rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.5rem}
+  .step-flow{background:#fff;border:1px solid var(--rule);border-left:4px solid var(--spring);padding:.8rem 1rem;border-radius:0 6px 6px 0;margin:1rem 0;font-size:.93rem}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../08-externalized-configuration-and-profiles/lesson.html">08 · Externalized Configuration</a></span>
+  <span><a href="../overview.html">Spring Map (Lesson 9 of 18)</a></span>
+  <span><a href="../10-building-rest-apis/lesson.html">10 · Building REST APIs</a> →</span>
+</nav>
+
+<h1>The Web MVC Request Lifecycle</h1>
+<p class="crumb"><a href="../overview.html">Spring</a> › lesson 9 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — who calls your controller, and when</p>
+
+<div class="tldr">
+<strong>In simple English —</strong> When an HTTP request hits port 8080, Tomcat grabs one worker thread from its pool, runs a chain of Servlet <code>Filter</code>s (Box 5), and hands the request to a single front-door servlet called <code>DispatcherServlet</code> (Box 6). That one servlet looks up your <code>@Controller</code> method in a routing <code>Map</code>, converts URL strings and JSON into Java arguments, calls your method, and converts your return object back into JSON bytes.
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the Map</h2>
+<p>
+Lessons 1–8 lived in <strong>Phase 1 (Startup)</strong>: building the <code>Environment</code> (Box 1), scanning <code>BeanDefinition</code> recipes (Box 2), instantiating singletons into the <code>singletonObjects</code> warehouse (Box 3), and wrapping beans in AOP proxies (Box 4). Now the server is up and listening on port 8080. We enter <strong>Phase 2 (The HTTP Request Loop)</strong>, zooming directly into <strong>Box 5 (Embedded Tomcat &amp; FilterChain)</strong> and <strong>Box 6 (<code>DispatcherServlet</code>)</strong>.
+</p>
+
+<div class="map-banner">
+  <div class="map-title">🗺️ You Are Here on the 3-Level Zoom Map</div>
+  <figure style="margin:.4rem 0">
+  <svg viewBox="0 0 760 215" width="100%" role="img" aria-label="You Are Here: Phase 2 HTTP Request Loop, Box 5 Tomcat and Filters into Box 6 DispatcherServlet">
+    <style>
+      .dim{fill:#f4f0e6;stroke:#b8b1a3;stroke-width:1.2}
+      .act5{fill:#fbeeee;stroke:#7a1f1f;stroke-width:2.2}
+      .act6{fill:#eef3f7;stroke:#1f4d7a;stroke-width:2.2}
+      .tx{font:11px "SF Mono",Menlo,monospace;fill:#2b2b28}
+      .th{font:bold 12px Georgia,serif;fill:#2b2b28}
+      .tm{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+      .ar{stroke:#2b2b28;stroke-width:1.5;marker-end:url(#ma);fill:none}
+    </style>
+    <defs><marker id="ma" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2b2b28"/></marker></defs>
+
+    <!-- Phase 1 dimmed -->
+    <rect class="dim" x="10" y="10" width="210" height="145" rx="6"/>
+    <text class="th" x="20" y="28" style="fill:#6b675e">Phase 1: Startup (Done)</text>
+    <text class="tx" x="20" y="48">Box 1: Environment</text>
+    <text class="tx" x="20" y="68">Box 2: BeanDefinitions</text>
+    <text class="tx" x="20" y="88">Box 3: singletonObjects</text>
+    <text class="tx" x="20" y="108">Box 4: AOP Proxies</text>
+    <text class="tm" x="20" y="135">Controller &amp; Service beans</text>
+    <text class="tm" x="20" y="148">are already sitting in Box 3</text>
+
+    <!-- Phase 2 highlighted -->
+    <rect x="235" y="6" width="405" height="153" rx="8" fill="#fff8ee" stroke="#7a1f1f" stroke-width="1.5" stroke-dasharray="5 3"/>
+    <text class="th" x="247" y="24" style="fill:#7a1f1f">★ Phase 2: Request Loop (THIS LESSON)</text>
+
+    <rect class="act5" x="247" y="34" width="180" height="112" rx="6"/>
+    <text class="th" x="257" y="52" style="fill:#7a1f1f">Box 5: Tomcat &amp; Filters</text>
+    <text class="tx" x="257" y="72">ServerSocket(8080)</text>
+    <text class="tx" x="257" y="90">1 Worker Thread</text>
+    <text class="tx" x="257" y="108">Servlet FilterChain</text>
+    <text class="tm" x="257" y="130">Runs BEFORE routing!</text>
+
+    <rect class="act6" x="447" y="34" width="180" height="112" rx="6"/>
+    <text class="th" x="457" y="52" style="fill:#1f4d7a">Box 6: DispatcherServlet</text>
+    <text class="tx" x="457" y="72">HandlerMapping (Map)</text>
+    <text class="tx" x="457" y="90">HandlerInterceptor</text>
+    <text class="tx" x="457" y="108">ArgumentResolvers</text>
+    <text class="tm" x="457" y="130">Calls Controller → Box 4</text>
+
+    <line class="ar" x1="220" y1="82" x2="245" y2="82"/>
+    <line class="ar" x1="427" y1="82" x2="445" y2="82"/>
+
+    <!-- Phase 3 dimmed -->
+    <rect class="dim" x="655" y="10" width="95" height="145" rx="6"/>
+    <text class="th" x="665" y="28" style="fill:#6b675e">Phase 3</text>
+    <text class="tx" x="665" y="52">Shutdown</text>
+    <text class="tm" x="665" y="75">@PreDestroy</text>
+    <text class="tm" x="665" y="92">Pool close</text>
+
+    <!-- Bottom timeline -->
+    <rect x="10" y="168" width="740" height="40" rx="5" fill="#eefaf4" stroke="#6db33f" stroke-width="1.2"/>
+    <text class="tx" x="22" y="185">Right before: Boot started Tomcat on :8080 and registered DispatcherServlet + routing Map (Lessons 7–8)</text>
+    <text class="tx" x="22" y="201">Right after:  Inside Box 6, REST validation &amp; @ControllerAdvice run (L10), then @Transactional opens in Box 4 (L12)</text>
+  </svg>
+  </figure>
+</div>
+
+<h2><span class="n">§2</span>Why it exists — the pain of raw Servlets</h2>
+<p>
+In raw Java Servlet-land (<a href="../01-problem-and-philosophy/lesson.html">lesson 1</a>), every endpoint is a separate class extending <code>HttpServlet</code>, or a giant <code>if/else</code> block parsing URL strings by hand. Every single endpoint repeats the same five chores:
+</p>
+<pre><span class="c">// ❌ Raw Servlet WITHOUT Spring MVC — you repeat this ceremony in every endpoint</span>
+<span class="k">public class</span> BookServlet <span class="k">extends</span> HttpServlet {
+    <span class="an">@Override</span>
+    <span class="k">protected void</span> doGet(HttpServletRequest req, HttpServletResponse resp) <span class="k">throws</span> IOException {
+        <span class="c">// 1. Parse the path by hand: "/books/42" -> "42"</span>
+        String[] parts = req.getPathInfo().split(<span class="s">"/"</span>);
+        <span class="k">long</span> id = Long.parseLong(parts[1]);
+
+        <span class="c">// 2. Read query params &amp; headers by hand, handle nulls &amp; defaults</span>
+        String currency = req.getParameter(<span class="s">"currency"</span>) != <span class="k">null</span> ? req.getParameter(<span class="s">"currency"</span>) : <span class="s">"USD"</span>;
+
+        <span class="c">// 3. Call business logic</span>
+        Book book = bookService.findById(id, currency);
+
+        <span class="c">// 4. Set headers and serialize to JSON bytes by hand</span>
+        resp.setStatus(200);
+        resp.setContentType(<span class="s">"application/json"</span>);
+        objectMapper.writeValue(resp.getOutputStream(), book);
+    }
+}</pre>
+<p>
+Thirty endpoints mean thirty repetitions of path splitting, <code>Long.parseLong</code>, null checks, Jackson calls, and <code>try/catch</code> error blocks. Worse, your business method is glued to <code>HttpServletRequest</code> and <code>HttpServletResponse</code>, making it painful to unit-test.
+</p>
+<p>
+<strong>The Front Controller pattern</strong> fixes this once and for all: put <strong>one</strong> servlet at the front door (<code>DispatcherServlet</code> mapped to <code>"/"</code>), let it do all the string parsing and JSON conversion using a reusable pipeline, and reduce your endpoint to a plain Java method:
+</p>
+<pre><span class="c">// ✅ With Spring MVC — zero Servlet API imports, trivially unit-testable with plain `new`</span>
+<span class="an">@GetMapping</span>(<span class="s">"/books/{id}"</span>)
+Book getBook(<span class="an">@PathVariable</span> <span class="k">long</span> id, <span class="an">@RequestParam</span>(defaultValue = <span class="s">"USD"</span>) String currency) {
+    <span class="k">return</span> bookService.findById(id, currency);
+}</pre>
+
+<h2><span class="n">§3</span>How it works (Level 1 → Level 2 Zoom)</h2>
+
+<h3>Start with Plain Java Data Structures First</h3>
+<p>
+Before learning a single Spring MVC class name, look at what <code>DispatcherServlet</code> actually holds inside memory (populated during Phase 1 startup when it scanned your <code>@Controller</code> beans in Box 3):
+</p>
+<pre><span class="c">// Inside DispatcherServlet (Box 6) — it is just a Map and three Lists of helper beans!</span>
+<span class="k">class</span> MiniDispatcherServlet <span class="k">extends</span> HttpServlet {
+
+    <span class="c">// 1. The Routing Table (Spring calls this: RequestMappingHandlerMapping)</span>
+    <span class="c">//    Key:   "GET /books/{id}"</span>
+    <span class="c">//    Value: Controller bean reference (from Box 3) + java.lang.reflect.Method</span>
+    Map&lt;RouteKey, HandlerMethod&gt; routingTable;
+
+    <span class="c">// 2. Parameter Builders (Spring calls this: List&lt;HandlerMethodArgumentResolver&gt;)</span>
+    <span class="c">//    Each helper answers: "Can I build this parameter (e.g. @PathVariable, @RequestBody)?"</span>
+    List&lt;ArgumentResolver&gt; argumentResolvers;
+
+    <span class="c">// 3. Body Translators (Spring calls this: List&lt;HttpMessageConverter&gt;)</span>
+    <span class="c">//    Jackson JSON converter, String converter, byte[] converter</span>
+    List&lt;MessageConverter&gt; messageConverters;
+}</pre>
+<div class="callout"><strong>That's the whole secret:</strong> <code>DispatcherServlet</code> does not know how to parse <code>@PathVariable</code> or write JSON itself. It holds <code>List&lt;T&gt;</code> strategy beans (injected via the <a href="../03-dependency-injection/lesson.html">lesson 3</a> collection trick) and loops through them asking, <em>"Does anyone know how to handle this parameter / return type?"</em></div>
+
+<h3>Step-by-Step Trace: What Happens When <code>GET /books/42</code> Arrives</h3>
+<div class="step-flow">
+  <strong>Trace of <code>GET /books/42</code> (Accept: <code>application/json</code>) across Box 5 → Box 6 → Box 4:</strong><br/>
+  <strong>Step 1 (Tomcat Socket &amp; Thread Pool — Box 5):</strong> Tomcat's acceptor on port 8080 accepts the TCP bytes, parses the HTTP text into <code>HttpServletRequest</code>, and grabs <strong>1 worker thread</strong> (e.g., <code>http-nio-8080-exec-1</code>) from its thread pool.<br/>
+  ↓<br/>
+  <strong>Step 2 (Servlet <code>FilterChain</code> — Box 5):</strong> The worker thread walks through Tomcat's <code>FilterChain</code> (<code>CharacterEncodingFilter</code> → <code>SecurityFilterChain</code> → custom filters). <em>Note: Nobody knows which Controller method will run yet!</em><br/>
+  ↓<br/>
+  <strong>Step 3 (<code>DispatcherServlet.doDispatch()</code> — Entering Box 6):</strong> The last filter calls <code>DispatcherServlet.service()</code> → <code>doDispatch(req, resp)</code>.<br/>
+  ↓<br/>
+  <strong>Step 4 (<code>HandlerMapping</code> Lookup — Box 6):</strong> <code>RequestMappingHandlerMapping</code> checks its routing <code>Map</code> for <code>GET /books/42</code>. It finds <code>BookController#getBook(long)</code> and returns a <code>HandlerExecutionChain</code> (the target method + matching <code>HandlerInterceptor</code>s). <em>If no route matches → 404; if only <code>POST /books/42</code> exists → 405.</em><br/>
+  ↓<br/>
+  <strong>Step 5 (<code>HandlerInterceptor.preHandle()</code> — Box 6):</strong> Interceptors run now. Unlike a <code>Filter</code>, <code>preHandle</code> receives the exact <code>HandlerMethod</code> object, so it can inspect annotations on your controller method!<br/>
+  ↓<br/>
+  <strong>Step 6 (<code>HandlerAdapter</code> + <code>ArgumentResolver</code>s — Box 6):</strong> <code>RequestMappingHandlerAdapter</code> inspects the parameters of <code>getBook(@PathVariable long id)</code>. The <code>PathVariableMethodArgumentResolver</code> extracts <code>"42"</code> from the URL template and converts it to <code>42L</code>. (If there were a <code>@RequestBody</code>, it would ask Jackson's <code>HttpMessageConverter</code> to parse JSON bytes into a Java object here.)<br/>
+  ↓<br/>
+  <strong>Step 7 (Controller → Service Proxy — Box 6 calls Box 4):</strong> Reflective call <code>method.invoke(bookControllerBean, 42L)</code> runs your controller. Your controller calls <code>bookService.findById(42L)</code> — hitting the <code>@Transactional</code> proxy in <strong>Box 4</strong>!<br/>
+  ↓<br/>
+  <strong>Step 8 (<code>ReturnValueHandler</code> + <code>HttpMessageConverter</code> — Box 6):</strong> Your controller returns a <code>BookResponse</code> record. Because the class has <code>@RestController</code> (which includes <code>@ResponseBody</code>), <code>RequestResponseBodyMethodProcessor</code> checks the <code>Accept: application/json</code> header, picks <code>MappingJackson2HttpMessageConverter</code>, and writes JSON bytes to the HTTP response stream.<br/>
+  ↓<br/>
+  <strong>Step 9 (Unwind &amp; Cleanup — Box 6 → Box 5):</strong> <code>Interceptor.postHandle()</code> and <code>afterCompletion()</code> run → Filters unwind in <strong>reverse order</strong> (clearing <code>ThreadLocal</code>s in <code>finally</code> blocks!) → Tomcat flushes the socket and returns the worker thread to the pool.
+</div>
+
+<figure>
+<svg viewBox="0 0 760 580" width="100%" role="img" aria-label="Full Spring MVC request lifecycle from socket to response">
+  <style>
+    .srv{fill:#f1ece0;stroke:#6b675e;stroke-width:1.3}
+    .flt{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.3}
+    .ds{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.6}
+    .bn{fill:#eefaf4;stroke:#6db33f;stroke-width:1.3}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#3f3b34}
+    .lb{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .h{font:bold 12px Georgia,serif;fill:#2b2b28}
+    .a{stroke:#6b675e;stroke-width:1.3;marker-end:url(#mc);fill:none}
+  </style>
+  <defs><marker id="mc" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="srv" x="14" y="10" width="732" height="40" rx="5"/>
+  <text class="h" x="28" y="28">1. Box 5: Embedded Tomcat — socket accept (:8080), HTTP parse, grab 1 thread from pool</text>
+  <text class="lb" x="28" y="43">(or a virtual thread, Boot 3.2+: spring.threads.virtual.enabled=true)</text>
+
+  <rect class="flt" x="14" y="58" width="732" height="58" rx="5"/>
+  <text class="h" x="28" y="78">2. Box 5: Servlet FilterChain — runs BEFORE routing is known (Rule 1)</text>
+  <text class="c" x="28" y="96">CharacterEncodingFilter → SecurityFilterChain (lesson 13) → RequestContextFilter → your filters</text>
+  <text class="lb" x="28" y="111">sees raw request/response · can short-circuit · knows NOTHING about which controller will run</text>
+
+  <rect class="ds" x="14" y="124" width="732" height="372" rx="8"/>
+  <text class="h" x="28" y="144">3. Box 6: DispatcherServlet.doDispatch() — the Front Controller conductor</text>
+
+  <rect class="bn" x="32" y="156" width="340" height="52" rx="5"/>
+  <text class="t" x="46" y="176">HandlerMapping (Routing Map)</text>
+  <text class="lb" x="46" y="192">RequestMappingHandlerMapping: URL+method+headers</text>
+  <text class="lb" x="46" y="204">→ HandlerExecutionChain (handler + interceptors)</text>
+
+  <rect class="bn" x="392" y="156" width="336" height="52" rx="5"/>
+  <text class="t" x="406" y="176">no match →</text>
+  <text class="lb" x="406" y="192">404 NoHandlerFoundException / ResourceHttpRequestHandler</text>
+  <text class="lb" x="406" y="204">wrong verb → 405 · bad Accept → 406</text>
+
+  <rect class="flt" x="32" y="218" width="696" height="44" rx="5"/>
+  <text class="h" x="46" y="236">4. HandlerInterceptor.preHandle() (Inside Box 6)</text>
+  <text class="lb" x="46" y="252">handler IS known now → can read @annotations on the controller method. Return false to abort.</text>
+
+  <rect class="bn" x="32" y="272" width="696" height="76" rx="5"/>
+  <text class="h" x="46" y="291">5. HandlerAdapter → ArgumentResolvers build your method parameters</text>
+  <text class="c" x="46" y="310">@PathVariable ("42"→42L) · @RequestParam · @RequestHeader · @RequestBody (via MessageConverter)</text>
+  <text class="c" x="46" y="327">Principal · Pageable · @Valid triggers Bean Validation → MethodArgumentNotValidException</text>
+  <text class="lb" x="46" y="342">this is where raw strings and JSON bytes become typed Java arguments</text>
+
+  <rect class="bn" x="32" y="358" width="696" height="44" rx="5"/>
+  <text class="h" x="46" y="377">6. YOUR @Controller method runs → calls @Service Proxy in Box 4</text>
+  <text class="lb" x="46" y="393">→ @Service (AOP proxy in Box 4: @Transactional / @PreAuthorize opens HERE) → @Repository → DB</text>
+
+  <rect class="bn" x="32" y="412" width="696" height="44" rx="5"/>
+  <text class="h" x="46" y="431">7. ReturnValueHandler + content negotiation</text>
+  <text class="lb" x="46" y="447">@ResponseBody → HttpMessageConverter picked from Accept header → Jackson writes JSON bytes</text>
+
+  <rect class="flt" x="32" y="464" width="696" height="24" rx="5"/>
+  <text class="lb" x="46" y="481">8. postHandle() → render → afterCompletion()   (exception in steps 4–7 → @ControllerAdvice, lesson 10)</text>
+
+  <rect class="srv" x="14" y="506" width="732" height="62" rx="5"/>
+  <text class="h" x="28" y="526">9. Unwinding back through Box 5: filters see the response on the way OUT (reverse order)</text>
+  <text class="c" x="28" y="544">Tomcat flushes bytes · thread returns to the pool · request-scoped beans destroyed</text>
+  <text class="lb" x="28" y="560">Rule 3: ThreadLocals (MDC, SecurityContext, RequestContext) MUST be cleared in `finally` here!</text>
+
+  <path class="a" d="M380,50 L380,56"/><path class="a" d="M380,116 L380,122"/>
+  <path class="a" d="M380,208 L380,216"/><path class="a" d="M380,262 L380,270"/>
+  <path class="a" d="M380,348 L380,356"/><path class="a" d="M380,402 L380,410"/>
+  <path class="a" d="M380,456 L380,462"/><path class="a" d="M380,496 L380,504"/>
+</svg>
+<figcaption>The full journey through Box 5 and Box 6. Almost every "weird HTTP behaviour" bug is solved by asking <em>which box am I in right now?</em>
+<span class="sources">(Structure per <a href="https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-servlet.html">Spring Framework Reference — DispatcherServlet</a>.)</span></figcaption>
+</figure>
+
+<h3>The special beans the <code>DispatcherServlet</code> delegates to</h3>
+<table>
+<thead><tr><th>Bean type</th><th>Plain Java mental model</th><th>Main implementation</th></tr></thead>
+<tbody>
+<tr><td><code>HandlerMapping</code></td><td><code>Map&lt;RouteKey, HandlerMethod&gt;</code> ("Which method handles this URL?")</td><td><code>RequestMappingHandlerMapping</code> (reads <code>@RequestMapping</code>)</td></tr>
+<tr><td><code>HandlerAdapter</code></td><td>Reflective invoker ("How do I invoke that handler?")</td><td><code>RequestMappingHandlerAdapter</code></td></tr>
+<tr><td><code>HandlerMethodArgumentResolver</code></td><td>Parameter builder ("How do I build parameter #i?")</td><td>~30 built in; extensible</td></tr>
+<tr><td><code>HandlerMethodReturnValueHandler</code></td><td>Return processor ("What do I do with the return value?")</td><td><code>RequestResponseBodyMethodProcessor</code></td></tr>
+<tr><td><code>HttpMessageConverter</code></td><td><code>InputStream ↔ Object</code> serializer/deserializer</td><td><code>MappingJackson2HttpMessageConverter</code></td></tr>
+<tr><td><code>HandlerExceptionResolver</code></td><td><code>catch (Exception e)</code> inside Box 6 ("What HTTP error response?")</td><td><code>ExceptionHandlerExceptionResolver</code> (<code>@ExceptionHandler</code>)</td></tr>
+<tr><td><code>ViewResolver</code></td><td>HTML template lookup (unused in pure REST APIs)</td><td>Thymeleaf etc.</td></tr>
+<tr><td><code>LocaleResolver</code> / <code>MultipartResolver</code></td><td>i18n / file uploads</td><td><code>AcceptHeaderLocaleResolver</code>, <code>StandardServletMultipartResolver</code></td></tr>
+</tbody></table>
+
+<h3>★ Filter (Box 5) vs HandlerInterceptor (Box 6) vs AOP Proxy (Box 4) — the #1 whiteboard question</h3>
+<p>
+This is <strong>Universal Rule 1 (Order of Steps)</strong> in action. Notice how the concentric rings wrap each other like Russian nesting dolls:
+</p>
+<figure>
+<svg viewBox="0 0 760 220" width="100%" role="img" aria-label="Concentric rings: Box 5 Servlet Filter wraps Box 6 HandlerInterceptor wraps Box 4 AOP Proxy">
+  <style>
+    .r5{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.6}
+    .r6{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.6}
+    .r4{fill:#eefaf4;stroke:#6db33f;stroke-width:1.6}
+    .rc{fill:#fff8ee;stroke:#2b2b28;stroke-width:1.4}
+    .th{font:bold 12px Georgia,serif;fill:#2b2b28}
+    .tc{font:11px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .tl{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+  </style>
+  <rect class="r5" x="14" y="10" width="732" height="198" rx="10"/>
+  <text class="th" x="28" y="30" style="fill:#7a1f1f">Ring 1 — Box 5: Servlet Filter (chain.doFilter)</text>
+  <text class="tl" x="340" y="30">Knows: raw HttpServletRequest/Response bytes · Does NOT know which Controller will run</text>
+
+  <rect class="r6" x="44" y="44" width="672" height="150" rx="8"/>
+  <text class="th" x="58" y="64" style="fill:#1f4d7a">Ring 2 — Box 6: HandlerInterceptor (preHandle / postHandle / afterCompletion)</text>
+  <text class="tl" x="435" y="64">Knows: HandlerMethod &amp; @annotations · Does NOT know method args yet</text>
+
+  <rect class="r4" x="74" y="80" width="612" height="100" rx="6"/>
+  <text class="th" x="88" y="100" style="fill:#1f6b4d">Ring 3 — Box 4: AOP @Aspect / Proxy (pjp.proceed)</text>
+  <text class="tl" x="395" y="100">Knows: exact Java arguments &amp; return object · Works outside HTTP too!</text>
+
+  <rect class="rc" x="114" y="114" width="532" height="50" rx="5"/>
+  <text class="tc" x="175" y="143">Your @Controller method  →  Your @Service method</text>
+</svg>
+<figcaption>Universal Rule 1: Filter (Box 5) → Interceptor (Box 6) → AOP Proxy (Box 4) → Target Method, then unwinds in reverse order.</figcaption>
+</figure>
+
+<table>
+<thead><tr><th>Dimension</th><th>Servlet <code>Filter</code> (Box 5)</th><th><code>HandlerInterceptor</code> (Box 6)</th><th><code>@Aspect</code> Proxy (Box 4)</th></tr></thead>
+<tbody>
+<tr><td>Defined by</td><td>Jakarta Servlet spec</td><td>Spring MVC</td><td>Spring AOP</td></tr>
+<tr><td>Where it runs</td><td>Outside <code>DispatcherServlet</code> (before routing)</td><td>Inside <code>DispatcherServlet</code> (after <code>HandlerMapping</code>, before <code>ArgumentResolver</code>s)</td><td>Around any Spring bean method call</td></tr>
+<tr><td>Knows which controller method?</td><td><strong>No</strong></td><td><strong>Yes</strong> (<code>HandlerMethod</code> passed to <code>preHandle</code>)</td><td><strong>Yes</strong> (<code>JoinPoint</code>)</td></tr>
+<tr><td>Knows parsed Java method arguments?</td><td><strong>No</strong> (only raw HTTP stream/params)</td><td><strong>No</strong> (<code>preHandle</code> runs <em>before</em> <code>ArgumentResolver</code>s!)</td><td><strong>Yes</strong> (<code>pjp.getArgs()</code>)</td></tr>
+<tr><td>Can replace/wrap raw request body bytes?</td><td><strong>Yes</strong> (pass wrapper to <code>chain.doFilter</code>)</td><td>No (too late or awkward)</td><td>No (sees Java objects, not HTTP streams)</td></tr>
+<tr><td>Caught by <code>@ControllerAdvice</code>?</td><td><strong>No!</strong> (Outside Box 6)</td><td><strong>Yes</strong> (Inside Box 6)</td><td><strong>Yes</strong> (if called from Box 6)</td></tr>
+<tr><td>Best use cases</td><td>Security, CORS, GZIP, correlation IDs, body caching</td><td>Endpoint rate-limiting via custom annotation, handler timing</td><td><code>@Transactional</code>, <code>@Cacheable</code>, <code>@PreAuthorize</code>, retries</td></tr>
+</tbody></table>
+
+<h3>Argument resolution — how a method signature becomes an HTTP contract</h3>
+<pre><span class="an">@GetMapping</span>(<span class="s">"/books/{id}/reviews"</span>)
+List&lt;Review&gt; reviews(
+    <span class="an">@PathVariable</span> <span class="k">long</span> id,                       <span class="c">// from the URI template ("42" -&gt; 42L)</span>
+    <span class="an">@RequestParam</span>(defaultValue = <span class="s">"0"</span>) <span class="k">int</span> page,     <span class="c">// ?page=2  (missing -&gt; 0)</span>
+    <span class="an">@RequestParam</span> Optional&lt;String&gt; sort,         <span class="c">// genuinely optional</span>
+    <span class="an">@RequestHeader</span>(<span class="s">"X-Tenant"</span>) String tenant,      <span class="c">// missing -&gt; 400 Bad Request, not null</span>
+    <span class="an">@CookieValue</span>(required = <span class="k">false</span>) String sid,
+    Pageable pageable,                            <span class="c">// Spring Data resolver (lesson 11)</span>
+    Principal principal,                          <span class="c">// Spring Security ThreadLocal (lesson 13)</span>
+    Locale locale) { ... }
+
+<span class="an">@PostMapping</span>(<span class="s">"/books"</span>)
+ResponseEntity&lt;Book&gt; create(<span class="an">@Valid</span> <span class="an">@RequestBody</span> CreateBook cmd) { ... }
+<span class="c">//                          ↑ validate   ↑ MessageConverter: JSON -&gt; object</span></pre>
+<div class="conv"><strong>Convention:</strong> the method signature <em>is</em> the API documentation. Required means required (missing <code>@RequestHeader</code> → automatic 400). Don't accept <code>HttpServletRequest</code> and dig things out by hand — that throws away every benefit of the resolver chain and makes the method harder to unit-test.</div>
+
+<h3>Content negotiation &amp; message converters (406 vs 415)</h3>
+<p>
+<code>@RequestBody</code> and <code>@ResponseBody</code> delegate to an ordered <code>List&lt;HttpMessageConverter&gt;</code>. Spring matches the request's <code>Content-Type</code> header (when reading the body) or <code>Accept</code> header (when writing the response) against each converter:
+</p>
+<pre><span class="an">@GetMapping</span>(value = <span class="s">"/books/{id}"</span>, produces = APPLICATION_JSON_VALUE)
+<span class="an">@PostMapping</span>(value = <span class="s">"/books"</span>,      consumes = APPLICATION_JSON_VALUE)
+<span class="c">// Caller sends Accept: application/xml (we can't produce what they accept) -&gt; 406 Not Acceptable</span>
+<span class="c">// Caller sends Content-Type: text/plain (we can't read what they sent)     -&gt; 415 Unsupported Media Type</span></pre>
+
+<h3>Threading — why Box 5's thread pool explains your p99 latency</h3>
+<p>
+Classic Spring MVC is <strong>thread-per-request</strong>: Tomcat takes 1 platform thread from its pool (default max 200) and that thread is <em>blocked</em> for the entire request, including every millisecond spent waiting on PostgreSQL or a downstream HTTP call. 200 threads × 100 ms of I/O = a hard ceiling of ~2,000 req/s. Once all 200 threads are busy waiting on I/O, request #201 sits in a queue and latency spikes.
+</p>
+<table>
+<thead><tr><th>Approach</th><th>How</th><th>Cost &amp; Trade-off</th></tr></thead>
+<tbody>
+<tr><td>Tune platform pool</td><td><code>server.tomcat.threads.max</code></td><td>Each OS thread ≈ 1 MB stack + context-switch overhead. Doesn't scale far.</td></tr>
+<tr><td><strong>Virtual threads</strong> (Boot 3.2+, Java 21)</td><td><code>spring.threads.virtual.enabled=true</code></td><td><strong>Nearly free.</strong> Same simple blocking code, millions of virtual threads unmount during I/O (<a href="../../java/11-concurrency/lesson.html">java/11</a>).</td></tr>
+<tr><td>Async MVC / WebFlux</td><td>Return <code>CompletableFuture</code>/<code>DeferredResult</code>, or WebFlux (lesson 17)</td><td>Completely different non-blocking programming model; harder stack traces.</td></tr>
+</tbody></table>
+<div class="callout"><strong>The senior answer to "MVC or WebFlux for scalability?"</strong> — <em>"Virtual threads in Boot 3.2+ removed most of the reason to rewrite blocking apps into reactive WebFlux. I stay on Spring MVC with virtual threads unless we need reactive backpressure or streaming protocols."</em></div>
+
+<h2><span class="n">§4</span>When to use</h2>
+<table>
+<thead><tr><th>Goal</th><th>Right Tool</th><th>Why (which Box?)</th></tr></thead>
+<tbody>
+<tr><td>Correlation IDs, request logging, GZIP, CORS, authentication</td><td><code>Filter</code> (or <code>OncePerRequestFilter</code>)</td><td>Must run in <strong>Box 5</strong> before routing and before security or 404s happen.</td></tr>
+<tr><td>Per-endpoint rate limit or audit based on a controller annotation</td><td><code>HandlerInterceptor</code></td><td>Needs the resolved <code>HandlerMethod</code> in <strong>Box 6</strong>.</td></tr>
+<tr><td>Inject custom parameter (e.g., <code>@CurrentTenant Tenant t</code>)</td><td><code>HandlerMethodArgumentResolver</code></td><td>Plugs cleanly into <strong>Box 6</strong> step 5 without polluting method signatures.</td></tr>
+<tr><td>Register interceptors, formatters, argument resolvers, CORS</td><td><code>WebMvcConfigurer</code></td><td>Adds to Boot's defaults without wiping out <code>WebMvcAutoConfiguration</code>.</td></tr>
+<tr><td>Wrap or transform every JSON response body before Jackson writes it</td><td><code>ResponseBodyAdvice</code></td><td>Hooks into <strong>Box 6</strong> step 7 right before <code>HttpMessageConverter</code>.</td></tr>
+</tbody></table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Picture a huge hospital with one <strong>central reception desk</strong> (<code>DispatcherServlet</code> in Box 6). Nobody wanders the halls looking for a doctor on their own — every single visitor goes to that one desk.
+</p>
+<p>
+Before you even reach the reception desk, you walk through the <strong>front security doors</strong> (a <code>Filter</code> in Box 5). The guard checks everyone walking into the building — patients, visitors, the pizza delivery guy — and he has <em>no idea</em> which doctor you are going to see.
+</p>
+<p>
+At the reception desk, the receptionist checks her big directory map (<code>HandlerMapping</code>) to find which doctor handles your problem. Before you enter the doctor's office, a <strong>hallway nurse</strong> (<code>HandlerInterceptor</code>) does a quick check — and unlike the front door guard, the nurse <em>does</em> know which specific doctor you're seeing! Then an assistant copies your messy handwritten notes onto the clean typed chart the doctor expects (<code>ArgumentResolver</code>s).
+</p>
+<p>
+The doctor (<code>@Controller</code>) just does doctor work and writes a prescription object. On your way out, reception translates that prescription into whatever format you asked for — printed English, Spanish, or a digital JSON message (<code>HttpMessageConverter</code>).
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← 07-boot:</strong> <code>DispatcherServletAutoConfiguration</code> and <code>WebMvcAutoConfiguration</code> register all of Box 6's beans during Phase 1.</li>
+  <li><strong>← 03-dependency-injection:</strong> <code>DispatcherServlet</code>'s strategies are injected as <code>List&lt;T&gt;</code> — you can add your own without modifying Spring.</li>
+  <li><strong>← 06-aop:</strong> the <code>@Service</code> your controller calls is wrapped in an AOP proxy (Box 4); <code>@Transactional</code> opens in step 6, <em>not</em> at the filter.</li>
+  <li><strong>← java/11-concurrency:</strong> thread-per-request, pool exhaustion, <code>ThreadLocal</code> cleanup on pooled threads, and Java 21 virtual threads.</li>
+  <li><strong>→ 10-building-rest-apis:</strong> zooms inside Box 6 for <code>@Valid</code> argument resolution and <code>@ControllerAdvice</code> exception routing.</li>
+  <li><strong>→ 13-spring-security:</strong> lives in Box 5 (step 2), which is why URL rules (Box 5) and <code>@PreAuthorize</code> (Box 4) run at completely different times.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Code Dissection &amp; Derive, Don't Memorize</h2>
+
+<h3>1. A Correlation ID Filter (Box 5) vs a Rate-Limit Interceptor (Box 6)</h3>
+<pre><span class="c">// ---- BOX 5: Filter runs for EVERY request, before routing, sees raw bytes ----</span>
+<span class="an">@Component</span>
+<span class="an">@Order</span>(Ordered.HIGHEST_PRECEDENCE)                 <span class="c">// ① earliest in Box 5, so every log line has it</span>
+<span class="k">public class</span> CorrelationIdFilter <span class="k">implements</span> Filter {
+
+    <span class="k">private static final</span> String HEADER = <span class="s">"X-Correlation-Id"</span>;
+
+    <span class="an">@Override</span>
+    <span class="k">public void</span> doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
+            <span class="k">throws</span> IOException, ServletException {
+
+        HttpServletRequest http = (HttpServletRequest) req;
+        String id = Optional.ofNullable(http.getHeader(HEADER))        <span class="c">// ② reuse upstream ID if present</span>
+                            .filter(s -&gt; !s.isBlank())
+                            .orElseGet(() -&gt; UUID.randomUUID().toString());
+        MDC.put(<span class="s">"correlationId"</span>, id);                             <span class="c">// ③ Rule 3: ThreadLocal!</span>
+        ((HttpServletResponse) res).setHeader(HEADER, id);             <span class="c">// ④ echo back to caller</span>
+        <span class="k">try</span> {
+            chain.doFilter(req, res);                                  <span class="c">// ⑤ enters Box 6 (DispatcherServlet)</span>
+        } <span class="k">finally</span> {
+            MDC.remove(<span class="s">"correlationId"</span>);                           <span class="c">// ⑥ MUST clean up — pooled thread!</span>
+        }
+    }
+}
+
+<span class="c">// ---- BOX 6: Interceptor runs AFTER HandlerMapping — knows the target method! ----</span>
+<span class="an">@Component</span>
+<span class="k">class</span> RateLimitInterceptor <span class="k">implements</span> HandlerInterceptor {
+    <span class="an">@Override</span>
+    <span class="k">public boolean</span> preHandle(HttpServletRequest req, HttpServletResponse res, Object handler) {
+        <span class="k">if</span> (handler <span class="k">instanceof</span> HandlerMethod hm) {                 <span class="c">// ⑦ we can inspect the controller method!</span>
+            RateLimit limit = hm.getMethodAnnotation(RateLimit.class);
+            <span class="k">if</span> (limit != <span class="k">null</span> &amp;&amp; !buckets.tryConsume(key(req), limit.perMinute())) {
+                res.setStatus(429);
+                <span class="k">return false</span>;                                      <span class="c">// ⑧ abort: controller never runs</span>
+            }
+        }
+        <span class="k">return true</span>;
+    }
+}
+
+<span class="an">@Configuration</span>
+<span class="k">class</span> WebConfig <span class="k">implements</span> WebMvcConfigurer {            <span class="c">// ⑨ register without breaking Boot auto-config</span>
+    <span class="k">private final</span> RateLimitInterceptor rateLimit;
+    WebConfig(RateLimitInterceptor rateLimit) { <span class="k">this</span>.rateLimit = rateLimit; }
+
+    <span class="an">@Override</span> <span class="k">public void</span> addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(rateLimit).addPathPatterns(<span class="s">"/api/**"</span>);
+    }
+}</pre>
+<div class="ann"><strong>Dissection.</strong>
+<strong>①⑤</strong> <code>chain.doFilter(req, res)</code> is the doorway from Box 5 into Box 6. Everything before it runs on the way in; everything after it runs on the way out.
+<strong>③⑥</strong> <strong>Universal Rule 3 (Where State Lives):</strong> <code>MDC</code> stores data in a <code>ThreadLocal</code> attached to Tomcat's worker thread. Because Tomcat reuses threads from its pool, forgetting <code>MDC.remove()</code> in <code>finally</code> leaks User A's correlation ID onto User B's next request!
+<strong>⑦⑧</strong> Why is <code>RateLimitInterceptor</code> an Interceptor instead of a Filter? Because it reads <code>@RateLimit</code> off the controller method (<code>HandlerMethod</code>), which is only known <em>after</em> <code>HandlerMapping</code> runs inside Box 6.</div>
+
+<h3>2. How to Think in Interviews — Derive, Don't Memorize</h3>
+<p>
+You never need to memorize trivia about Filters, Interceptors, or Controllers if you check the <strong>6-Box Map</strong> and the <strong>3 Universal Rules</strong>:
+</p>
+<table>
+<thead><tr><th>Classic Interview Question</th><th>Which Box / Rule?</th><th>10-Second Derivation</th></tr></thead>
+<tbody>
+<tr>
+  <td><em>"Why didn't my <code>@ControllerAdvice</code> catch an exception thrown inside my custom <code>Filter</code>?"</em></td>
+  <td><strong>Rule 1</strong><br/>(Box 5 vs Box 6)</td>
+  <td>A <code>Filter</code> runs in <strong>Box 5</strong>, outside <code>DispatcherServlet</code>. <code>@ControllerAdvice</code> is a <code>HandlerExceptionResolver</code> inside <strong>Box 6</strong>. The request crashed before entering Box 6!</td>
+</tr>
+<tr>
+  <td><em>"Can I read the parsed <code>@RequestBody</code> DTO inside <code>HandlerInterceptor.preHandle()</code>?"</em></td>
+  <td><strong>Rule 1</strong><br/>(Order inside Box 6)</td>
+  <td><strong>No.</strong> Inside Box 6, <code>preHandle()</code> runs in Step 4, <em>before</em> <code>HandlerAdapter</code> and <code>ArgumentResolver</code>s (Step 5) read the JSON stream. And if you read <code>req.getInputStream()</code> yourself in <code>preHandle</code>, the stream is exhausted and <code>@RequestBody</code> fails!</td>
+</tr>
+<tr>
+  <td><em>"What happens if I put a mutable field <code>private User currentUser;</code> on my <code>@RestController</code>?"</em></td>
+  <td><strong>Rule 3</strong><br/>(Box 3 Singleton vs Thread)</td>
+  <td><code>BookController</code> lives in <strong>Box 3</strong> (<code>singletonObjects</code> Map) — there is only <strong>one instance</strong> shared by all 200 Tomcat threads! Concurrent requests overwrite <code>currentUser</code> (race condition / data leak).</td>
+</tr>
+<tr>
+  <td><em>"When does the <code>@Transactional</code> database transaction commit relative to a <code>HandlerInterceptor.postHandle()</code>?"</em></td>
+  <td><strong>Rule 1</strong><br/>(Box 6 wraps Box 4)</td>
+  <td><code>@Transactional</code> is an AOP proxy in <strong>Box 4</strong> around the <code>@Service</code> method. It commits as soon as the <code>@Service</code> method returns (inside Step 6), <em>before</em> <code>DispatcherServlet</code> reaches <code>postHandle()</code> (Step 8).</td>
+</tr>
+<tr>
+  <td><em>"What is the difference between HTTP 406 and HTTP 415 in Spring MVC?"</em></td>
+  <td><strong>Box 6</strong><br/>(<code>HttpMessageConverter</code>)</td>
+  <td><strong>415 Unsupported Media Type</strong> fails at Step 5 (input): Spring can't read the caller's <code>Content-Type</code> into <code>@RequestBody</code>. <strong>406 Not Acceptable</strong> fails at Step 7 (output): Spring can't serialize the return value into the caller's <code>Accept</code> format.</td>
+</tr>
+</tbody></table>
+
+<div class="try"><strong>Predict the Output / Try This.</strong>
+<ol style="margin:.4rem 0 0">
+<li>Hit <code>/actuator/mappings</code> on any Boot app and inspect the actual <code>HandlerMapping</code> routing table your app built at startup.</li>
+<li>Delete <code>MDC.remove("correlationId")</code> from the <code>finally</code> block, set <code>server.tomcat.threads.max=2</code>, and send 5 requests (only the first with <code>X-Correlation-Id: LEAKED-123</code>). Watch requests 2–5 log <code>LEAKED-123</code>!</li>
+<li>Add <code>@EnableWebMvc</code> to a Spring Boot class. Watch Boot's <code>WebMvcAutoConfiguration</code> back off and your Jackson JSON defaults disappear. Remove it and use <code>WebMvcConfigurer</code> instead.</li>
+<li>Send <code>Accept: application/xml</code> to a JSON endpoint (causes <strong>406</strong>), then send <code>Content-Type: text/plain</code> to a <code>@PostMapping</code> with <code>@RequestBody</code> (causes <strong>415</strong>).</li>
+</ol></div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong><code>ThreadLocal</code> leaks on pooled Tomcat threads (Rule 3).</strong> <code>MDC</code>, <code>SecurityContextHolder</code>, or any custom <code>ThreadLocal</code> set in a Filter or Interceptor <em>must</em> be cleared in a <code>finally</code> block (or <code>afterCompletion</code>). Tomcat recycles worker threads; a leftover <code>ThreadLocal</code> leaks one user's state into the next user's request.</div>
+<div class="pitfall"><strong>Adding <code>@EnableWebMvc</code> in a Spring Boot app.</strong> In Boot, <code>WebMvcAutoConfiguration</code> is guarded by <code>@ConditionalOnMissingBean(WebMvcConfigurationSupport.class)</code>. Adding <code>@EnableWebMvc</code> imports that bean and <strong>switches off Boot's entire MVC auto-configuration</strong>. Always implement <code>WebMvcConfigurer</code> instead.</div>
+<div class="pitfall"><strong>Reading the request body twice.</strong> <code>HttpServletRequest.getInputStream()</code> is a one-shot network stream. If a <code>Filter</code> reads the body for logging, the stream is at EOF when <code>DispatcherServlet</code>'s <code>ArgumentResolver</code> tries to deserialize <code>@RequestBody</code>. Wrap the request in <code>ContentCachingRequestWrapper</code> if a filter needs to inspect the body.</div>
+<div class="pitfall"><strong>Expecting <code>@ControllerAdvice</code> to catch Filter exceptions (Rule 1).</strong> Exceptions thrown in Box 5 (Servlet Filters, including Spring Security filters) happen <em>before</em> <code>DispatcherServlet</code> runs, so Box 6's exception resolvers never see them.</div>
+<div class="pitfall"><strong>Mutable instance fields on a <code>@Controller</code> (Rule 3).</strong> Controllers are singleton beans in Box 3. A field on a controller is shared across all 200 concurrent request threads. Keep controllers strictly stateless.</div>
+<div class="pitfall"><strong>Assuming <code>HandlerInterceptor</code> runs on every URL.</strong> Interceptors only run when <code>HandlerMapping</code> matches a handler inside Box 6 — they do not wrap Filter rejections, container-level 404s, or unmapped requests. Use a <code>Filter</code> for universal security or logging.</div>
+
+<h2><span class="n">§9</span>Recap &amp; Glossary / Reference</h2>
+<ul class="recap">
+  <li><strong>Front Controller pattern:</strong> one <code>DispatcherServlet</code> (Box 6) owns HTTP plumbing; your controller is just a plain Java method.</li>
+  <li><strong>The 9-step chain:</strong> Tomcat Socket &amp; Thread Pool (Box 5) → <code>FilterChain</code> (Box 5) → <code>DispatcherServlet.doDispatch()</code> (Box 6) → <code>HandlerMapping</code> → <code>HandlerInterceptor.preHandle()</code> → <code>HandlerAdapter</code> + <code>ArgumentResolver</code>s → <strong>your <code>@Controller</code> method</strong> → <code>ReturnValueHandler</code> + <code>HttpMessageConverter</code> → unwind &amp; clear <code>ThreadLocal</code>s.</li>
+  <li><strong>Plain Java data structures inside Box 6:</strong> <code>HandlerMapping</code> is a routing <code>Map</code>; <code>ArgumentResolver</code>s and <code>HttpMessageConverter</code>s are strategy <code>List</code>s.</li>
+  <li><strong>Rule 1 (Order of Steps):</strong> <code>Filter</code> (Box 5, pre-routing, raw bytes) → <code>HandlerInterceptor</code> (Box 6, post-routing, knows <code>HandlerMethod</code>) → <code>@Aspect</code> Proxy (Box 4, knows parsed Java args).</li>
+  <li><strong>Content negotiation:</strong> matches <code>Content-Type</code> (input → 415 on mismatch) and <code>Accept</code> (output → 406 on mismatch) against <code>HttpMessageConverter</code>s.</li>
+  <li><strong>Threading:</strong> Tomcat blocks 1 thread per request; Java 21 virtual threads (<code>spring.threads.virtual.enabled=true</code>) remove the I/O blocking bottleneck without reactive code.</li>
+  <li><strong>Rule 3 (Where State Lives):</strong> Controllers are shared singletons in Box 3 (must be stateless); per-request state in <code>ThreadLocal</code>s must be cleaned up in <code>finally</code>.</li>
+</ul>
+
+<hr/>
+<h2>Reference — quick cheat-sheet</h2>
+<table>
+<thead><tr><th>You want…</th><th>Reach for</th></tr></thead>
+<tbody>
+<tr><td>Run before everything, including Spring Security</td><td><code>Filter</code> (or <code>OncePerRequestFilter</code>) + <code>@Order(HIGHEST_PRECEDENCE)</code> (Box 5)</td></tr>
+<tr><td>Inspect custom annotations on the controller method</td><td><code>HandlerInterceptor.preHandle</code> casting <code>handler</code> to <code>HandlerMethod</code> (Box 6)</td></tr>
+<tr><td>Register interceptors / CORS / formatters safely in Boot</td><td><code>implements WebMvcConfigurer</code> (never <code>@EnableWebMvc</code>)</td></tr>
+<tr><td>Create a custom controller parameter annotation</td><td><code>HandlerMethodArgumentResolver</code></td></tr>
+<tr><td>Inspect all registered routes at runtime</td><td><code>/actuator/mappings</code></td></tr>
+<tr><td>Debug routing and argument conversion</td><td><code>logging.level.org.springframework.web=DEBUG</code></td></tr>
+<tr><td>Restrict input / output media types</td><td><code>consumes = ...</code> (415) / <code>produces = ...</code> (406)</td></tr>
+<tr><td>Scale blocking I/O on Java 21+</td><td><code>spring.threads.virtual.enabled=true</code></td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Front Controller</dt><dd>Design pattern where a single entry point (<code>DispatcherServlet</code>) receives all HTTP requests and delegates to handlers.</dd>
+  <dt>DispatcherServlet</dt><dd>Spring MVC's front controller servlet (Box 6) mapped to <code>"/"</code>.</dd>
+  <dt>HandlerMapping</dt><dd>Box 6 lookup table mapping an incoming HTTP request (verb + path + headers) to a <code>HandlerMethod</code> and its interceptors.</dd>
+  <dt>HandlerAdapter</dt><dd>Box 6 adapter that invokes a matched handler using <code>ArgumentResolver</code>s and <code>ReturnValueHandler</code>s.</dd>
+  <dt>HandlerMethodArgumentResolver</dt><dd>Strategy bean that extracts and converts one controller method parameter (e.g., <code>@PathVariable</code>, <code>@RequestBody</code>) from the request.</dd>
+  <dt>HttpMessageConverter</dt><dd>Strategy bean that converts between raw HTTP body streams and Java objects (e.g., Jackson for JSON).</dd>
+  <dt>Content negotiation</dt><dd>Selecting the right <code>HttpMessageConverter</code> using the request's <code>Content-Type</code> and <code>Accept</code> headers.</dd>
+  <dt>Filter</dt><dd>Jakarta Servlet component in Box 5 that wraps the raw request/response before <code>DispatcherServlet</code> runs.</dd>
+  <dt>HandlerInterceptor</dt><dd>Spring MVC hook in Box 6 that runs around a resolved <code>HandlerMethod</code>.</dd>
+  <dt>Thread-per-request</dt><dd>Execution model where one server thread is dedicated to a single HTTP request from arrival to response flush.</dd>
+  <dt>Virtual thread</dt><dd>Lightweight Java 21 thread managed by the JVM that unmounts from its OS carrier thread during blocking I/O.</dd>
+  <dt>MDC (Mapped Diagnostic Context)</dt><dd>SLF4J's <code>ThreadLocal&lt;Map&lt;String, String&gt;&gt;</code> used to stamp log lines with per-request fields like <code>correlationId</code>.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-servlet.html">Spring Framework Reference — Spring
+MVC: DispatcherServlet</a> (the "Special Bean Types" and "Processing" sections), then
+<a href="https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller/ann-methods/arguments.html">Controller
+Method Arguments</a> — a table worth bookmarking permanently.</p>
+<p class="sources" style="margin-top:2rem">Sources: Spring Framework Reference Documentation (Web → Spring Web MVC:
+DispatcherServlet, Special Bean Types, Filters, Interception, Annotated Controllers — Method Arguments/Return Values, Message
+Converters); Spring Boot Reference (Web → Servlet Web Applications, embedded container, <code>spring.threads.virtual.enabled</code>).
+Targeting Spring Framework 6.x / Boot 3.x on Java 17+/21. Authored per Knowledge-Base-2 rules §6.2–§6.3 and
+<code>topic-styles/framework.md</code>.</p>
+
+</body>
+</html>

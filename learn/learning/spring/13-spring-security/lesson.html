@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spring Security — Spring</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:2.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    padding:.55rem .85rem;background:#f4f0e6;border:1px solid var(--rule);border-radius:6px;margin-bottom:1.8rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f8f5ec;border:1.5px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.95rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.5rem}
+  .step-flow{background:#fff;border:1px solid var(--rule);border-left:4px solid var(--spring);padding:.8rem 1rem;border-radius:0 6px 6px 0;margin:1rem 0;font-size:.93rem}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../12-transactions/lesson.html">12 · Transactions</a></span>
+  <span><a href="../overview.html">Spring Map (Lesson 13 of 18)</a></span>
+  <span><a href="../14-testing-spring-applications/lesson.html">14 · Testing Spring Applications</a> →</span>
+</nav>
+
+<h1>Spring Security</h1>
+<p class="crumb"><a href="../overview.html">Spring</a> › lesson 13 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — one filter that is really a chain</p>
+
+<div class="tldr">
+<strong>In simple English —</strong> Spring Security inserts <strong>one Servlet Filter in Box 5</strong> (<code>DelegatingFilterProxy</code>) that bridges into a Spring bean (<code>FilterChainProxy</code>) running an ordered <strong><code>List&lt;Filter&gt;</code> of ~15 small security filters</strong>. Together they answer <em>"Who are you?"</em> (Authentication → 401 on failure), store the verified user in a <strong><code>ThreadLocal</code> (<code>SecurityContextHolder</code>)</strong>, and answer <em>"Are you allowed?"</em> (Authorization → 403 on failure) <strong>before <code>DispatcherServlet</code> (Box 6) ever runs!</strong>
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the Map</h2>
+<p>
+This slots into Step 2 of <a href="../09-web-mvc-request-lifecycle/lesson.html">lesson 9's</a> request lifecycle in <strong>Box 5</strong> — <em>before</em> <code>DispatcherServlet</code> (Box 6), before routing, and before your controller exists in the picture. Meanwhile, method-level annotations like <code>@PreAuthorize</code> live in <strong>Box 4 (AOP Proxies)</strong> and read the same <code>ThreadLocal</code> (<code>SecurityContextHolder</code>).
+</p>
+
+<div class="map-banner">
+  <div class="map-title">🗺️ You Are Here on the 3-Level Zoom Map</div>
+  <figure style="margin:.4rem 0">
+  <svg viewBox="0 0 760 220" width="100%" role="img" aria-label="You Are Here: Phase 2 Request Loop, Box 5 DelegatingFilterProxy and SecurityFilterChain, ThreadLocal SecurityContextHolder, and Box 4 @PreAuthorize">
+    <style>
+      .act5{fill:#fbeeee;stroke:#7a1f1f;stroke-width:2.2}
+      .act6{fill:#fff8ee;stroke:#1f4d7a;stroke-width:1.8}
+      .act4{fill:#eefaf4;stroke:#6db33f;stroke-width:1.8}
+      .tx{font:11px "SF Mono",Menlo,monospace;fill:#2b2b28}
+      .th{font:bold 12px Georgia,serif;fill:#2b2b28}
+      .tm{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+      .ar{stroke:#2b2b28;stroke-width:1.5;marker-end:url(#ms);fill:none}
+    </style>
+    <defs><marker id="ms" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2b2b28"/></marker></defs>
+
+    <!-- Box 5 SecurityFilterChain -->
+    <rect class="act5" x="10" y="10" width="295" height="148" rx="7"/>
+    <text class="th" x="22" y="30" style="fill:#7a1f1f">★ Box 5: Tomcat &amp; SecurityFilterChain</text>
+    <text class="tx" x="22" y="50">DelegatingFilterProxy (Servlet Filter)</text>
+    <text class="tx" x="22" y="68">→ FilterChainProxy (Spring Bean in Box 3)</text>
+    <text class="tx" x="22" y="86">→ List&lt;Filter&gt; (~15 security filters):</text>
+    <text class="tm" x="22" y="104">1. Extract token → AuthenticationManager</text>
+    <text class="tm" x="22" y="120">2. Put user in SecurityContextHolder</text>
+    <text class="tm" x="22" y="136">3. AuthorizationFilter (401/403 HERE!)</text>
+
+    <!-- Box 6 DispatcherServlet & ThreadLocal -->
+    <rect class="act6" x="325" y="10" width="215" height="148" rx="7"/>
+    <text class="th" x="337" y="30" style="fill:#1f4d7a">★ Rule 3: ThreadLocal + Box 6</text>
+    <text class="tx" x="337" y="50">SecurityContextHolder</text>
+    <text class="tx" x="337" y="68">ThreadLocal&lt;SecurityContext&gt;</text>
+    <text class="tx" x="337" y="86">holds: Authentication</text>
+    <text class="tm" x="337" y="108">(Principal + GrantedAuthorities)</text>
+    <text class="tm" x="337" y="126">DispatcherServlet enters ONLY</text>
+    <text class="tm" x="337" y="140">after Box 5 filters pass!</text>
+
+    <!-- Box 4 @PreAuthorize -->
+    <rect class="act4" x="560" y="10" width="190" height="148" rx="7"/>
+    <text class="th" x="572" y="30" style="fill:#1f6b4d">★ Box 4: Method Security</text>
+    <text class="tx" x="572" y="50">@PreAuthorize Proxy</text>
+    <text class="tx" x="572" y="68">Reads Authentication</text>
+    <text class="tx" x="572" y="86">from ThreadLocal!</text>
+    <text class="tm" x="572" y="110">Checks domain object</text>
+    <text class="tm" x="572" y="126">permissions inside</text>
+    <text class="tm" x="572" y="140">@Service (Rule 2!)</text>
+
+    <line class="ar" x1="305" y1="82" x2="323" y2="82"/>
+    <line class="ar" x1="540" y1="82" x2="558" y2="82"/>
+
+    <!-- Bottom timeline -->
+    <rect x="10" y="168" width="740" height="42" rx="5" fill="#eef3f7" stroke="#1f4d7a" stroke-width="1.2"/>
+    <text class="tx" x="22" y="185">Rule 1 Key Insight: 401/403 filter errors happen in Box 5 BEFORE DispatcherServlet (Box 6),</text>
+    <text class="tx" x="22" y="201">so @RestControllerAdvice NEVER catches them unless you configure AuthenticationEntryPoint / AccessDeniedHandler!</text>
+  </svg>
+  </figure>
+</div>
+
+<h2><span class="n">§2</span>Why it exists — what you'd write by hand without it</h2>
+<p>
+Without Spring Security, developers end up writing manual token checks inside controllers or custom filters:
+</p>
+<pre><span class="c">// ❌ Without Spring Security — manual auth check copy-pasted across controllers!</span>
+<span class="an">@DeleteMapping</span>(<span class="s">"/api/books/{id}"</span>)
+<span class="k">public</span> ResponseEntity&lt;Void&gt; deleteBook(<span class="an">@PathVariable</span> <span class="k">long</span> id, HttpServletRequest req) {
+    String auth = req.getHeader(<span class="s">"Authorization"</span>);
+    <span class="k">if</span> (auth == <span class="k">null</span> || !auth.startsWith(<span class="s">"Bearer "</span>)) <span class="k">return</span> ResponseEntity.status(401).build();
+    User u = jwtVerifier.verify(auth.substring(7));       <span class="c">// what about clock skew? key rotation?</span>
+    <span class="k">if</span> (!u.hasRole(<span class="s">"ADMIN"</span>)) <span class="k">return</span> ResponseEntity.status(403).build();
+    bookService.delete(id, u.username());                 <span class="c">// must pass username through every method!</span>
+    <span class="k">return</span> ResponseEntity.noContent().build();
+}</pre>
+<p>
+Why is DIY security so dangerous? Because if a developer adds a new controller endpoint tomorrow and forgets those 6 lines, that endpoint is wide open to the public! And notice the two words people blur — get this distinction exact:
+</p>
+<table>
+<thead><tr><th></th><th>Authentication (AuthN)</th><th>Authorization (AuthZ)</th></tr></thead>
+<tbody>
+<tr><td>Question</td><td><em>Who are you?</em></td><td><em>Are you allowed to do this?</em></td></tr>
+<tr><td>Failure HTTP status</td><td><strong>401</strong> Unauthorized (badly named in HTTP — it means <em>unauthenticated</em>)</td><td><strong>403</strong> Forbidden ("I know who you are; permission denied")</td></tr>
+<tr><td>Produces</td><td>A verified <code>Authentication</code> object in <code>SecurityContextHolder</code> (<code>ThreadLocal</code>)</td><td>A yes/no decision</td></tr>
+<tr><td>Happens</td><td>In Box 5 authentication filters</td><td>In Box 5 (<code>AuthorizationFilter</code>) and Box 4 (<code>@PreAuthorize</code>)</td></tr>
+</tbody></table>
+
+<h2><span class="n">§3</span>How it works (Level 1 → Level 2 Zoom)</h2>
+
+<h3>Plain Java Data Structures First: What Are the Core Objects?</h3>
+<p>
+Before looking at any diagram, see how simple the data structures inside Spring Security actually are:
+</p>
+<pre><span class="c">// 1. The Bridge from Box 5 (Tomcat) into Box 3 (Spring Beans):</span>
+<span class="c">//    Tomcat only knows Jakarta Servlet Filters. So Boot registers ONE tiny filter with Tomcat:</span>
+<span class="k">public class</span> DelegatingFilterProxy <span class="k">implements</span> jakarta.servlet.Filter {
+    <span class="k">private</span> Filter delegate; <span class="c">// looks up bean named "springSecurityFilterChain" (FilterChainProxy) in Box 3!</span>
+    <span class="k">public void</span> doFilter(ServletRequest req, ServletResponse res, FilterChain chain) {
+        delegate.doFilter(req, res, chain);
+    }
+}
+
+<span class="c">// 2. The User Badge (Authentication) — used both BEFORE and AFTER verification:</span>
+<span class="k">public interface</span> Authentication <span class="k">extends</span> Principal {
+    Object getPrincipal();                              <span class="c">// UserDetails or Jwt</span>
+    Object getCredentials();                            <span class="c">// raw password/token (erased to null after auth!)</span>
+    Collection&lt;? <span class="k">extends</span> GrantedAuthority&gt; getAuthorities(); <span class="c">// e.g. ["ROLE_ADMIN", "SCOPE_books:write"]</span>
+    <span class="k">boolean</span> isAuthenticated();
+}
+
+<span class="c">// 3. Rule 3 (Where State Lives): SecurityContextHolder is just a ThreadLocal!</span>
+<span class="k">public class</span> SecurityContextHolder {
+    <span class="k">private static final</span> ThreadLocal&lt;SecurityContext&gt; holder = <span class="k">new</span> ThreadLocal&lt;&gt;();
+    <span class="k">public static</span> SecurityContext getContext() { <span class="k">return</span> holder.get(); }
+    <span class="k">public static void</span> clearContext()          { holder.remove(); } <span class="c">// called in Filter `finally` block!</span>
+}</pre>
+
+<h3>Step-by-Step Trace: A Request with a Bearer JWT or Password</h3>
+<div class="step-flow">
+  <strong>Trace of an HTTP Request through Box 5 → <code>ThreadLocal</code> → Box 6 → Box 4:</strong><br/>
+  <strong>Step 1 (Box 5 → Box 3 Bridge):</strong> Tomcat calls <code>DelegatingFilterProxy</code> (Box 5), which delegates to the Spring bean <code>FilterChainProxy</code> (Box 3), which picks the matching <code>SecurityFilterChain</code> and runs its ~15 filters in order.<br/>
+  ↓<br/>
+  <strong>Step 2 (Extract Credentials):</strong> The authentication filter (e.g., <code>BearerTokenAuthenticationFilter</code> for JWT, or <code>UsernamePasswordAuthenticationFilter</code> for login) extracts the token/password from the HTTP request and builds an <strong>unauthenticated</strong> <code>Authentication</code> token (<code>isAuthenticated = false</code>).<br/>
+  ↓<br/>
+  <strong>Step 3 (Verify via <code>AuthenticationManager</code>):</strong> The filter passes that unauthenticated token to <code>AuthenticationManager</code> (<code>ProviderManager</code>), which loops over its <code>List&lt;AuthenticationProvider&gt;</code>:<br/>
+  • For username/password: <code>DaoAuthenticationProvider</code> calls your <code>UserDetailsService.loadUserByUsername()</code> + <code>PasswordEncoder.matches()</code>.<br/>
+  • For JWT: <code>JwtAuthenticationProvider</code> calls <code>JwtDecoder</code> to verify the cryptographic signature and expiry.<br/>
+  ↓<br/>
+  <strong>Step 4 (Store in <code>ThreadLocal</code> — Rule 3):</strong> Verification succeeds! A new <strong>authenticated</strong> <code>Authentication</code> (with principal + <code>GrantedAuthority</code> list) is stored in <code>SecurityContextHolder.getContext().setAuthentication(auth)</code>.<br/>
+  ↓<br/>
+  <strong>Step 5 (URL Authorization in Box 5):</strong> <code>AuthorizationFilter</code> checks your <code>requestMatchers(...).hasRole(...)</code> rules against the <code>Authentication</code> in <code>SecurityContextHolder</code>.<br/>
+  • If unauthenticated → throws <code>AuthenticationException</code> → caught by <code>ExceptionTranslationFilter</code> → calls <code>AuthenticationEntryPoint</code> (<strong>HTTP 401</strong>).<br/>
+  • If missing required role → throws <code>AccessDeniedException</code> → caught by <code>ExceptionTranslationFilter</code> → calls <code>AccessDeniedHandler</code> (<strong>HTTP 403</strong>).<br/>
+  ↓<br/>
+  <strong>Step 6 (Enter Box 6 → Box 4 → Cleanup):</strong> If allowed, <code>chain.doFilter()</code> finally enters <code>DispatcherServlet</code> (Box 6) → Controller → Service (where <code>@PreAuthorize</code> in Box 4 can check method arguments). On the way out, <code>SecurityContextHolderFilter</code>'s <code>finally</code> block clears the <code>ThreadLocal</code>!
+</div>
+
+<figure>
+<svg viewBox="0 0 760 430" width="100%" role="img" aria-label="Spring Security filter chain architecture">
+  <style>
+    .out{fill:#f1ece0;stroke:#6b675e;stroke-width:1.3}
+    .sec{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.4}
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.3}
+    .g{fill:#eefaf4;stroke:#6db33f;stroke-width:1.4}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#3f3b34}
+    .h{font:bold 12px Georgia,serif;fill:#2b2b28}
+    .lb{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+  </style>
+
+  <rect class="out" x="14" y="10" width="732" height="34" rx="5"/>
+  <text class="h" x="28" y="32">Box 5: Servlet container (Tomcat) filter chain</text>
+
+  <rect class="sec" x="14" y="52" width="732" height="34" rx="5"/>
+  <text class="t" x="28" y="74">DelegatingFilterProxy (Box 5)  →  FilterChainProxy (Box 3 bean)  ← bridges Tomcat into Spring</text>
+
+  <rect class="sec" x="14" y="94" width="732" height="248" rx="7"/>
+  <text class="h" x="28" y="114">SecurityFilterChain — matched by securityMatcher, then run in order:</text>
+
+  <rect class="b" x="32" y="124" width="696" height="26" rx="4"/>
+  <text class="t" x="44" y="142">1. SecurityContextHolderFilter   — load SecurityContext (and clear ThreadLocal in finally!)</text>
+  <rect class="b" x="32" y="154" width="696" height="26" rx="4"/>
+  <text class="t" x="44" y="172">2. CorsFilter                    — handle OPTIONS preflight / Access-Control-* headers</text>
+  <rect class="b" x="32" y="184" width="696" height="26" rx="4"/>
+  <text class="t" x="44" y="202">3. CsrfFilter                    — verify CSRF token on state-changing cookie requests</text>
+  <rect class="g" x="32" y="214" width="696" height="26" rx="4"/>
+  <text class="t" x="44" y="232">4. AUTHENTICATION filter         — BearerTokenAuthenticationFilter / UsernamePasswordAuthFilter</text>
+  <rect class="b" x="32" y="244" width="696" height="26" rx="4"/>
+  <text class="t" x="44" y="262">5. ExceptionTranslationFilter    — catches AuthN/AuthZ exceptions below → 401 or 403</text>
+  <rect class="g" x="32" y="274" width="696" height="26" rx="4"/>
+  <text class="t" x="44" y="292">6. AuthorizationFilter           — checks URL rules: .requestMatchers(...).hasRole(...)</text>
+  <rect class="b" x="32" y="304" width="696" height="30" rx="4"/>
+  <text class="lb" x="44" y="316">if every filter passes → chain.doFilter() → enters Box 6: DispatcherServlet (lesson 9)</text>
+  <text class="lb" x="44" y="330">on the way OUT: SecurityContext saved (if stateful) and CLEARED from the ThreadLocal</text>
+
+  <rect class="g" x="14" y="352" width="360" height="70" rx="6"/>
+  <text class="h" x="28" y="372">SecurityContextHolder (Rule 3)</text>
+  <text class="c" x="28" y="390">ThreadLocal&lt;SecurityContext&gt; → Authentication</text>
+  <text class="lb" x="28" y="408">principal · credentials · authorities · authenticated?</text>
+
+  <rect class="b" x="388" y="352" width="358" height="70" rx="6"/>
+  <text class="h" x="402" y="372">Method security (Box 4 AOP proxy, lesson 6)</text>
+  <text class="c" x="402" y="390">@PreAuthorize runs MUCH later — inside the bean</text>
+  <text class="lb" x="402" y="408">reads the same ThreadLocal; self-invocation skips it!</text>
+</svg>
+<figcaption>Spring Security is <strong>one</strong> servlet filter (<code>DelegatingFilterProxy</code> → <code>FilterChainProxy</code>) containing a Spring-managed chain. Each filter does one thing and calls the next — the Chain of Responsibility pattern.
+<span class="sources">(Per <a href="https://docs.spring.io/spring-security/reference/servlet/architecture.html">Spring Security Reference — Architecture</a>.)</span></figcaption>
+</figure>
+
+<h3>Authentication — The Collaborators &amp; Delegating PasswordEncoder</h3>
+<pre><span class="c">// The only two beans most username/password apps need to write:</span>
+<span class="an">@Bean</span>
+UserDetailsService users(MemberRepository repo) {
+    <span class="k">return</span> username -&gt; repo.findByEmail(username)
+        .map(m -&gt; User.withUsername(m.getEmail())
+                      .password(m.getPasswordHash())        <span class="c">// ALREADY hashed in DB</span>
+                      .authorities(m.getRoles())
+                      .build())
+        .orElseThrow(() -&gt; <span class="k">new</span> UsernameNotFoundException(username));
+}
+
+<span class="an">@Bean</span>
+PasswordEncoder passwordEncoder() {
+    <span class="c">// Stores hashes as "{bcrypt}$2a$10$…" — algorithm prefix allows future migration without breaking existing users!</span>
+    <span class="k">return</span> PasswordEncoderFactories.createDelegatingPasswordEncoder();
+}</pre>
+
+<h3>Authorization — Two Layers (Box 5 Filter vs Box 4 AOP Proxy)</h3>
+<table>
+<thead><tr><th></th><th>URL rules (<code>authorizeHttpRequests</code>)</th><th>Method security (<code>@PreAuthorize</code>)</th></tr></thead>
+<tbody>
+<tr><td>Where on the Map?</td><td><strong>Box 5 Filter</strong> (<code>AuthorizationFilter</code>)</td><td><strong>Box 4 AOP Proxy</strong> (lesson 6)</td></tr>
+<tr><td>When does it run?</td><td>Before <code>DispatcherServlet</code> / routing</td><td>Inside the service bean call</td></tr>
+<tr><td>What can it inspect?</td><td>HTTP path, verb, headers</td><td>Java method <strong>arguments and return value</strong> (<code>#memberId == authentication.name</code>)</td></tr>
+<tr><td>Where do errors go?</td><td>Box 5 <code>AccessDeniedHandler</code> (bypasses <code>@ControllerAdvice</code>!)</td><td>Thrown inside Box 6 (can be caught by <code>@ControllerAdvice</code>!)</td></tr>
+<tr><td>Trap</td><td>First-match-wins ordering mistakes</td><td><strong>Self-invocation (<code>this.m()</code>) bypasses the Box 4 proxy! (Rule 2)</strong></td></tr>
+</tbody></table>
+
+<h3>Stateless JWT vs Stateful Sessions &amp; CSRF</h3>
+<table>
+<thead><tr><th></th><th>Session cookie (<code>JSESSIONID</code>)</th><th>JWT / Bearer token (<code>Authorization: Bearer</code>)</th></tr></thead>
+<tbody>
+<tr><td>Server state</td><td>Session store (memory or Redis)</td><td>None (<code>SessionCreationPolicy.STATELESS</code>)</td></tr>
+<tr><td>Instant revocation</td><td><strong>Instant</strong> — delete the session</td><td><strong>Hard</strong> — valid until <code>exp</code> (use short TTL + refresh rotation)</td></tr>
+<tr><td>Scaling</td><td>Sticky sessions or shared Redis</td><td>Trivially horizontal (verify signature with public key)</td></tr>
+<tr><td>CSRF protection</td><td><strong>Required!</strong> Browsers attach cookies automatically on cross-site forms</td><td><strong>Safe to disable</strong> when token is sent in <code>Authorization</code> header (never in a cookie)</td></tr>
+</tbody></table>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong>Multiple <code>SecurityFilterChain</code> beans</strong> (ordered with <code>@Order</code> and scoped with <code>securityMatcher(...)</code>) when areas differ: stateless JWT for <code>/api/**</code>, Basic/form login for <code>/actuator/**</code>.</li>
+  <li><strong>OAuth2 Resource Server</strong> — the default for APIs behind an identity provider (Keycloak, Auth0, Entra ID, Cognito). Boot validates tokens and rotates JWKS keys automatically.</li>
+  <li><strong>Method security (<code>@PreAuthorize</code>)</strong> — ownership and row-level rules that need method arguments.</li>
+  <li><strong>Rule on CSRF:</strong> <em>cookie-based auth → CSRF on; header-based Bearer token → CSRF off.</em></li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Think of getting into a big concert stadium. Before you ever reach the arena floor (<code>DispatcherServlet</code> in Box 6), you walk down a <strong>corridor of checkpoints</strong> outside the gate (<code>SecurityFilterChain</code> in Box 5).
+</p>
+<p>
+At the ticket booth, the guard asks <em>"Who are you?"</em> (Authentication). You hand over your ticket, he verifies it with the box office machine (<code>AuthenticationManager</code>), and he snaps a <strong>wristband</strong> onto your wrist with your name and zones (<em>general</em>, <em>backstage</em>). That wristband is the <code>Authentication</code> object stored on your thread's clipboard (<code>SecurityContextHolder</code> in <code>ThreadLocal</code>).
+</p>
+<p>
+At the stadium door, a second guard checks <em>"Are you allowed in here?"</em> (Authorization):
+</p>
+<ul>
+  <li>No wristband at all? Turned back at the ticket booth (<strong>401 Unauthorized</strong>).</li>
+  <li>General-admission wristband trying to enter the VIP backstage door? Turned away (<strong>403 Forbidden</strong>).</li>
+</ul>
+<p>
+Because you were turned away <em>outside the stadium</em> (Box 5), the stage manager inside the arena (<code>@RestControllerAdvice</code> in Box 6) never even knew you showed up!
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← 09-web-mvc:</strong> Security is Step 2 in Box 5, before <code>DispatcherServlet</code> (Box 6) — hence filter 401/403 errors bypass <code>@ControllerAdvice</code>.</li>
+  <li><strong>← 06-aop:</strong> <code>@PreAuthorize</code> is a Box 4 AOP proxy, so self-invocation (<code>this.method()</code>) silently skips the security check (Rule 2)!</li>
+  <li><strong>← 12-transactions &amp; java/11-concurrency:</strong> <code>SecurityContextHolder</code> is a <code>ThreadLocal</code> (Rule 3) — so it doesn't propagate to <code>@Async</code> threads unless wrapped in <code>DelegatingSecurityContextAsyncTaskExecutor</code>, and must be cleared in <code>finally</code> so pooled Tomcat threads never leak identities between users.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Code Dissection &amp; Derive, Don't Memorize</h2>
+
+<h3>1. Production Stateless JWT API Configuration, Dissected</h3>
+<pre><span class="an">@Configuration</span>
+<span class="an">@EnableWebSecurity</span>
+<span class="an">@EnableMethodSecurity</span>                                                   <span class="c">// Enable Box 4 @PreAuthorize proxies</span>
+<span class="k">public class</span> SecurityConfig {
+
+    <span class="an">@Bean</span>
+    <span class="an">@Order</span>(1)                                                       <span class="c">// ① chains are tried in @Order</span>
+    SecurityFilterChain actuator(HttpSecurity http) <span class="k">throws</span> Exception {
+        <span class="k">return</span> http
+            .securityMatcher(<span class="s">"/actuator/**"</span>)
+            .authorizeHttpRequests(a -&gt; a
+                .requestMatchers(<span class="s">"/actuator/health/**"</span>).permitAll()   <span class="c">// K8s probes must be open</span>
+                .anyRequest().hasRole(<span class="s">"OPS"</span>))                        <span class="c">// ② everything else locked</span>
+            .httpBasic(Customizer.withDefaults())
+            .csrf(CsrfConfigurer::disable)
+            .build();
+    }
+
+    <span class="an">@Bean</span>
+    <span class="an">@Order</span>(2)
+    SecurityFilterChain api(HttpSecurity http) <span class="k">throws</span> Exception {
+        <span class="k">return</span> http
+            .securityMatcher(<span class="s">"/api/**"</span>)
+            .authorizeHttpRequests(a -&gt; a
+                .requestMatchers(HttpMethod.GET, <span class="s">"/api/books/**"</span>).permitAll()
+                .requestMatchers(<span class="s">"/api/admin/**"</span>).hasRole(<span class="s">"ADMIN"</span>)
+                .anyRequest().authenticated())                       <span class="c">// ③ deny-by-default, ALWAYS LAST</span>
+
+            <span class="c">// ④ stateless: no session, no cookie → CSRF is structurally impossible</span>
+            .sessionManagement(s -&gt; s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .csrf(CsrfConfigurer::disable)
+
+            <span class="c">// ⑤ validate JWTs issued by the identity provider</span>
+            .oauth2ResourceServer(o -&gt; o.jwt(jwt -&gt;
+                 jwt.jwtAuthenticationConverter(rolesConverter())))
+
+            <span class="c">// ⑥ explicit Box 5 401 vs 403 handlers</span>
+            .exceptionHandling(e -&gt; e
+                .authenticationEntryPoint(<span class="k">new</span> BearerTokenAuthenticationEntryPoint())
+                .accessDeniedHandler(<span class="k">new</span> BearerTokenAccessDeniedHandler()))
+
+            .cors(Customizer.withDefaults())                         <span class="c">// ⑦ run CorsFilter in Box 5 before auth!</span>
+            .build();
+    }
+
+    <span class="c">// ⑧ map the IdP's "roles" claim onto Spring's "ROLE_" prefix convention</span>
+    <span class="k">private</span> JwtAuthenticationConverter rolesConverter() {
+        JwtGrantedAuthoritiesConverter granted = <span class="k">new</span> JwtGrantedAuthoritiesConverter();
+        granted.setAuthoritiesClaimName(<span class="s">"roles"</span>);
+        granted.setAuthorityPrefix(<span class="s">"ROLE_"</span>);                           <span class="c">// hasRole("ADMIN") checks "ROLE_ADMIN"</span>
+        JwtAuthenticationConverter c = <span class="k">new</span> JwtAuthenticationConverter();
+        c.setJwtGrantedAuthoritiesConverter(granted);
+        <span class="k">return</span> c;
+    }
+
+    <span class="an">@Bean</span>
+    CorsConfigurationSource corsConfigurationSource() {              <span class="c">// ⑨</span>
+        CorsConfiguration cfg = <span class="k">new</span> CorsConfiguration();
+        cfg.setAllowedOrigins(List.of(<span class="s">"https://app.bookvault.com"</span>));  <span class="c">// NOT "*"</span>
+        cfg.setAllowedMethods(List.of(<span class="s">"GET"</span>, <span class="s">"POST"</span>, <span class="s">"PUT"</span>, <span class="s">"DELETE"</span>));
+        cfg.setAllowedHeaders(List.of(<span class="s">"Authorization"</span>, <span class="s">"Content-Type"</span>));
+        UrlBasedCorsConfigurationSource src = <span class="k">new</span> UrlBasedCorsConfigurationSource();
+        src.registerCorsConfiguration(<span class="s">"/api/**"</span>, cfg);
+        <span class="k">return</span> src;
+    }
+}
+
+<span class="c">// ⑩ Box 4 method security — checks method arguments that Box 5 URL filters can't see</span>
+<span class="an">@Service</span>
+<span class="k">class</span> LoanService {
+    <span class="an">@PreAuthorize</span>(<span class="s">"hasRole('LIBRARIAN') or #memberId == authentication.name"</span>)
+    List&lt;Loan&gt; forMember(String memberId) { ... }
+}</pre>
+<div class="ann"><strong>Dissection.</strong>
+<strong>①</strong> Multiple chains + <code>@Order</code>: the first chain whose <code>securityMatcher</code> matches wins. Forgetting <code>securityMatcher</code> on <code>@Order(1)</code> makes it match every URL and shadow <code>@Order(2)</code>!
+<strong>③</strong> Rules inside <code>authorizeHttpRequests</code> are evaluated top-down, first-match-wins — always put <code>.anyRequest().authenticated()</code> last.
+<strong>⑦⑨</strong> Enabling <code>.cors(...)</code> in the security chain ensures unauthenticated browser <code>OPTIONS</code> preflight requests are answered in Box 5 before authentication rejects them.
+<strong>⑧</strong> <code>hasRole("ADMIN")</code> automatically prefixes <code>"ROLE_"</code> and looks for <code>"ROLE_ADMIN"</code>, whereas <code>hasAuthority("ADMIN")</code> checks the exact string.</div>
+
+<h3>2. How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead><tr><th>Classic Interview Question</th><th>Which Box / Rule?</th><th>10-Second Derivation</th></tr></thead>
+<tbody>
+<tr>
+  <td><em>"Why didn't my <code>@RestControllerAdvice</code> catch a 401 Invalid Token or 403 URL Forbidden error?"</em></td>
+  <td><strong>Rule 1</strong><br/>(Box 5 before Box 6)</td>
+  <td>Filter authentication and URL authorization happen in <code>SecurityFilterChain</code> in <strong>Box 5</strong>, <em>before</em> the request ever enters <code>DispatcherServlet</code> (<strong>Box 6</strong>). They are handled by <code>AuthenticationEntryPoint</code> (401) and <code>AccessDeniedHandler</code> (403) inside Box 5! (By contrast, <code>@PreAuthorize</code> in <strong>Box 4</strong> runs <em>inside</em> Box 6, so <code>@RestControllerAdvice</code> <em>does</em> see method-security <code>AccessDeniedException</code>!)</td>
+</tr>
+<tr>
+  <td><em>"Tomcat creates Servlet Filters, not Spring. So how can Spring Security filters inject Spring beans like <code>JwtDecoder</code> or <code>UserRepository</code>?"</em></td>
+  <td><strong>Box 5 → Box 3 Bridge</strong></td>
+  <td>Boot registers one thin bridge filter called <code>DelegatingFilterProxy</code> with Tomcat (Box 5). It looks up the Spring bean named <code>springSecurityFilterChain</code> (<code>FilterChainProxy</code>) inside <code>ApplicationContext</code> (Box 3) and delegates every request to it.</td>
+</tr>
+<tr>
+  <td><em>"Why did <code>@PreAuthorize("hasRole('ADMIN')")</code> silently do nothing when called via <code>this.forMember(id)</code> inside the same service?"</em></td>
+  <td><strong>Rule 2</strong><br/>(Who You Call — Box 4)</td>
+  <td><code>@PreAuthorize</code> is enforced by an AOP proxy wrapper in <strong>Box 4</strong>. Calling <code>this.forMember(id)</code> invokes the raw target object directly, bypassing the Box 4 security proxy!</td>
+</tr>
+<tr>
+  <td><em>"Why is <code>SecurityContextHolder.getContext().getAuthentication()</code> null inside an <code>@Async</code> method?"</em></td>
+  <td><strong>Rule 3</strong><br/>(<code>ThreadLocal</code> per thread)</td>
+  <td><code>SecurityContextHolder</code> stores the <code>Authentication</code> in a <code>ThreadLocal</code> on the Tomcat request thread. Spawning a new thread gives an empty <code>ThreadLocal</code> unless you wrap your executor in <code>DelegatingSecurityContextAsyncTaskExecutor</code>.</td>
+</tr>
+<tr>
+  <td><em>"My user's JWT has authority <code>ADMIN</code>, but <code>hasRole("ADMIN")</code> returns 403 Forbidden! Why?"</em></td>
+  <td><strong>Box 5 / Box 4</strong><br/>(Prefix convention)</td>
+  <td><code>hasRole("ADMIN")</code> automatically prepends <code>"ROLE_"</code> and checks for <code>"ROLE_ADMIN"</code>. Either use <code>hasAuthority("ADMIN")</code> or configure <code>JwtGrantedAuthoritiesConverter.setAuthorityPrefix("ROLE_")</code>.</td>
+</tr>
+</tbody></table>
+
+<div class="try"><strong>Experiments — several are genuine security lessons.</strong>
+<ol style="margin:.4rem 0 0">
+<li>Set <code>logging.level.org.springframework.security=DEBUG</code> and make one request. The log prints <strong>every filter in your <code>SecurityFilterChain</code> in order</strong>.</li>
+<li>Remove <code>securityMatcher</code> from the <code>@Order(1)</code> chain and watch your API chain stop being consulted at all.</li>
+<li>Call a <code>@PreAuthorize</code> method from another method <em>of the same bean</em> via <code>this.method()</code>. Observe that the authorization check is completely skipped (Rule 2)!</li>
+</ol></div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Rule order in <code>authorizeHttpRequests</code>.</strong> First match wins. A broad <code>permitAll()</code> early silently opens everything below it. Always end with <code>.anyRequest().authenticated()</code>.</div>
+<div class="pitfall"><strong>Missing <code>securityMatcher</code> on multiple chains.</strong> An ordered chain without <code>securityMatcher</code> matches <code>/**</code> and swallows every request; later chains become dead code.</div>
+<div class="pitfall"><strong>Disabling CSRF with cookie/session auth.</strong> Only disable CSRF when authentication is sent via an explicit header (<code>Authorization: Bearer</code>) and sessions are <code>STATELESS</code>.</div>
+<div class="pitfall"><strong><code>hasRole</code> vs <code>hasAuthority</code>.</strong> <code>hasRole("ADMIN")</code> checks for <code>ROLE_ADMIN</code>. Mismatched prefixes are the #1 cause of unexpected 403s.</div>
+<div class="pitfall"><strong><code>@PreAuthorize</code> and self-invocation (Rule 2).</strong> An internal <code>this.method()</code> call bypasses the Box 4 proxy — a silent authorization bypass!</div>
+<div class="pitfall"><strong><code>SecurityContextHolder</code> and threads (Rule 3).</strong> Doesn't propagate to <code>@Async</code> or executors by default; use <code>DelegatingSecurityContextExecutor</code>.</div>
+<div class="pitfall"><strong>Filter security exceptions bypass <code>@ControllerAdvice</code> (Rule 1).</strong> They happen in Box 5 before <code>DispatcherServlet</code> (Box 6). Use <code>AuthenticationEntryPoint</code> / <code>AccessDeniedHandler</code>.</div>
+<div class="pitfall"><strong>Registering a custom security filter as a <code>@Component</code> and via <code>addFilterBefore</code>.</strong> Boot auto-registers every <code>Filter</code> bean in Box 3 with Tomcat too — so your filter runs twice!</div>
+
+<h2><span class="n">§9</span>Recap &amp; Glossary / Reference</h2>
+<ul class="recap">
+  <li><strong>One bridge filter, ~15 security filters:</strong> Tomcat's <code>DelegatingFilterProxy</code> (Box 5) → Spring's <code>FilterChainProxy</code> (Box 3) → your ordered <code>SecurityFilterChain</code>.</li>
+  <li><strong>Rule 1 (Order of Steps):</strong> <code>SecurityFilterChain</code> runs in Box 5 <em>before</em> <code>DispatcherServlet</code> (Box 6) — which explains why filter 401/403s don't hit <code>@ControllerAdvice</code> and why CORS preflight must be enabled in Security.</li>
+  <li><strong>AuthN = who (401); AuthZ = allowed (403).</strong> The verified <code>Authentication</code> lives in <code>SecurityContextHolder</code>'s <code>ThreadLocal</code> (Rule 3).</li>
+  <li><strong>AuthN pipeline:</strong> Filter extracts token → <code>AuthenticationManager</code> (<code>ProviderManager</code>) → <code>AuthenticationProvider</code> (<code>DaoAuthenticationProvider</code> / <code>JwtAuthenticationProvider</code>).</li>
+  <li><strong>Two authorization layers:</strong> URL rules in Box 5 (<code>AuthorizationFilter</code>, coarse) and method security in Box 4 (<code>@PreAuthorize</code> AOP proxy, data-aware — watch out for Rule 2 self-invocation!).</li>
+</ul>
+
+<hr/>
+<h2>Reference — quick cheat-sheet</h2>
+<table>
+<thead><tr><th>You want…</th><th>Write</th></tr></thead>
+<tbody>
+<tr><td>Configure HTTP security</td><td>A <code>SecurityFilterChain</code> <code>@Bean</code></td></tr>
+<tr><td>Different rules per URL area</td><td>Multiple chains + <code>securityMatcher(...)</code> + <code>@Order</code></td></tr>
+<tr><td>Public endpoint</td><td><code>.requestMatchers("/x").permitAll()</code> (before <code>anyRequest()</code>!)</td></tr>
+<tr><td>Role check</td><td><code>.hasRole("ADMIN")</code> (= authority <code>ROLE_ADMIN</code>)</td></tr>
+<tr><td>Stateless JWT API</td><td><code>STATELESS</code> + <code>csrf disable</code> + <code>oauth2ResourceServer(o -&gt; o.jwt(...))</code></td></tr>
+<tr><td>Hash passwords</td><td><code>PasswordEncoderFactories.createDelegatingPasswordEncoder()</code></td></tr>
+<tr><td>Row-level / argument authorization</td><td><code>@EnableMethodSecurity</code> + <code>@PreAuthorize("#id == authentication.name")</code></td></tr>
+<tr><td>Current user in controller</td><td><code>@AuthenticationPrincipal</code> parameter</td></tr>
+<tr><td>Security in tests</td><td><code>@WithMockUser</code>, <code>SecurityMockMvcRequestPostProcessors.jwt()</code></td></tr>
+<tr><td>Debug the filter chain</td><td><code>logging.level.org.springframework.security=DEBUG</code></td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Authentication / Authorization</dt><dd>Who you are (failure → 401) vs what you may do (failure → 403).</dd>
+  <dt>DelegatingFilterProxy</dt><dd>Tomcat-registered Servlet filter in Box 5 that delegates to a Spring bean in Box 3.</dd>
+  <dt>FilterChainProxy</dt><dd>The Spring bean holding and selecting the <code>SecurityFilterChain</code>s.</dd>
+  <dt>SecurityFilterChain</dt><dd>An ordered list of ~15 security filters for a matching set of requests.</dd>
+  <dt>SecurityContextHolder</dt><dd><code>ThreadLocal</code> holding the current request thread's verified <code>Authentication</code>.</dd>
+  <dt>Principal</dt><dd>The authenticated identity (e.g., <code>UserDetails</code> or <code>Jwt</code>).</dd>
+  <dt>GrantedAuthority</dt><dd>A permission string; roles are authorities with a <code>ROLE_</code> prefix.</dd>
+  <dt>UserDetailsService</dt><dd>Loads user data by username for password authentication.</dd>
+  <dt>PasswordEncoder</dt><dd>Hashes and verifies passwords with a random salt; use the delegating encoder.</dd>
+  <dt>CSRF</dt><dd>Cross-Site Request Forgery — attack exploiting automatic browser cookie attachment.</dd>
+  <dt>CORS</dt><dd>Browser rules for cross-origin requests; requires server opt-in on preflight <code>OPTIONS</code>.</dd>
+  <dt>JWT / Resource server</dt><dd>A signed, base64-readable token carrying claims, verified by an API resource server.</dd>
+  <dt>Method security</dt><dd>Box 4 AOP proxy authorization using <code>@PreAuthorize</code> / <code>@PostAuthorize</code>.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.spring.io/spring-security/reference/servlet/architecture.html">Spring Security Reference —
+Architecture</a>. It contains the exact filter-chain diagram and is the single best page in the whole Spring documentation set.
+Then <a href="https://docs.spring.io/spring-security/reference/servlet/authorization/authorize-http-requests.html">Authorize
+HTTP Requests</a> for the rule semantics, and
+<a href="https://cheatsheetseries.owasp.org/">OWASP Cheat Sheet Series</a> for the threats these controls exist to stop.</p>
+<p class="sources" style="margin-top:2rem">Sources: Spring Security Reference Documentation (Servlet Applications →
+Architecture, Authentication Architecture, <code>DaoAuthenticationProvider</code>, Password Storage, Authorize HTTP Requests,
+Method Security, CSRF, CORS, OAuth2 Resource Server); Spring Boot Reference (security auto-configuration, Actuator security);
+OWASP Cheat Sheet Series (Authentication, JWT, CSRF). Targeting Spring Security 6.x / Boot 3.x. Authored per Knowledge-Base-2
+rules §6.2–§6.3 and <code>topic-styles/framework.md</code>.</p>
+
+</body>
+</html>

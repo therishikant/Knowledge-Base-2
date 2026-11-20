@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Maps &amp; How Hashing Works — Collections, Part 2 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .step{display:flex;gap:.8rem;margin:.9rem 0} .step .num{flex:0 0 2rem;height:2rem;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.95rem}
+  .step .body{flex:1} .step .body strong{display:block}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Maps &amp; How Hashing Works</h1>
+<p class="crumb">Java › collections cluster · lesson 8, <strong>part 2 of 3</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — looking something up by name, instantly</p>
+
+<p class="nav"><strong>Collections cluster:</strong>
+  <a href="lesson.html">1. Lists, sets &amp; queues</a> ·
+  <strong>2. Maps &amp; how hashing works</strong> ·
+  <a href="lesson-3-equality-and-ordering.html">3. Equality &amp; ordering</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> A <code>Map</code> stores <strong>pairs</strong>: a key and the value that belongs to it. Its one
+trick is that finding a value by key takes the <em>same tiny amount of time</em> whether the map holds ten entries or ten
+million. That trick is <strong>hashing</strong>: turn the key into a number, turn the number into an array position, and go
+straight there.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+<a href="lesson.html">Part 1</a> covered boxes that hold single items. This part covers the box that holds <em>pairs</em>.
+It is the single most important data structure in day-to-day programming: caches, config, counting, grouping, lookup by ID
+— all maps.
+</p>
+<p>
+It also closes a loop from Part 1. <code>HashSet</code> is literally a <code>HashMap</code> with the values thrown away, and
+<code>TreeSet</code> is a <code>TreeMap</code> with the values thrown away. So understanding maps hands you the sets for free.
+</p>
+
+<h2><span class="n">§2</span>Why it exists — the problem of finding things</h2>
+
+<h3>Try it with what you already have</h3>
+<p>Say you want to find a user's age from their name. With a list of pairs, you must look at each one:</p>
+<pre><span class="k">for</span> (Pair p : pairs) {
+    <span class="k">if</span> (p.name.equals(<span class="s">"ana"</span>)) <span class="k">return</span> p.age;   <span class="c">// might check every single pair</span>
+}</pre>
+<p>
+With 10 pairs, fine. With 10 million, that is 10 million string comparisons — <strong>every time you look something up</strong>.
+Searching is O(n), and O(n) inside a loop becomes O(n²), which is how programs die.
+</p>
+
+<h3>The clue is already in the array</h3>
+<p>
+Think about what a plain array does. <code>names[7]</code> is instant, no searching at all, because the computer can
+<em>calculate</em> where slot 7 sits in memory: start address + 7 × item size. One sum, one jump.
+</p>
+<p>
+So arrays are instant if your key is a small number. But our key is <code>"ana"</code>, a string. The whole idea of hashing
+is this leap:
+</p>
+<div class="callout"><strong>Turn the key into a number, then use that number as an array position.</strong> If we can do that
+calculation cheaply, then looking up <code>"ana"</code> becomes as fast as <code>names[7]</code>.</div>
+
+<h3>Why the alternatives fall short</h3>
+<ul>
+  <li><strong>One array slot per possible key.</strong> Correct, but impossible — there are more possible strings than atoms
+      to store them in. We need a <em>small</em> array, so many keys must share slots.</li>
+  <li><strong>Keep the pairs sorted and binary-search them.</strong> That is O(log n) — much better than O(n), and genuinely
+      useful: it is exactly what <code>TreeMap</code> does. But it is still not constant, and every insert has to keep the
+      order intact.</li>
+  <li><strong>Hashing.</strong> O(1) on average. The price is that you lose any sensible order, and you depend on the key's
+      <code>hashCode</code> being decent.</li>
+</ul>
+<p>Java ships all three ideas, which is why there are several map builds rather than one.</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>A map is a separate family</h3>
+<p>
+First a structural note that trips people up in interviews: <strong><code>Map</code> is not a <code>Collection</code>.</strong>
+It does not extend it. A <code>Collection</code> holds single elements; a <code>Map</code> holds pairs, so
+<code>add(e)</code> would make no sense. You reach its contents through three <em>views</em>: <code>keySet()</code>,
+<code>values()</code> and <code>entrySet()</code>
+<span class="sources">(<a href="https://docs.oracle.com/javase/tutorial/collections/interfaces/map.html">Oracle — The Map Interface</a>)</span>.
+</p>
+
+<h3>The four steps of <code>get</code> and <code>put</code></h3>
+<figure>
+<svg viewBox="0 0 770 330" width="100%" role="img" aria-label="How a HashMap finds a bucket">
+  <style>
+    .bx{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}.bu{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.3}
+    .hit{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.6}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .lbl{font:12px Georgia,serif;fill:#2b2b28;font-weight:bold}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#m7);fill:none}
+  </style>
+  <defs><marker id="m7" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="bx" x="20" y="20" width="140" height="46" rx="6"/><text class="t" x="52" y="40">"apple"</text><text class="c" x="56" y="57">the key</text>
+  <rect class="bx" x="195" y="20" width="160" height="46" rx="6"/><text class="t" x="206" y="40">hashCode()</text><text class="c" x="206" y="57">= 93029210</text>
+  <rect class="bx" x="390" y="20" width="175" height="46" rx="6"/><text class="t" x="398" y="40">h ^ (h &gt;&gt;&gt; 16)</text><text class="c" x="398" y="57">mix the high bits in</text>
+  <rect class="bx" x="600" y="20" width="150" height="46" rx="6"/><text class="t" x="610" y="40">&amp; (n - 1)</text><text class="c" x="610" y="57">= bucket 1</text>
+  <line class="a" x1="160" y1="43" x2="193" y2="43"/><line class="a" x1="355" y1="43" x2="388" y2="43"/><line class="a" x1="565" y1="43" x2="598" y2="43"/>
+
+  <text class="lbl" x="20" y="110">the table — an array of 16 buckets</text>
+  <rect class="bu" x="20" y="122" width="78" height="40"/><text class="t" x="50" y="147">0</text>
+  <rect class="hit" x="98" y="122" width="78" height="40"/><text class="t" x="130" y="147">1</text>
+  <rect class="bu" x="176" y="122" width="78" height="40"/><text class="t" x="208" y="147">2</text>
+  <rect class="bu" x="254" y="122" width="78" height="40"/><text class="t" x="286" y="147">3</text>
+  <text class="t" x="340" y="147">...</text>
+  <rect class="bu" x="380" y="122" width="78" height="40"/><text class="t" x="406" y="147">15</text>
+  <line class="a" x1="675" y1="66" x2="140" y2="120"/>
+
+  <text class="lbl" x="20" y="205">inside bucket 1 — a short chain of entries</text>
+  <rect class="hit" x="20" y="218" width="165" height="44" rx="4"/><text class="t" x="28" y="245">"apple" → 3</text>
+  <rect class="bu" x="225" y="218" width="175" height="44" rx="4"/><text class="t" x="233" y="245">"cherry" → 7</text>
+  <line class="a" x1="185" y1="240" x2="223" y2="240"/>
+  <text class="c" x="420" y="232">both keys landed in bucket 1 = a collision.</text>
+  <text class="c" x="420" y="250">So walk the chain and ask equals() on each.</text>
+
+  <rect class="bx" x="20" y="285" width="380" height="34" rx="5"/>
+  <text class="c" x="30" y="307">8+ entries in one bucket (and table ≥ 64) → the chain becomes a tree</text>
+</svg>
+<figcaption>Key → <code>hashCode()</code> → spread → mask → bucket → <code>equals()</code>. The mask
+<code>&amp; (n-1)</code> works because the table length is always a power of two, so it simply keeps the low bits
+<span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/api/java/util/HashMap.html">Oracle — HashMap</a>)</span>.</figcaption>
+</figure>
+
+<div class="step"><div class="num">1</div><div class="body"><strong>Ask the key for its number.</strong>
+<code>key.hashCode()</code> returns an <code>int</code> — any <code>int</code>, possibly negative, possibly huge.
+<code>"apple"</code> gives <code>93029210</code> (and it is always the same number for the same text, which is the point).</div></div>
+
+<div class="step"><div class="num">2</div><div class="body"><strong>Spread the bits.</strong>
+<code>h ^ (h &gt;&gt;&gt; 16)</code> folds the top 16 bits down into the bottom 16. Why? Because step 3 throws the top bits away.
+Without this, two keys differing only in their high bits would always collide. One cheap instruction, far fewer collisions.</div></div>
+
+<div class="step"><div class="num">3</div><div class="body"><strong>Squeeze it into the table size.</strong>
+<code>h &amp; (n - 1)</code> where <code>n</code> is the table length (16, 32, 64 …). Because <code>n</code> is a power of two,
+<code>n-1</code> is all ones in binary, so the <code>&amp;</code> keeps only the low bits — the same result as
+<code>h % n</code>, but much faster, and it never goes negative.</div></div>
+
+<div class="step"><div class="num">4</div><div class="body"><strong>Look inside that one bucket.</strong>
+The bucket may hold several entries. Walk its short chain and compare with <code>equals()</code> until you find the key, or
+run out. <strong>Both</strong> methods are needed: <code>hashCode</code> finds the right bucket, <code>equals</code> picks the
+right entry inside it. (That is <a href="lesson-3-equality-and-ordering.html">Part 3</a>.)</div></div>
+
+<h3>Collisions are normal, not a bug</h3>
+<p>
+Two different keys <em>will</em> sometimes land in the same bucket — an <code>int</code> has about 4 billion values but the
+table only has, say, 16 slots. That is a <strong>collision</strong>, and a map handles it by keeping a small chain in the
+bucket. You will see a real collision in §7: <code>"Aa"</code> and <code>"BB"</code> have the exact same
+<code>hashCode</code> (2112), yet they are different keys, and the map keeps both.
+</p>
+<p>
+Collisions are only a <em>performance</em> problem. If every key collided, the map would degrade into one long list and
+lookup would be O(n). Since Java 8, a bucket that grows past <strong>8 entries</strong> (in a table of at least 64) is
+converted into a balanced tree, so the worst case is O(log n) rather than O(n). This also defuses a real denial-of-service
+attack where someone deliberately feeds you colliding keys
+<span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/api/java/util/HashMap.html">Oracle — HashMap, "treeify"</a>)</span>.
+</p>
+
+<h3>Load factor and resizing</h3>
+<p>
+A 16-slot table holding 500 entries would have chains everywhere. So the map watches how full it is. The
+<strong>load factor</strong> is that threshold, and it defaults to <strong>0.75</strong>. When
+<code>size &gt; capacity × 0.75</code>, the map <strong>doubles</strong> the table and re-places every entry.
+</p>
+<pre>capacity 16 → resize when size hits 13
+capacity 32 → resize when size hits 25
+capacity 64 → resize when size hits 49   <span class="c">// and so on</span></pre>
+<p>
+Why 0.75? It is the published trade-off point: lower wastes memory, higher produces long chains
+<span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/api/java/util/HashMap.html">Oracle — HashMap</a>)</span>.
+And here is the consequence most people miss: <strong>resizing moves keys to different buckets</strong>, because the mask
+<code>&amp; (n-1)</code> now keeps one more bit. In §7 you will see <code>"apple"</code> sit in bucket 1 in a 16-slot table
+and bucket 17 in a 32-slot table. That is precisely why <code>HashMap</code> iteration order can change as the map grows —
+and why you must never depend on it.
+</p>
+<div class="idiom"><strong>Idiom:</strong> expecting ~1,000 entries? <code>new HashMap&lt;&gt;(2048)</code>. You skip several
+rounds of rehashing everything.</div>
+
+<h3>The four map builds</h3>
+<table>
+<thead><tr><th>Build</th><th>Stored as</th><th>Loop order</th><th>get / put</th><th>Reach for it when…</th></tr></thead>
+<tbody>
+<tr><td><code>HashMap</code></td><td>bucket array</td><td><strong>none promised</strong></td><td>O(1) avg</td><td>the default, 90% of the time</td></tr>
+<tr><td><code>LinkedHashMap</code></td><td>buckets + a linked chain</td><td>insertion (or access)</td><td>O(1) avg</td><td>stable output, or an LRU cache</td></tr>
+<tr><td><code>TreeMap</code></td><td>red-black tree</td><td>sorted by key</td><td>O(log n)</td><td>sorted output or range questions</td></tr>
+<tr><td><code>ConcurrentHashMap</code></td><td>buckets, locked per bin</td><td>none promised</td><td>O(1) avg</td><td>several threads share it</td></tr>
+</tbody></table>
+
+<h4><code>LinkedHashMap</code> — order for almost no cost</h4>
+<p>
+It is a <code>HashMap</code> plus a doubly-linked chain threaded through the entries. Lookups use the buckets exactly as
+before; iteration follows the chain instead. Build it with <code>new LinkedHashMap&lt;&gt;(16, 0.75f, true)</code> and the
+chain re-orders on every <em>access</em>, not just insertion — which, with an overridden
+<code>removeEldestEntry</code>, gives you a working <strong>LRU cache in about five lines</strong>
+<span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/api/java/util/LinkedHashMap.html">Oracle — LinkedHashMap</a>)</span>.
+</p>
+
+<h4><code>TreeMap</code> — sorted, and it can answer questions <code>HashMap</code> cannot</h4>
+<p>
+A red-black tree keeps keys in order at all times, so you pay O(log n) but you gain abilities hashing simply does not have:
+<code>firstKey</code>, <code>lastKey</code>, <code>floorKey(x)</code> ("the biggest key ≤ x"), <code>ceilingKey(x)</code>,
+<code>headMap</code>/<code>tailMap</code>/<code>subMap</code>. Price tiers, time ranges and leaderboards live here. Note it
+compares keys, so keys must be <code>Comparable</code> (or you supply a <code>Comparator</code>) and <code>null</code> keys
+are rejected.
+</p>
+
+<h4><code>ConcurrentHashMap</code> — and why not the old ones</h4>
+<p>
+<code>Hashtable</code> and <code>Collections.synchronizedMap</code> lock the <em>whole map</em> for every operation, so
+threads queue up one behind another. <code>ConcurrentHashMap</code> locks only the bucket being touched, so unrelated
+threads never wait on each other, and reads are usually lock-free. It is both safer and faster — use it, not
+<code>Hashtable</code>
+<span class="sources">(<a href="https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ConcurrentHashMap.html">Oracle — ConcurrentHashMap</a>)</span>.
+</p>
+<div class="callout"><strong>Careful:</strong> thread-safe per <em>operation</em> is not the same as thread-safe per
+<em>sequence</em>. <code>if (!map.containsKey(k)) map.put(k, v);</code> is still a race — two threads can both pass the
+check. Use the atomic combinations instead: <code>putIfAbsent</code>, <code>computeIfAbsent</code>, <code>merge</code>.
+More in <a href="../11-concurrency/lesson.html">lesson 11</a>.</div>
+
+<h3>The Java 8 methods worth knowing by heart</h3>
+<table>
+<thead><tr><th>Method</th><th>Does</th><th>Replaces</th></tr></thead>
+<tbody>
+<tr><td><code>getOrDefault(k, d)</code></td><td>value, or <code>d</code> if absent</td><td>a null check</td></tr>
+<tr><td><code>putIfAbsent(k, v)</code></td><td>only puts when the key is missing</td><td>check-then-put</td></tr>
+<tr><td><code>computeIfAbsent(k, f)</code></td><td>builds and stores the value on first use</td><td>the "lazy init" block</td></tr>
+<tr><td><code>merge(k, v, f)</code></td><td>insert, or combine with what is there</td><td>the counting if/else</td></tr>
+<tr><td><code>forEach((k,v) -&gt; …)</code></td><td>loops over pairs</td><td><code>entrySet()</code> loop</td></tr>
+</tbody></table>
+<div class="idiom"><strong>Idiom — grouping:</strong>
+<code>map.computeIfAbsent(dept, d -&gt; new ArrayList&lt;&gt;()).add(employee);</code> — the one-liner that replaces four lines of
+"is the list there yet?".</div>
+
+<h2><span class="n">§4</span>When to use which</h2>
+<ul>
+  <li><strong>Plain lookup by ID, caching, counting, grouping?</strong> → <code>HashMap</code>. Start here always.</li>
+  <li><strong>Output must look the same on every run</strong> (logs, API responses, golden-file tests)? → <code>LinkedHashMap</code>.</li>
+  <li><strong>A small cache that drops the least recently used?</strong> → <code>LinkedHashMap</code> in access-order with <code>removeEldestEntry</code>.</li>
+  <li><strong>Sorted output, or "the nearest key below X"?</strong> → <code>TreeMap</code>. Price bands, timestamps, ranges.</li>
+  <li><strong>Shared by several threads?</strong> → <code>ConcurrentHashMap</code>, and use its atomic methods.</li>
+  <li><strong>Keys are a fixed enum?</strong> → <code>EnumMap</code>. It is a plain array indexed by <code>ordinal()</code> — tiny and extremely fast.</li>
+  <li><strong>Never</strong> → <code>Hashtable</code>. It only survives for backwards compatibility.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+A map is the <strong>coat check at a cinema</strong>. You hand over your coat (the value) and get a ticket (the key).
+</p>
+<p>
+A bad coat check hangs the coats in a long row. When you come back, the attendant walks the whole row looking for your
+coat. A thousand coats, a thousand looks.
+</p>
+<p>
+A clever coat check does something smarter. It has 16 numbered hooks. The attendant does a quick sum on your ticket number
+and gets a hook number — say hook 1 — and walks <em>straight there</em>. One step, whether there are 10 coats or 10,000.
+That sum is <code>hashCode</code>.
+</p>
+<p>
+Of course two tickets can produce the same hook. So each hook holds a few coats, each with a name tag, and the attendant
+reads the tags to grab the right one. That reading is <code>equals</code>.
+</p>
+<p>
+And when the place gets busy — about three-quarters full — the owner installs twice as many hooks and re-hangs every coat,
+so the piles stay short. That is resizing. Two more things follow naturally from the story: if your ticket number is wrong
+the attendant goes to the wrong hook and your coat is "lost" (a broken <code>hashCode</code>), and after the re-hang the
+coats are in a totally different arrangement (which is why <code>HashMap</code> order means nothing).
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson.html">Part 1:</a></strong> <code>HashSet</code> is a <code>HashMap</code> whose values are ignored. Everything here applies to sets too.</li>
+  <li><strong>→ <a href="lesson-3-equality-and-ordering.html">Part 3:</a></strong> all of this assumes your keys implement <code>hashCode</code>/<code>equals</code> correctly. That is the contract.</li>
+  <li><strong>→ <a href="../09-strings/lesson.html">strings:</a></strong> <code>String</code> is the most common key, and it <em>caches</em> its hash after the first call — computed once, reused forever. Immutability is what makes that safe.</li>
+  <li><strong>→ <a href="../11-concurrency/lesson.html">concurrency:</a></strong> a plain <code>HashMap</code> written by two threads can corrupt itself (historically, even spin forever). <code>ConcurrentHashMap</code> exists for this.</li>
+  <li><strong>→ <a href="../06-memory-model-and-gc/lesson.html">memory:</a></strong> a static <code>Map</code> that only ever grows is leak #1 in Java. <code>WeakHashMap</code> lets entries be collected when the key is unreachable.</li>
+  <li><strong>→ <a href="../07-java8-functional/lesson.html">streams:</a></strong> <code>groupingBy</code> and <code>toMap</code> build maps straight out of a pipeline.</li>
+  <li><strong>Same idea elsewhere:</strong> Python <code>dict</code>, JavaScript <code>Map</code>, C++ <code>unordered_map</code>, Ruby <code>Hash</code>, Go <code>map</code> — identical machinery, down to the load factor.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — one file, dissected</h2>
+<p>Run on <strong>JDK 1.8</strong>. Every output block below is copied from a real run of
+<a href="../code/CollectionsDemo3.java">code/CollectionsDemo3.java</a>.</p>
+
+<h3>A — doing the map's own arithmetic by hand</h3>
+<pre><span class="c">// exactly the two steps HashMap performs internally</span>
+<span class="k">static</span> int bucketOf(Object key, int tableSize) {
+    int h = key.hashCode();
+    h = h ^ (h &gt;&gt;&gt; 16);              <span class="c">// 1. fold the high bits down</span>
+    <span class="k">return</span> h &amp; (tableSize - 1);      <span class="c">// 2. keep only the low bits</span>
+}</pre>
+<pre>"apple"  hashCode=    93029210  bucket=1
+"banana" hashCode= -1396355227  bucket=0
+"cherry" hashCode= -1361513063  bucket=1
+"Aa"     hashCode=        2112  bucket=0
+"BB"     hashCode=        2112  bucket=0
+"Aa".equals("BB")? false  -> same bucket, different keys = a collision</pre>
+<div class="ann">
+Three things to take from this table.
+<br/><br/>
+<strong>(1)</strong> <code>"banana"</code> has a <em>negative</em> hash — perfectly normal, and the <code>&amp;</code> mask
+still yields a valid bucket (0–15). That is one reason the mask is used instead of <code>%</code>, which can return a
+negative result.
+<br/><br/>
+<strong>(2)</strong> <code>"apple"</code> and <code>"cherry"</code> have wildly different hashes yet share bucket 1. Only
+the last 4 bits survived the mask. Collisions are ordinary.
+<br/><br/>
+<strong>(3)</strong> <code>"Aa"</code> and <code>"BB"</code> have the <em>identical</em> hash code, 2112 — a famous example
+of how <code>String.hashCode</code> works (<code>31·h + ch</code>). Same hash, but <code>equals</code> says false, so the map
+correctly keeps both as separate keys. <strong>Same hash never means same key.</strong>
+</div>
+
+<h3>B — why iteration order can change under you</h3>
+<pre>"apple" in a 16-slot table : 1
+"apple" in a 32-slot table : 17</pre>
+<div class="ann">Same key, same hash code, different bucket — because the mask now keeps 5 bits instead of 4. The map grew,
+so everything moved. This is the mechanical reason behind the rule "never depend on <code>HashMap</code> order": adding one
+extra entry can trigger a resize and rearrange the entire map.</div>
+
+<h3>C — the three orders, side by side</h3>
+<pre><span class="k">for</span> (String k : <span class="k">new</span> String[]{<span class="s">"banana"</span>, <span class="s">"apple"</span>, <span class="s">"cherry"</span>}) {
+    hash.put(k, 1); linked.put(k, 1); tree.put(k, 1);
+}</pre>
+<pre>HashMap       = [banana, apple, cherry]
+LinkedHashMap = [banana, apple, cherry]
+TreeMap       = [apple, banana, cherry]</pre>
+<div class="ann">The <code>HashMap</code> line matching insertion order here is <strong>a coincidence</strong> of these three
+keys in a 16-slot table — look at section A and you can see why (buckets 0, 1, 1). Change the keys, or add a few more, and it
+scrambles. <code>LinkedHashMap</code> is the only one <em>promising</em> insertion order; <code>TreeMap</code> promises
+sorted order.</div>
+
+<h3>D — an LRU cache in five lines</h3>
+<pre>LinkedHashMap&lt;String,Integer&gt; lru =
+    <span class="k">new</span> LinkedHashMap&lt;String,Integer&gt;(16, 0.75f, <span class="k">true</span>) {   <span class="c">// true = access order</span>
+        @Override <span class="k">protected</span> boolean removeEldestEntry(Map.Entry&lt;String,Integer&gt; eldest) {
+            <span class="k">return</span> size() &gt; 3;                                 <span class="c">// keep the 3 newest</span>
+        }
+    };
+lru.put(<span class="s">"a"</span>,1); lru.put(<span class="s">"b"</span>,2); lru.put(<span class="s">"c"</span>,3);
+lru.get(<span class="s">"a"</span>);     <span class="c">// touching "a" makes it the newest</span>
+lru.put(<span class="s">"d"</span>,4);  <span class="c">// full -> drop the oldest, which is now "b"</span></pre>
+<pre>after get(a) then put(d): [c, a, d]</pre>
+<div class="ann">Trace it: after the three puts the order is <code>[a, b, c]</code>. <code>get("a")</code> moves <code>a</code>
+to the end → <code>[b, c, a]</code>. Putting <code>d</code> makes size 4, so <code>removeEldestEntry</code> returns true and
+the eldest — now <code>b</code> — is evicted, leaving <code>[c, a, d]</code>. That third flag in the constructor is the
+whole feature; the JDK then does the bookkeeping for you.
+<div class="idiom"><strong>Idiom:</strong> fine for a small single-threaded cache. For anything shared or large, use
+Caffeine or Guava — you get sizing, expiry and thread safety for free.</div></div>
+
+<h3>E — the questions only a sorted map can answer</h3>
+<pre>prices.put(100, <span class="s">"pen"</span>); prices.put(250, <span class="s">"mug"</span>); prices.put(900, <span class="s">"chair"</span>);</pre>
+<pre>firstKey()      = 100
+floorKey(300)   = 250
+ceilingKey(300) = 900
+headMap(900)    = {100=pen, 250=mug}</pre>
+<div class="ann">There is no key <code>300</code> in the map, yet <code>TreeMap</code> answers "the nearest below" and "the
+nearest above" instantly, by walking down the tree. A <code>HashMap</code> cannot do this at all — it would have to scan
+every key. This is the moment where paying O(log n) buys you something real.</div>
+
+<h3>F — counting without if/else</h3>
+<pre><span class="k">for</span> (String w : <span class="s">"tea coffee tea milk tea"</span>.split(<span class="s">" "</span>)) {
+    counts.merge(w, 1, (oldV, newV) -&gt; oldV + newV);   <span class="c">// Java 8</span>
+}</pre>
+<pre>counts            = {coffee=1, milk=1, tea=3}
+getOrDefault(juice) = 0</pre>
+<div class="ann"><code>merge</code> reads as: "put 1 under this key; if something is already there, combine the two with this
+function." It replaces the familiar four-line <code>if (map.containsKey(w)) … else …</code>, and on a
+<code>ConcurrentHashMap</code> it is atomic as well. <em>(The printed map is wrapped in a <code>TreeMap</code> purely so the
+output is stable for this lesson.)</em></div>
+
+<h3>G — nulls: three classes, three answers</h3>
+<pre>HashMap.get(null)   = allowed in HashMap
+TreeMap.put(null)   -> NullPointerException (it must compare keys)
+Hashtable.put(null) -> NullPointerException (legacy rule)</pre>
+<div class="ann"><code>HashMap</code> special-cases a single <code>null</code> key into bucket 0. <code>TreeMap</code> cannot,
+because it must call <code>compareTo</code> on the key. <code>Hashtable</code> simply forbids it, and
+<code>ConcurrentHashMap</code> forbids it too — there, <code>get</code> returning <code>null</code> must unambiguously mean
+"absent", with no race.</div>
+
+<div class="try"><strong>Predict the output, then run it.</strong>
+(1) Put 20 entries into a <code>HashMap</code>, printing <code>keySet()</code> after each <code>put</code>. Spot the entry
+where the whole order suddenly rearranges — then work out why that one. (Hint: 16 × 0.75.)
+(2) Write a key class whose <code>hashCode()</code> just <code>return 1;</code>. Is it <em>correct</em>? Is it <em>fast</em>?
+Time 100,000 lookups against a normal key class and explain the gap in one sentence.</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Depending on <code>HashMap</code> iteration order.</strong> There is none, and resizing proves
+it (section B). Use <code>LinkedHashMap</code> or <code>TreeMap</code> when order matters.</div>
+<div class="pitfall"><strong>Using a mutable object as a key.</strong> Change a field that feeds <code>hashCode</code> after
+inserting and the entry is stranded in the old bucket — unreachable, but still occupying memory. Keys should be immutable.
+Demonstrated in <a href="lesson-3-equality-and-ordering.html">Part 3</a>.</div>
+<div class="pitfall"><strong>A key class with no <code>hashCode</code>.</strong> You get identity hashing, so a freshly built
+"equal" key lands elsewhere and your lookup silently misses. The single most common collections bug.</div>
+<div class="pitfall"><strong><code>map.get(k) == null</code> read as "absent".</strong> It can also mean "present, with a
+<code>null</code> value". Use <code>containsKey</code> when you must tell them apart.</div>
+<div class="pitfall"><strong>Check-then-act on a shared map.</strong> <code>if (!map.containsKey(k)) map.put(k, v);</code>
+is a race even on <code>ConcurrentHashMap</code>. Use <code>putIfAbsent</code> / <code>computeIfAbsent</code> / <code>merge</code>.</div>
+<div class="pitfall"><strong>Sharing a plain <code>HashMap</code> between threads.</strong> Concurrent writes can corrupt the
+internal structure; on Java 7 a resize race could even hang a CPU at 100% forever. Use <code>ConcurrentHashMap</code>.</div>
+<div class="pitfall"><strong><code>Hashtable</code> or <code>synchronizedMap</code> for thread safety.</strong> They work but
+serialise every single call. <code>ConcurrentHashMap</code> is strictly better.</div>
+<div class="pitfall"><strong>Forgetting <code>TreeMap</code> uses <code>compareTo</code>, not <code>equals</code>.</strong>
+Two keys that compare equal are one key to a <code>TreeMap</code>, even when <code>equals</code> disagrees. See Part 3.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li><code>Map</code> stores key → value pairs and is <strong>not</strong> a <code>Collection</code>; you view it through <code>keySet</code>, <code>values</code>, <code>entrySet</code>.</li>
+  <li>Lookup = <strong>hashCode → spread → mask → bucket → equals</strong>. Hash finds the bucket; equals finds the entry.</li>
+  <li><code>h &amp; (n-1)</code> works only because the table length is a power of two; it is a fast, never-negative <code>%</code>.</li>
+  <li>Collisions are normal. Chains over 8 entries become trees (Java 8+), so the worst case is O(log n), not O(n).</li>
+  <li>Load factor <strong>0.75</strong> → double the table and move everything. Keys change buckets: <code>"apple"</code> 1 → 17.</li>
+  <li><code>HashMap</code> = no order · <code>LinkedHashMap</code> = insertion/access order · <code>TreeMap</code> = sorted + range queries · <code>ConcurrentHashMap</code> = shared across threads.</li>
+  <li>Learn <code>getOrDefault</code>, <code>putIfAbsent</code>, <code>computeIfAbsent</code>, <code>merge</code> — shorter and atomic where it matters.</li>
+  <li>Keys must be <strong>immutable</strong> and must implement <code>equals</code>/<code>hashCode</code> properly → Part 3.</li>
+</ul>
+
+<hr/>
+<h2>Reference — map cheat-sheet</h2>
+<table>
+<thead><tr><th></th><th><code>HashMap</code></th><th><code>LinkedHashMap</code></th><th><code>TreeMap</code></th><th><code>ConcurrentHashMap</code></th></tr></thead>
+<tbody>
+<tr><td><code>get</code> / <code>put</code></td><td>O(1) avg</td><td>O(1) avg</td><td>O(log n)</td><td>O(1) avg</td></tr>
+<tr><td>order</td><td>none</td><td>insertion or access</td><td>sorted</td><td>none</td></tr>
+<tr><td><code>null</code> key</td><td>one allowed</td><td>one allowed</td><td>not allowed</td><td>not allowed</td></tr>
+<tr><td>thread-safe</td><td>no</td><td>no</td><td>no</td><td>yes</td></tr>
+<tr><td>memory</td><td>low</td><td>+1 chain</td><td>node per key</td><td>higher</td></tr>
+<tr><td>range queries</td><td>no</td><td>no</td><td><strong>yes</strong></td><td>no</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Map / entry</dt><dd>A store of key → value pairs; one pair is an <code>Entry</code>.</dd>
+  <dt>Hashing</dt><dd>Turning a key into a number so it can be used as an array position.</dd>
+  <dt>Bucket (bin)</dt><dd>One slot of the table; holds a chain or tree of entries.</dd>
+  <dt>Collision</dt><dd>Two different keys landing in the same bucket. Normal; resolved by searching the chain.</dd>
+  <dt>Spread function</dt><dd><code>h ^ (h &gt;&gt;&gt; 16)</code> — mixes high bits down so the mask does not discard them.</dd>
+  <dt>Load factor</dt><dd>Fullness threshold (default 0.75) that triggers a resize.</dd>
+  <dt>Rehash / resize</dt><dd>Doubling the table and re-placing every entry — which changes iteration order.</dd>
+  <dt>Treeify</dt><dd>Converting an over-long bucket chain into a balanced tree (Java 8+).</dd>
+  <dt>LRU cache</dt><dd>"Least recently used" eviction — a <code>LinkedHashMap</code> in access order.</dd>
+  <dt>Red-black tree</dt><dd>The self-balancing tree behind <code>TreeMap</code>/<code>TreeSet</code>, giving O(log n).</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/8/docs/api/java/util/HashMap.html">Oracle — <code>HashMap</code> API docs</a>.
+The class-level paragraphs on capacity, load factor and iteration order are three paragraphs long and settle most interview
+arguments outright.</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>Java Tutorials — The Map Interface</em>; Oracle Java SE 8 API docs for
+<code>HashMap</code>, <code>LinkedHashMap</code>, <code>TreeMap</code>, <code>ConcurrentHashMap</code>, <code>Hashtable</code>;
+Bloch, <em>Effective Java</em> (Items 11, 17). All output captured by running
+<a href="../code/CollectionsDemo3.java">CollectionsDemo3.java</a> on JDK 1.8.0_411. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

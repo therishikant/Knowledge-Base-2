@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stream Recall &amp; Interview Playbook — Java 8 &amp; Functional, Part 9 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:880px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  h4{font-size:1rem;margin:1.2rem 0 .2rem;color:#4a4639}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .q{background:#fff;border:1px solid var(--rule);border-radius:6px;padding:.8rem 1.1rem;margin:1rem 0}
+  .q h4{margin-top:0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem;line-height:1.9}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Recall &amp; Interview Playbook</h1>
+<p class="crumb">Java › Java 8 &amp; functional cluster · lesson 7, <strong>part 9 of 9</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — a system for remembering, and 25 solved problems</p>
+
+<p class="nav"><strong>Java 8 &amp; functional cluster:</strong>
+  <a href="lesson.html">1. Lambdas</a> ·
+  <a href="lesson-2-functional-interfaces.html">2. Functional interfaces &amp; method refs</a> ·
+  <a href="lesson-3-stream-pipeline.html">3. How a stream actually runs</a> ·
+  <a href="lesson-4-intermediate-operations.html">4. Intermediate operations</a> ·
+  <a href="lesson-5-terminal-operations.html">5. Terminal operations &amp; reduce</a> ·
+  <a href="lesson-6-collectors-and-groupingby.html">6. Collectors &amp; groupingBy</a> ·
+  <a href="lesson-7-optional.html">7. Optional</a> ·
+  <a href="lesson-8-default-methods-and-java-time.html">8. default methods &amp; java.time</a> ·
+  <strong>9. Recall &amp; interview playbook</strong>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> You are not forgetting method names because your memory is bad. You are forgetting them because you
+are trying to recall a <em>list</em>. This part replaces the list with a <strong>four-question decision procedure</strong>, so that
+under pressure you <em>derive</em> the name instead of fishing for it — and then drills it on the 25 problems interviewers
+actually ask.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+Parts 1–8 taught the material. This part is about <strong>retrieval</strong> — the separate skill of getting it back out when
+someone is watching. Everything here is a summary of earlier lessons organised for speed, plus worked problems. Use it as the
+revision page you reread before an interview.
+</p>
+
+<h2><span class="n">§2</span>Why you blank, and the fix</h2>
+<p>
+Recall fails when the thing you want has no <strong>retrieval cue</strong>. "Name a stream method" has no cue — it is a list of
+forty with nothing to grab. But "I have a list, I want a map from department to head count" has a lot of structure, and that
+structure can be turned into a chain of yes/no questions that each eliminate most of the API.
+</p>
+<div class="callout">
+<strong>The shift:</strong> stop asking <em>"which method does this?"</em> and start asking <em>"what shape do I have, and what shape
+do I want?"</em> Every stream method is a named arrow between two shapes. Once you know both ends, there are usually only two
+candidates left.
+</div>
+
+<h2><span class="n">§3</span>The four questions</h2>
+
+<figure>
+<svg viewBox="0 0 820 440" width="100%" role="img" aria-label="A four-question decision procedure for choosing stream methods">
+  <style>
+    .q{fill:#f1ece0;stroke:#6b675e;stroke-width:1.5}
+    .a1{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .a2{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .a3{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:bold 12.5px Georgia,serif;fill:#2b2b28}
+    .m{font:11.5px "SF Mono",Menlo,monospace;fill:#3f3b34}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#pm);fill:none}
+  </style>
+  <defs><marker id="pm" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="q" x="20" y="20" width="780" height="42" rx="6"/>
+  <text class="t" x="38" y="46">Q1. WHERE DO THE ELEMENTS COME FROM?   collection.stream() · Stream.of · Arrays.stream · IntStream.range · map.entrySet().stream() · text.split</text>
+
+  <rect class="q" x="20" y="80" width="780" height="92" rx="6"/>
+  <text class="t" x="38" y="104">Q2. DO I NEED FEWER / DIFFERENT ELEMENTS FIRST?</text>
+  <text class="m" x="38" y="128">fewer      -&gt; filter · distinct · limit · skip</text>
+  <text class="m" x="38" y="148">different  -&gt; map  (one-to-one)   ·   flatMap  (mapper already returns a stream/list)</text>
+  <text class="m" x="38" y="166">numbers    -&gt; mapToInt / boxed            order: filter -&gt; map -&gt; distinct -&gt; sorted -&gt; limit</text>
+
+  <rect class="q" x="20" y="190" width="780" height="130" rx="6"/>
+  <text class="t" x="38" y="214">Q3. WHAT SHAPE IS THE ANSWER?</text>
+  <rect class="a1" x="38" y="226" width="240" height="80" rx="5"/>
+  <text class="m" x="52" y="248">a collection / string</text>
+  <text class="m" x="52" y="268">-&gt; collect(toList/toSet/</text>
+  <text class="m" x="52" y="286">   joining/toMap/groupingBy)</text>
+  <rect class="a2" x="292" y="226" width="240" height="80" rx="5"/>
+  <text class="m" x="306" y="248">one number</text>
+  <text class="m" x="306" y="268">-&gt; count · sum · average</text>
+  <text class="m" x="306" y="286">   min · max · reduce</text>
+  <rect class="a3" x="546" y="226" width="238" height="80" rx="5"/>
+  <text class="m" x="560" y="248">yes/no, or one element</text>
+  <text class="m" x="560" y="268">-&gt; anyMatch · allMatch</text>
+  <text class="m" x="560" y="286">   findFirst · findAny</text>
+
+  <rect class="q" x="20" y="338" width="780" height="88" rx="6"/>
+  <text class="t" x="38" y="362">Q4. (ONLY IF THE ANSWER IS A MAP) ONE VALUE PER KEY, OR MANY?</text>
+  <text class="m" x="38" y="386">ONE  per key -&gt; toMap(k, v, mergeFn)        remember the merge function or it THROWS</text>
+  <text class="m" x="38" y="406">MANY per key -&gt; groupingBy(classifier, downstream)   "group by X, and per group give me Y"</text>
+
+  <line class="a" x1="410" y1="64" x2="410" y2="78"/>
+  <line class="a" x1="410" y1="174" x2="410" y2="188"/>
+  <line class="a" x1="410" y1="322" x2="410" y2="336"/>
+</svg>
+<figcaption>Run these four questions in order. By Q3 you have usually eliminated 90% of the API.</figcaption>
+</figure>
+
+<h3>Worked example of the procedure</h3>
+<p><em>"Given a list of employees, give me the names of the top 3 earners in each city."</em></p>
+<table>
+  <thead><tr><th>Question</th><th>Answer</th><th>Code so far</th></tr></thead>
+  <tbody>
+  <tr><td>Q1 source</td><td>a list</td><td><code>staff.stream()</code></td></tr>
+  <tr><td>Q3 shape</td><td>a map → use Q4</td><td><code>.collect(...)</code></td></tr>
+  <tr><td>Q4 one or many</td><td>many per city</td><td><code>groupingBy(Employee::getCity, …)</code></td></tr>
+  <tr><td>"per group give me…"</td><td>"the top 3 names" — that is itself a pipeline, so collect the group then post-process</td><td><code>collectingAndThen(toList(), list -&gt; …)</code></td></tr>
+  </tbody>
+</table>
+<pre>staff.stream().collect(groupingBy(Employee::getCity,
+    collectingAndThen(toList(), list -&gt; list.stream()
+        .sorted(comparingInt(Employee::getSalary).reversed())
+        .limit(3)
+        .map(Employee::getName)
+        .collect(toList()))));</pre>
+<div class="ann">Notice that you never had to <em>recall</em> <code>collectingAndThen</code> — you reached it by asking "my downstream needs
+to be a whole pipeline, so I need to collect the group and then transform it". The name is the last thing you need, not the
+first.</div>
+
+<h2><span class="n">§4</span>The five sentences to memorise</h2>
+<p>If you memorise nothing else, memorise these. Each one answers a whole family of questions.</p>
+<ol>
+  <li><strong>"A lambda is an object implementing an interface with one abstract method."</strong><br/>
+      <span class="sources">Answers: what is a lambda, why interfaces, what is <code>@FunctionalInterface</code>, why target typing.</span></li>
+  <li><strong>"Returns a Stream = intermediate and lazy; returns anything else = terminal and eager."</strong><br/>
+      <span class="sources">Answers: is X intermediate or terminal, why nothing happened, why short-circuiting works.</span></li>
+  <li><strong>"One element goes through the whole chain before the next one starts."</strong><br/>
+      <span class="sources">Answers: every "what is the printed order?" question.</span></li>
+  <li><strong>"If the mapper already returns a stream, a collection or an Optional, use flatMap."</strong><br/>
+      <span class="sources">Answers: map vs flatMap, in both the Stream and Optional APIs.</span></li>
+  <li><strong>"Group by X, and per group give me Y."</strong><br/>
+      <span class="sources">Answers: the entire <code>groupingBy</code> family, including nesting.</span></li>
+</ol>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine trying to find a word in a dictionary that has no alphabetical order — you would have to read every page. That is what
+recalling "a stream method" from a flat list feels like. The alphabet is what makes a dictionary usable: it turns searching into a
+few quick decisions.
+</p>
+<p>
+The four questions are your alphabet. "Where do the things come from? Do I need fewer of them? What shape is my answer? If it is a
+map, one or many per key?" Each question turns a page, and by the fourth you are looking at two words instead of forty.
+</p>
+<p>
+Naive question: <em>"isn't it faster to just memorise the forty?"</em> For a week, yes. Under pressure, no — memorised lists are
+the first thing that disappears when you are nervous, because they have nothing holding them together. A procedure still works
+when you are nervous, because each step is small.
+</p>
+
+<h2><span class="n">§6</span>The one-page cheat sheet</h2>
+<pre>SOURCES
+list.stream()                      collection -&gt; Stream
+Arrays.stream(arr)                 array -&gt; Stream (IntStream for int[])
+Stream.of(a, b, c)                 fixed values
+IntStream.range(0,5) rangeClosed(1,5)   numbers (end exclusive / inclusive)
+Stream.iterate(1, n-&gt;n*2).limit(5) infinite + limit
+map.entrySet().stream()            Map has NO stream()
+Arrays.stream(text.split(" "))     words
+str.chars().mapToObj(c-&gt;(char)c)   characters
+
+INTERMEDIATE  (lazy — returns a Stream)
+filter(p)        keep matching
+map(f)           one -&gt; one
+flatMap(f)       one -&gt; many, flattened
+distinct()       equals/hashCode
+sorted() sorted(cmp)   stable; buffers everything
+limit(n) skip(n)       first n / drop n
+peek(c)          debugging only
+mapToInt(f) boxed() mapToObj(f)    primitive bridge
+
+TERMINAL  (eager — returns something else)
+collect(...)     see collectors below
+forEach(c)       side effect, void
+count()          long
+min(cmp) max(cmp)      Optional&lt;T&gt;
+mapToInt(f).sum() .average() .summaryStatistics()
+reduce(op) reduce(seed,op) reduce(seed,acc,combiner)
+anyMatch allMatch noneMatch  boolean   (allMatch on EMPTY = true)
+findFirst() findAny()        Optional&lt;T&gt;
+toArray(String[]::new)
+
+COLLECTORS
+toList() toSet() toCollection(TreeSet::new)
+joining() joining(", ") joining(", ","[","]")
+counting() summingInt(f) averagingInt(f) summarizingInt(f)
+minBy(cmp) maxBy(cmp)                      -&gt; Optional
+toMap(k, v)                                throws on duplicate key
+toMap(k, v, (a,b)-&gt;a)                      keep first
+toMap(k, v, merge, LinkedHashMap::new)     keep order
+groupingBy(f)                              Map&lt;K,List&lt;T&gt;&gt;
+groupingBy(f, counting())                  Map&lt;K,Long&gt;
+groupingBy(f, mapping(g, toList()))        Map&lt;K,List&lt;R&gt;&gt;
+groupingBy(f, TreeMap::new, down)          sorted keys
+groupingBy(f, groupingBy(g))               two levels
+partitioningBy(p)                          Map&lt;Boolean,List&lt;T&gt;&gt;, both keys
+collectingAndThen(maxBy(cmp), Optional::get)   best per group
+
+COMPARATORS
+comparing(Person::getName)
+comparingInt(Person::getAge)              no boxing
+.thenComparing(Person::getName)
+.reversed()      naturalOrder()  reverseOrder()  nullsFirst(cmp)
+Map.Entry.comparingByValue() / comparingByKey()
+
+FUNCTIONAL INTERFACES
+Function&lt;T,R&gt;  apply    Predicate&lt;T&gt;  test
+Consumer&lt;T&gt;    accept   Supplier&lt;T&gt;   get
+UnaryOperator&lt;T&gt; T-&gt;T   BinaryOperator&lt;T&gt; (T,T)-&gt;T
+Bi… two inputs · …Operator same type · Int/Long/Double primitive · To… primitive result
+
+OPTIONAL
+of ofNullable empty · map flatMap filter
+orElse(v)  ALWAYS evaluates v   ·  orElseGet(sup) lazy  ·  orElseThrow(sup)
+ifPresent(c) · avoid get()</pre>
+
+<h2><span class="n">§7</span>The 25 problems</h2>
+<p>
+These are the stream questions that actually come up. Cover the answer, write it, then check. Assume
+<code>import static java.util.stream.Collectors.*;</code> and <code>import static java.util.Comparator.*;</code>.
+</p>
+
+<h3>Group A — strings and characters</h3>
+
+<div class="q"><h4>1. Count the frequency of each word in a sentence</h4>
+<pre>Arrays.stream(text.split(<span class="s">"\\s+"</span>))
+      .collect(groupingBy(w -&gt; w, counting()));
+<span class="c">// {over=1, the=3, quick=1, ...}</span></pre>
+<div class="ann">Verified in <a href="../code/CollectorsDemo.java">CollectorsDemo</a>. <code>Function.identity()</code> is the same as
+<code>w -&gt; w</code>. Add <code>TreeMap::new</code> as the second argument for sorted output.</div></div>
+
+<div class="q"><h4>2. Frequency of each character, preserving first-seen order</h4>
+<pre>s.chars().mapToObj(c -&gt; (<span class="k">char</span>) c)
+ .collect(groupingBy(c -&gt; c, LinkedHashMap::new, counting()));
+<span class="c">// banana -&gt; {b=1, a=3, n=2}</span></pre></div>
+
+<div class="q"><h4>3. First non-repeating character</h4>
+<pre>s.chars().mapToObj(c -&gt; (<span class="k">char</span>) c)
+ .collect(groupingBy(c -&gt; c, LinkedHashMap::new, counting()))
+ .entrySet().stream()
+ .filter(e -&gt; e.getValue() == 1)
+ .map(Map.Entry::getKey)
+ .findFirst();</pre>
+<div class="ann"><code>LinkedHashMap</code> is essential — with a <code>HashMap</code> "first" is meaningless.</div></div>
+
+<div class="q"><h4>4. Group anagrams together</h4>
+<pre>words.stream().collect(groupingBy(w -&gt; {
+    <span class="k">char</span>[] a = w.toCharArray(); Arrays.sort(a); <span class="k">return</span> <span class="k">new</span> String(a);
+}));
+<span class="c">// {aet=[eat, tea, ate], abt=[bat], ant=[tan, nat]}</span></pre></div>
+
+<div class="q"><h4>5. Is a string a palindrome?</h4>
+<pre>IntStream.range(0, s.length() / 2)
+         .allMatch(i -&gt; s.charAt(i) == s.charAt(s.length() - 1 - i));</pre>
+<div class="ann"><code>IntStream.range</code> is how you get an index inside a stream. <code>allMatch</code> short-circuits on the
+first mismatch.</div></div>
+
+<div class="q"><h4>6. Reverse each word in a sentence</h4>
+<pre>Arrays.stream(text.split(<span class="s">" "</span>))
+      .map(w -&gt; <span class="k">new</span> StringBuilder(w).reverse().toString())
+      .collect(joining(<span class="s">" "</span>));</pre></div>
+
+<div class="q"><h4>7. Longest word</h4>
+<pre>words.stream().max(comparingInt(String::length));   <span class="c">// Optional&lt;String&gt;</span></pre></div>
+
+<div class="q"><h4>8. Join names as "a, b and c"</h4>
+<pre>names.stream().collect(joining(<span class="s">", "</span>));
+<span class="c">// for the "and" variant, collect to a List and handle the last element separately</span></pre></div>
+
+<h3>Group B — numbers</h3>
+
+<div class="q"><h4>9. Sum / average / max of a list of integers</h4>
+<pre>nums.stream().mapToInt(Integer::intValue).sum();
+nums.stream().mapToInt(Integer::intValue).average().orElse(0);
+nums.stream().max(naturalOrder());</pre>
+<div class="ann">The <code>mapToInt</code> is not optional — <code>Stream&lt;Integer&gt;</code> has no <code>sum()</code>.</div></div>
+
+<div class="q"><h4>10. Second-highest distinct number</h4>
+<pre>nums.stream().distinct().sorted(reverseOrder()).skip(1).findFirst();</pre>
+<div class="ann"><code>distinct()</code> is the detail interviewers are checking for.</div></div>
+
+<div class="q"><h4>11. All even numbers, squared, as a list</h4>
+<pre>nums.stream().filter(n -&gt; n % 2 == 0).map(n -&gt; n * n).collect(toList());</pre></div>
+
+<div class="q"><h4>12. First n Fibonacci numbers</h4>
+<pre>Stream.iterate(<span class="k">new</span> <span class="k">int</span>[]{0, 1}, f -&gt; <span class="k">new</span> <span class="k">int</span>[]{f[1], f[0] + f[1]})
+      .limit(10).map(f -&gt; f[0]).collect(toList());
+<span class="c">// [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]</span></pre>
+<div class="ann">The trick is carrying <em>two</em> values through <code>iterate</code> in a small array, because the seed must be a
+single value.</div></div>
+
+<div class="q"><h4>13. Is a number prime?</h4>
+<pre>IntStream.rangeClosed(2, (<span class="k">int</span>) Math.sqrt(n)).noneMatch(i -&gt; n % i == 0);</pre></div>
+
+<div class="q"><h4>14. Count, min, max and average in a single pass</h4>
+<pre>IntSummaryStatistics st = nums.stream().mapToInt(Integer::intValue).summaryStatistics();</pre></div>
+
+<h3>Group C — lists and duplicates</h3>
+
+<div class="q"><h4>15. Find duplicate elements</h4>
+<pre>list.stream()
+    .collect(groupingBy(x -&gt; x, counting()))
+    .entrySet().stream()
+    .filter(e -&gt; e.getValue() &gt; 1)
+    .map(Map.Entry::getKey)
+    .collect(toList());</pre>
+<div class="ann">The parallel-safe version. The quick alternative
+<code>Set&lt;T&gt; seen = new HashSet&lt;&gt;(); list.stream().filter(x -&gt; !seen.add(x))</code> is a stateful lambda — fine
+sequentially, and worth naming as such.</div></div>
+
+<div class="q"><h4>16. Remove duplicates by one field</h4>
+<pre>staff.stream()
+     .collect(toMap(Employee::getDept, e -&gt; e, (a, b) -&gt; a))
+     .values();</pre>
+<div class="ann">There is no "distinctBy" in the JDK. The merge function <code>(a,b) -&gt; a</code> is "keep the first one seen".</div></div>
+
+<div class="q"><h4>17. Flatten a list of lists</h4>
+<pre>nested.stream().flatMap(List::stream).collect(toList());</pre></div>
+
+<div class="q"><h4>18. Intersection / difference of two lists</h4>
+<pre>a.stream().filter(b::contains).collect(toList());            <span class="c">// intersection</span>
+a.stream().filter(x -&gt; !b.contains(x)).collect(toList());    <span class="c">// difference</span></pre>
+<div class="ann">Say out loud that <code>List.contains</code> is O(n), so this is O(n·m) — wrap <code>b</code> in a
+<code>HashSet</code> first for large inputs. That remark is often what they are listening for.</div></div>
+
+<div class="q"><h4>19. Partition a list into even and odd</h4>
+<pre>nums.stream().collect(partitioningBy(n -&gt; n % 2 == 0));
+<span class="c">// {false=[1,3,5], true=[2,4]}</span></pre></div>
+
+<div class="q"><h4>20. Sort a list of objects by two fields</h4>
+<pre>staff.stream()
+     .sorted(comparing(Employee::getDept)
+             .thenComparing(comparingInt(Employee::getSalary).reversed()))
+     .collect(toList());</pre></div>
+
+<h3>Group D — maps and grouping</h3>
+
+<div class="q"><h4>21. List → Map keyed by id</h4>
+<pre>staff.stream().collect(toMap(Employee::getName, Function.identity()));</pre>
+<div class="ann">Add <code>(a, b) -&gt; a</code> if the key might repeat, or it throws <code>IllegalStateException: Duplicate key</code>.</div></div>
+
+<div class="q"><h4>22. Group by department, and get only the names</h4>
+<pre>staff.stream().collect(groupingBy(Employee::getDept,
+        mapping(Employee::getName, toList())));
+<span class="c">// {hr=[frank], sales=[dave, erin], eng=[ann, bob, carol]}</span></pre></div>
+
+<div class="q"><h4>23. Highest-paid employee per department (no Optional in the result)</h4>
+<pre>staff.stream().collect(groupingBy(Employee::getDept,
+        collectingAndThen(maxBy(comparingInt(Employee::getSalary)), Optional::get)));
+<span class="c">// {hr=frank, sales=erin, eng=carol}</span></pre></div>
+
+<div class="q"><h4>24. Sort a map by value, descending, keeping order</h4>
+<pre>map.entrySet().stream()
+   .sorted(Map.Entry.&lt;String,Long&gt;comparingByValue().reversed())
+   .collect(toMap(Map.Entry::getKey, Map.Entry::getValue,
+                  (a, b) -&gt; a, LinkedHashMap::new));</pre>
+<div class="ann">Three traps in one question: no <code>map.stream()</code>, the explicit type witness before
+<code>comparingByValue</code>, and <code>LinkedHashMap::new</code> to keep the order you just created.</div></div>
+
+<div class="q"><h4>25. Two-level grouping with a count</h4>
+<pre>staff.stream().collect(groupingBy(Employee::getDept,
+        groupingBy(Employee::getCity, counting())));
+<span class="c">// {hr={delhi=1}, sales={pune=1, delhi=1}, eng={pune=2, delhi=1}}</span></pre></div>
+
+<h2><span class="n">§8</span>Predict-the-output drills</h2>
+<p>These are the "what does this print?" questions. Each one tests a specific rule from parts 3–7.</p>
+<table>
+  <thead><tr><th>#</th><th>Code</th><th>Answer &amp; why</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td><code>list.stream().map(String::toUpperCase);</code></td><td><strong>Nothing happens.</strong> No terminal operation.</td></tr>
+  <tr><td>2</td><td><code>Stream&lt;String&gt; s = list.stream(); s.count(); s.count();</code></td><td><code>IllegalStateException</code> — a stream is one-shot.</td></tr>
+  <tr><td>3</td><td><code>new ArrayList&lt;String&gt;().stream().allMatch(x -&gt; false)</code></td><td><code>true</code> — vacuous truth on an empty stream.</td></tr>
+  <tr><td>4</td><td><code>list.forEach(s -&gt; s.toUpperCase());</code></td><td>No change — <code>String</code> is immutable and the result is discarded.</td></tr>
+  <tr><td>5</td><td><code>f.andThen(g).apply(3)</code> vs <code>f.compose(g).apply(3)</code>, <code>f=n*2</code>, <code>g=n+10</code></td><td><code>16</code> vs <code>26</code> — <code>andThen</code> is left-to-right.</td></tr>
+  <tr><td>6</td><td><code>Stream.of(1,2,3).peek(print).filter(odd).findFirst()</code></td><td>Prints <code>1</code> only — short-circuits immediately.</td></tr>
+  <tr><td>7</td><td><code>opt.orElse(expensive())</code> when the value is present</td><td><code>expensive()</code> <strong>still runs</strong>. Use <code>orElseGet</code>.</td></tr>
+  <tr><td>8</td><td><code>Optional.of(user).map(User::getAddressOptional)</code></td><td><code>Optional[Optional[...]]</code> — needed <code>flatMap</code>.</td></tr>
+  <tr><td>9</td><td><code>toMap(Employee::getDept, Employee::getName)</code> with repeated departments</td><td><code>IllegalStateException: Duplicate key</code>.</td></tr>
+  <tr><td>10</td><td><code>Stream.of(1,2,3).reduce(10, Integer::sum)</code></td><td><code>16</code> — the seed is included.</td></tr>
+  <tr><td>11</td><td><code>date.plusDays(5);</code> alone on a line</td><td>No effect — <code>java.time</code> is immutable.</td></tr>
+  <tr><td>12</td><td><code>IntStream.range(1,4)</code> vs <code>rangeClosed(1,4)</code></td><td><code>[1,2,3]</code> vs <code>[1,2,3,4]</code>.</td></tr>
+  <tr><td>13</td><td><code>"ab".chars().collect(toList())</code></td><td>Does not compile — <code>IntStream</code> needs <code>.boxed()</code>.</td></tr>
+  <tr><td>14</td><td><code>partitioningBy(p)</code> where nothing matches</td><td><code>{false=[...], true=[]}</code> — both keys always present.</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="n">§9</span>The theory questions, with model answers</h2>
+<table>
+  <thead><tr><th>Question</th><th>Answer in one or two sentences</th></tr></thead>
+  <tbody>
+  <tr><td>What is a lambda?</td><td>A compact instance of an interface with exactly one abstract method; its types come from the target type at the call site.</td></tr>
+  <tr><td>Why do captured locals have to be effectively final?</td><td>Locals live on a stack frame that dies; the lambda lives on the heap and may run later on another thread, so the value is copied and must not diverge.</td></tr>
+  <tr><td>What does <code>this</code> mean in a lambda?</td><td>The enclosing instance — a lambda introduces no new scope. In an anonymous inner class it is the anonymous object.</td></tr>
+  <tr><td>Is a stream a data structure?</td><td>No. It holds no elements; it is a lazily evaluated plan over a source, and it never modifies that source.</td></tr>
+  <tr><td>Intermediate vs terminal?</td><td>Intermediate returns a <code>Stream</code> and is lazy; terminal returns something else and triggers execution. Exactly one terminal per pipeline.</td></tr>
+  <tr><td>What does lazy actually buy you?</td><td>No intermediate collections (fusion), short-circuiting, and the ability to work with infinite sources.</td></tr>
+  <tr><td><code>map</code> vs <code>flatMap</code>?</td><td><code>map</code> is one-to-one; <code>flatMap</code> is one-to-many and flattens. Use <code>flatMap</code> when the mapper already returns a stream/collection/<code>Optional</code>.</td></tr>
+  <tr><td><code>findFirst</code> vs <code>findAny</code>?</td><td>Identical sequentially. In parallel, <code>findFirst</code> must honour encounter order and costs more; <code>findAny</code> may return any match.</td></tr>
+  <tr><td><code>collect</code> vs <code>reduce</code>?</td><td><code>reduce</code> is immutable reduction into one value; <code>collect</code> is mutable reduction into a container, with a combiner so it parallelises safely.</td></tr>
+  <tr><td>Why must a <code>reduce</code> accumulator be associative?</td><td>Parallel execution splits the stream and combines partial results in an unspecified grouping; a non-associative operation gives different answers.</td></tr>
+  <tr><td><code>groupingBy</code> vs <code>partitioningBy</code>?</td><td>Arbitrary keys vs exactly two <code>Boolean</code> keys. <code>partitioningBy</code> always contains both keys, even when one side is empty.</td></tr>
+  <tr><td>When is <code>parallelStream</code> a bad idea?</td><td>Small collections, IO-bound work, cheap per-element operations, shared mutable state, or when you must not occupy the shared common ForkJoin pool.</td></tr>
+  <tr><td>Why does <code>Optional</code> exist?</td><td>To put "there may be no result" into the method signature so the caller cannot ignore it. It is a return type, not a field or parameter type.</td></tr>
+  <tr><td>Why do <code>default</code> methods exist?</td><td>Interface evolution — <code>Collection.stream()</code> could not have been added otherwise without breaking every implementer.</td></tr>
+  <tr><td>Does <code>default</code> give Java multiple inheritance?</td><td>Of behaviour, yes; of state, no. Interfaces have no instance fields, and a conflict must be resolved explicitly with <code>A.super.m()</code>.</td></tr>
+  <tr><td>Why is <code>java.time</code> better than <code>Date</code>?</td><td>Immutable and therefore thread-safe, domain-specific types, sane month numbering, and a thread-safe formatter.</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="n">§10</span>How to practise (spaced repetition plan)</h2>
+<ol>
+  <li><strong>Day 1 — derive, do not read.</strong> Cover the cheat sheet. For each of the four questions in §3, write down the
+      methods you would reach for. Check. Repeat until the four questions come automatically.</li>
+  <li><strong>Day 2 — the 25 problems, cold.</strong> Write each one on paper or in an editor with autocomplete off. Autocomplete is
+      why the names never stick; interviews have none.</li>
+  <li><strong>Day 4 — the drills in §8.</strong> These test rules, not names, and they are where "trick questions" come from.</li>
+  <li><strong>Day 7 — teach it.</strong> Explain laziness, <code>flatMap</code> and <code>groupingBy</code> out loud to an empty
+      room, with the analogies from parts 3, 4 and 6. Anything you stumble on is the thing to reread.</li>
+  <li><strong>Day 14 — mix.</strong> Take any five problems and change the requirement slightly ("per city instead of per
+      department", "top 2 instead of top 3"). Adapting is the real skill.</li>
+</ol>
+<div class="idiom"><strong>The most valuable habit:</strong> turn off IDE autocomplete for one practice session a week. You will
+discover immediately which names you actually know, and which ones the IDE has been remembering for you.</div>
+
+<h2><span class="n">§11</span>Pitfalls, consolidated</h2>
+<div class="pitfall"><strong>The ten that cost marks:</strong>
+<ol>
+  <li>Missing terminal operation — nothing runs.</li>
+  <li>Reusing a stream — <code>IllegalStateException</code>.</li>
+  <li><code>toMap</code> without a merge function — <code>Duplicate key</code>.</li>
+  <li><code>Stream&lt;Integer&gt;</code> has no <code>sum()</code> — needs <code>mapToInt</code>.</li>
+  <li><code>IntStream</code> has no <code>collect(toList())</code> — needs <code>boxed()</code>.</li>
+  <li><code>allMatch</code> on an empty stream is <code>true</code>.</li>
+  <li><code>orElse</code> always evaluates its argument.</li>
+  <li><code>map</code> where <code>flatMap</code> was needed — nested boxes.</li>
+  <li><code>sorted()</code> before <code>filter()</code> — correct but wasteful; <code>sorted</code> on infinite — hangs.</li>
+  <li>Side effects in lambdas, and <code>peek</code> used for real work.</li>
+</ol>
+</div>
+
+<h2><span class="n">§12</span>Recap</h2>
+<ul class="recap">
+  <li>Replace recall with a <strong>procedure</strong>: source → reshape → answer shape → (if a map) one or many per key.</li>
+  <li>Every method is an arrow between two shapes; knowing both ends leaves two candidates.</li>
+  <li>The five sentences in §4 cover the majority of theory questions.</li>
+  <li>The 25 problems in §7 cover the majority of coding questions; nearly all are <code>groupingBy</code>, <code>toMap</code>,
+      <code>flatMap</code> or a sort.</li>
+  <li>The drills in §8 are rule tests, not name tests — they are where the "gotcha" questions live.</li>
+  <li>Practise with autocomplete off, spaced across two weeks, and explain it out loud.</li>
+</ul>
+
+<h2>Read one primary source</h2>
+<p>Keep two tabs open while you practise:
+<a href="https://docs.oracle.com/javase/8/docs/api/java/util/stream/Stream.html">Stream</a> and
+<a href="https://docs.oracle.com/javase/8/docs/api/java/util/stream/Collectors.html">Collectors</a>. Reading the method summary of
+each — just the names and return types — once a week is the cheapest possible revision.</p>
+
+<p class="nav" style="margin-top:2rem">← <a href="lesson-8-default-methods-and-java-time.html">Part 8 — default methods &amp; java.time</a> ·
+Back to <a href="lesson.html">Part 1</a> · Up next in the path: <a href="../08-collections-and-equality/lesson.html">Lesson 8 — Collections &amp; equality</a> →</p>
+<p class="sources">Sources: Oracle, <code>java.util.stream.Stream</code> and <code>Collectors</code> javadocs (SE 8);
+<code>java.util.Optional</code> javadoc. All code outputs quoted here were produced by running
+<code>LambdaDemo</code>, <code>StreamOpsDemo</code>, <code>StreamTerminalDemo</code>, <code>CollectorsDemo</code>,
+<code>OptionalDemo</code> and <code>Java8MiscDemo</code> on JDK 1.8.0_411. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

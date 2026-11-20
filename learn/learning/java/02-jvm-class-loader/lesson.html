@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Class Loader Subsystem — JVM</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<h1>The Class Loader Subsystem</h1>
+<p class="crumb">Java › JVM cluster · lesson 2 of 4 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — finding, verifying, and preparing types</p>
+
+<div class="tldr">
+<strong>In one line —</strong> The class loader turns the bytes of a <code>.class</code> file into a live, ready-to-use class.
+It does this in three stages — <strong>Load → Link (check · set up · wire) → Start</strong>. It loads a class <strong>only when
+first needed</strong>, and it always <strong>asks its parent loader first</strong>. This is where the JVM checks that code is
+safe to run.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>This is step 5 of the <a href="../01-jvm-bytecode-pipeline/lesson.html">bytecode pipeline</a>. Nothing can run until a class
+is loaded and ready. Getting it there is the class loader's job.</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+<p>
+Java code can come from many places — a jar file, a download, even code made on the fly. The JVM must not trust it
+blindly. So it needs a careful way to bring in new classes and check them first. That is what the class loader does: find
+the bytes, make sure they are safe, and wire the class into the running program. It also lets you write your own loader —
+for example, to pull classes from an encrypted file or keep plugins separate
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-5.html">JVM Spec SE 21, §5.3</a>)</span>.
+</p>
+
+<h2><span class="n">§3</span>How it works — three phases</h2>
+<figure>
+<svg viewBox="0 0 760 250" width="100%" role="img" aria-label="Class loading phases">
+  <style>
+    .p{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.3}.sub{fill:#faf3e6;stroke:#b98a3a;stroke-width:1}
+    .tt{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}.cc{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .aa{stroke:#6b675e;stroke-width:1.3;marker-end:url(#m2);fill:none}
+  </style>
+  <defs><marker id="m2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+  <rect class="p" x="10" y="30" width="150" height="60" rx="6"/><text class="tt" x="45" y="55">Loading</text><text class="cc" x="20" y="73">find bytes, make</text><text class="cc" x="30" y="86">Class object</text>
+  <rect class="p" x="210" y="15" width="330" height="95" rx="6"/><text class="tt" x="330" y="33">Linking</text>
+  <rect class="sub" x="225" y="45" width="95" height="52" rx="4"/><text class="cc" x="240" y="66">Verify</text><text class="cc" x="232" y="82">safe bytecode</text>
+  <rect class="sub" x="328" y="45" width="95" height="52" rx="4"/><text class="cc" x="343" y="66">Prepare</text><text class="cc" x="335" y="82">static defaults</text>
+  <rect class="sub" x="431" y="45" width="95" height="52" rx="4"/><text class="cc" x="446" y="66">Resolve</text><text class="cc" x="437" y="82">symbolic refs</text>
+  <rect class="p" x="590" y="30" width="160" height="60" rx="6"/><text class="tt" x="620" y="55">Initialize</text><text class="cc" x="600" y="73">run &lt;clinit&gt;</text>
+  <line class="aa" x1="160" y1="60" x2="208" y2="60"/><line class="aa" x1="540" y1="60" x2="588" y2="60"/>
+  <text class="cc" x="250" y="140" style="font-style:normal;font-weight:bold">Delegation (parent-first):</text>
+  <rect class="sub" x="250" y="150" width="150" height="34" rx="4"/><text class="cc" x="262" y="171">Bootstrap (java.base)</text>
+  <rect class="sub" x="410" y="150" width="120" height="34" rx="4"/><text class="cc" x="424" y="171">Platform loader</text>
+  <rect class="sub" x="540" y="150" width="150" height="34" rx="4"/><text class="cc" x="553" y="171">Application loader</text>
+  <line class="aa" x1="400" y1="167" x2="408" y2="167"/><line class="aa" x1="530" y1="167" x2="538" y2="167"/>
+  <text class="cc" x="250" y="205">Ask parent first; only try yourself if the parent can't find it — core types stay trustworthy.</text>
+</svg>
+<figcaption>The three phases and the parent-first delegation chain (JVM Spec §5.3–§5.5).</figcaption>
+</figure>
+
+<h3>Loading</h3>
+<p>The loader finds the bytes for a class name and turns them into a class in memory. If it cannot find the bytes, you get
+<code>ClassNotFoundException</code>, which shows up as <code>NoClassDefFoundError</code> where the class is used
+<span class="sources">(§5.3.1)</span>.</p>
+
+<h3>Linking = check → set up → wire</h3>
+<ul>
+  <li><strong>Check (verify)</strong> — makes sure the bytecode is well-formed and safe. A bad file gives <code>VerifyError</code>. This check is why even code you don't trust is safe to run <span class="sources">(§5.4.1)</span>.</li>
+  <li><strong>Set up (prepare)</strong> — creates the class's <code>static</code> fields and gives them <strong>starting</strong> values (<code>0</code>, <code>null</code>, <code>false</code>). Your real values are <em>not</em> set yet <span class="sources">(§5.4.2)</span>.</li>
+  <li><strong>Wire (resolve)</strong> — turns the names in the constant pool (<code>#n</code>) into real links to other classes, loading them if needed. This can happen later, when first used <span class="sources">(§5.4.3)</span>.</li>
+</ul>
+
+<h3>Start (initialize)</h3>
+<p>Runs <code>&lt;clinit&gt;</code>: your <code>static</code> field values and <code>static { }</code> blocks, top to bottom.
+The JVM promises this runs <strong>once, safely</strong>, even if many threads hit the class at the same time
+<span class="sources">(§5.5)</span>. This is the trick behind the "holder" singleton pattern.</p>
+
+<div class="callout">
+<strong>Starting value vs your value — a favourite trick question.</strong> During <em>set up</em>, <code>static int COUNT = 5;</code>
+first becomes <code>0</code>. Your <code>5</code> is only put in later, during <em>start</em> (<code>&lt;clinit&gt;</code>).
+So if a class reads its own static too early, it can see <code>0</code>. Order matters.
+</div>
+
+<h2><span class="n">§4</span>Asking the parent first, and class identity</h2>
+<p>There are three built-in loaders: <strong>Bootstrap</strong> (loads the core classes like <code>Object</code> and
+<code>String</code>), <strong>Platform</strong>, and <strong>Application</strong> (loads your own classes). When a loader needs a
+class, it <em>asks its parent first</em>. Only if the parent cannot find it does the loader try itself. This means nobody can
+sneak in a fake <code>java.lang.String</code> — the core classes always come from the trusted bootstrap loader.</p>
+<p>One more key idea: a class's identity is <em>its name plus the loader that loaded it</em>. So the same class file loaded by
+two different loaders becomes <strong>two different classes</strong>. Mixing them gives a <code>ClassCastException</code> or
+<code>LinkageError</code> <span class="sources">(§5.3.4)</span>. This is exactly how an app server keeps two web apps apart
+even when both ship a class called <code>com.acme.Util</code>.</p>
+
+<h2><span class="n">§5</span>When this matters</h2>
+<ul>
+  <li><strong>Inside frameworks</strong> — Tomcat, OSGi, and Spring Boot fat-jars all use custom loaders to keep parts separate or reload them.</li>
+  <li><strong>Dependency problems</strong> — <code>NoClassDefFoundError</code> and <code>LinkageError</code> are almost always loader or classpath problems.</li>
+  <li><strong>Safety</strong> — the safety check is why browsers could once run untrusted applets.</li>
+</ul>
+
+<h2><span class="n">§6</span>Explain it to a 12-year-old</h2>
+<p>A librarian (the loader) gets a book only when you ask for it. Before putting it on the shelf, they check it has nothing
+dangerous inside (check), stick blank notes where the totals will go (set up), look up every other book it mentions
+(wire), and then fill in the totals (start). And they always ask the head librarian first, so no one can slip in a fake
+copy of an important book (ask the parent first).</p>
+
+<h2><span class="n">§7</span>Connections</h2>
+<ul>
+  <li><strong>← jvm-bytecode-pipeline:</strong> this is hand-off 5 in detail.</li>
+  <li><strong>→ jvm-runtime-data-areas:</strong> the loader writes class metadata into the Method Area.</li>
+  <li><strong>→ modern-java-9-to-21:</strong> the Module System (JPMS) reshapes loading and access.</li>
+</ul>
+
+<h2><span class="n">§8</span>In practice — watch loading happen</h2>
+<pre>$ java -verbose:class Hello
+[Loaded java.lang.Object from ...]
+[Loaded java.lang.String from ...]
+...
+[Loaded Hello from file:...]        <span class="c">// your class, loaded lazily, last</span>
+sum=5</pre>
+<div class="ann">The order shows the two rules in action. Core <code>java.lang</code> classes load first, from the bootstrap loader,
+because <code>Hello</code> needs them. <code>Hello</code> itself loads last, and only when the JVM actually needs it.</div>
+<div class="try"><strong>Try this:</strong> make a class with <code>static { System.out.println("init!"); }</code>, and a <code>main</code>
+that only mentions it inside an <code>if (false)</code> block. Does <code>"init!"</code> print? Guess first, then run it.
+You are seeing "load only when needed" in action.</div>
+
+<h2><span class="n">§9</span>Watch out for</h2>
+<div class="pitfall"><strong><code>ClassNotFoundException</code> vs <code>NoClassDefFoundError</code>.</strong> The first: the loader could not find the bytes (often during a reflection lookup). The second: the class was there when you built, but missing or broken when you ran.</div>
+<div class="pitfall"><strong>Thinking statics get your values in "set up."</strong> They only get starting values there (<code>0</code>/<code>null</code>). Your real values come in "start."</div>
+<div class="pitfall"><strong>Forgetting the loader is part of a class's identity.</strong> Same bytes, two loaders = two classes that do not match.</div>
+
+<h2><span class="n">§10</span>Recap</h2>
+<ul class="recap">
+  <li>Three stages: <strong>Load → Link (check·set up·wire) → Start</strong>.</li>
+  <li><strong>Check</strong> makes code safe; <strong>set up</strong> gives starting values; <strong>wire</strong> links up names; <strong>start</strong> runs once, safely.</li>
+  <li>Classes load <strong>only when needed</strong>. Loaders <strong>ask the parent first</strong>.</li>
+  <li>A class's identity = <strong>its name + its loader</strong>. This lets apps stay separate, and causes "same class" mismatches.</li>
+</ul>
+
+<hr/>
+<h2>Reference — errors you'll meet</h2>
+<table>
+<thead><tr><th>Error</th><th>Phase</th><th>Cause</th></tr></thead>
+<tbody>
+<tr><td><code>ClassNotFoundException</code></td><td>Loading</td><td>Bytes not found (often reflection)</td></tr>
+<tr><td><code>NoClassDefFoundError</code></td><td>Loading/Linking</td><td>Present at compile, missing/failed at run</td></tr>
+<tr><td><code>VerifyError</code></td><td>Verify</td><td>Malformed/unsafe bytecode</td></tr>
+<tr><td><code>ExceptionInInitializerError</code></td><td>Initialize</td><td><code>&lt;clinit&gt;</code> threw</td></tr>
+<tr><td><code>LinkageError</code></td><td>Linking</td><td>Loader-constraint / duplicate-type conflicts</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Defining loader</dt><dd>The loader that actually created a class (part of its identity).</dd>
+  <dt>Delegation</dt><dd>Asking the parent loader before loading a class yourself.</dd>
+  <dt>Linking</dt><dd>Verify → prepare → resolve; wiring a class into the running JVM.</dd>
+  <dt>&lt;clinit&gt;</dt><dd>The class initializer method the JVM runs once per class.</dd>
+  <dt>Metaspace</dt><dd>Native-memory method area where loaded class metadata lives.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-5.html">JVM Spec SE 21 — Chapter 5</a>: §5.3 Creation and Loading, §5.4 Linking, §5.5 Initialization.</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>The Java® Virtual Machine Specification, Java SE 21</em> (§5.3–§5.5). Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

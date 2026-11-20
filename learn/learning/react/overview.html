@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>React — Topic Overview</title>
+<style>
+  :root{
+    --ink:#2b2b28; --muted:#6b675e; --rule:#d9d3c7; --bg:#fdfbf6;
+    --accent:#7a1f1f; --accent2:#1f4d7a; --deep:#7a1f1f; --skim:#1f6b4d;
+    --code-bg:#f4f0e6; --react:#087ea4;
+  }
+  *{box-sizing:border-box}
+  html{font-size:17px}
+  body{
+    margin:0 auto; max-width:860px; padding:4rem 1.5rem 6rem;
+    background:var(--bg); color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  h1{font-size:2.4rem; line-height:1.1; margin:0 0 .3rem; letter-spacing:-.01em}
+  .subtitle{color:var(--muted); font-style:italic; font-size:1.15rem; margin:0 0 2rem}
+  h2{font-size:1.5rem; margin:2.6rem 0 .6rem; border-bottom:2px solid var(--rule); padding-bottom:.25rem}
+  h3{font-size:1.15rem; margin:1.6rem 0 .4rem}
+  p{margin:.6rem 0}
+  a{color:var(--accent2)}
+  code{background:var(--code-bg); padding:.08em .35em; border-radius:3px; font-family:"SF Mono",Menlo,Consolas,monospace; font-size:.85em}
+  .mission{
+    background:#fff8ee; border:1px solid var(--rule); border-left:5px solid var(--accent);
+    padding:1.1rem 1.3rem; border-radius:6px; margin:1.5rem 0 2rem;
+  }
+  .mission h2{border:0; margin:0 0 .4rem; font-size:1.15rem; color:var(--accent)}
+  .mission ul{margin:.3rem 0 0; padding-left:1.2rem}
+  figure{margin:1.6rem 0; text-align:center}
+  figcaption{color:var(--muted); font-size:.9rem; font-style:italic; margin-top:.5rem}
+  table{border-collapse:collapse; width:100%; margin:1rem 0; font-size:.94rem}
+  th,td{border:1px solid var(--rule); padding:.5rem .6rem; text-align:left; vertical-align:top}
+  th{background:#f1ece0}
+  .tag{font-size:.72rem; font-weight:700; padding:.1em .5em; border-radius:10px; color:#fff; white-space:nowrap}
+  .tag.deep{background:var(--deep)} .tag.skim{background:var(--skim)}
+  .num{font-variant-numeric:tabular-nums; color:var(--muted); font-family:"SF Mono",Menlo,monospace; font-size:.85em}
+  .glossary dt{font-weight:700; margin-top:.6rem}
+  .glossary dd{margin:0 0 .2rem; color:#3f3b34}
+  .refs{background:var(--code-bg); border-radius:6px; padding:1rem 1.3rem}
+  .refs li{margin:.25rem 0}
+  .sources{font-size:.85rem; color:var(--muted)}
+  .callout{background:#eef3f7; border-left:4px solid var(--accent2); padding:.8rem 1.1rem; border-radius:0 6px 6px 0; margin:1.2rem 0}
+  .app{background:#eefaf4; border-left:4px solid var(--skim); padding:.8rem 1.1rem; border-radius:0 6px 6px 0; margin:1.2rem 0}
+  hr{border:0; border-top:1px solid var(--rule); margin:2.5rem 0}
+</style>
+</head>
+<body>
+
+<h1>React</h1>
+<p class="subtitle">A bird's-eye map of the library, its mental model, and the machinery under the magic — declarative-UI first.</p>
+
+<div class="mission">
+  <h2>Mission — why I'm learning this</h2>
+  <ul>
+    <li><strong>Round out full-stack skills</strong> — I'm strong on the backend/Java side; React is the missing front-end half.</li>
+    <li><strong>Clear frontend / full-stack interviews</strong> — explain the mental model <em>and</em> the internals, not memorized syntax.</li>
+    <li><strong>Build real projects</strong> — ship side-projects and product features end-to-end.</li>
+    <li><strong>Deep, first-principles mastery</strong> — understand <em>why</em> React works, so novel problems are solvable.</li>
+  </ul>
+  <p style="margin:.6rem 0 0"><strong>Calibration:</strong> New to React and rusty on modern JavaScript. So we <em>weave in the
+  essential JS/DOM foundations</em> as we go, then go deep on React's abstractions. Backend-brain analogies
+  (Spring, request lifecycle, IoC) are used to bridge the gap.</p>
+</div>
+
+<h2>The 30-second picture</h2>
+<p>
+React is a <strong>JavaScript library for building user interfaces out of <em>components</em></strong> — reusable pieces
+of UI that are just JavaScript functions returning markup. Its defining idea is being <strong>declarative</strong>:
+you describe <em>what</em> the UI should look like for the current data, and React figures out <em>how</em> to update
+the actual page to match. "React apps are made out of components ... a component is a piece of the UI that has its own
+logic and appearance"
+<span class="sources">(<a href="https://react.dev/learn">react.dev, Quick Start</a>)</span>.
+</p>
+<p>
+The whole game — the thing that makes React worth learning — is understanding the <strong>machinery it runs for you</strong>:
+when your data changes, React <em>re-runs</em> your component functions, builds a lightweight description of the UI
+(the <strong>Virtual DOM</strong>), <strong>diffs</strong> it against the previous one, and applies only the minimal
+real-DOM changes. That single decision — a virtual layer between your code and the browser's DOM — is the root of almost
+every trait we'll study: components, one-way data flow, state, hooks, and re-rendering.
+</p>
+
+<div class="callout">
+<strong>Contrast anchor (base language = raw JS + DOM).</strong> Without React you'd hand-write
+<code>document.createElement</code>, <code>element.appendChild</code>, and manual <code>textContent = ...</code> updates,
+carefully mutating the page every time <em>anything</em> changes — <em>imperative</em> UI. React replaces that hand-wiring
+with a <em>declarative</em> model. For every feature we learn, we'll ask: <em>"what would I have to write myself if React
+didn't exist?"</em>
+</div>
+
+<figure>
+<svg viewBox="0 0 760 320" width="100%" role="img" aria-label="Imperative raw DOM versus declarative React data flow">
+  <style>
+    .box{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.5}
+    .box2{fill:#e7f4f9;stroke:#087ea4;stroke-width:1.5}
+    .lbl{font:13px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .cap{font:12px Georgia,serif;fill:#6b675e;font-style:italic}
+    .hd{font:bold 13px Georgia,serif;fill:#2b2b28}
+    .arr{stroke:#6b675e;stroke-width:1.5;marker-end:url(#a)}
+  </style>
+  <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+    <path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <text class="hd" x="10" y="24">Imperative — raw JS + DOM (what you'd write by hand)</text>
+  <rect class="box" x="10"  y="36" width="150" height="46" rx="6"/>
+  <text class="cap" x="24" y="63">event fires</text>
+  <rect class="box" x="210" y="36" width="180" height="46" rx="6"/>
+  <text class="cap" x="224" y="57">you find nodes &amp;</text>
+  <text class="cap" x="224" y="73">mutate the DOM by hand</text>
+  <rect class="box" x="440" y="36" width="150" height="46" rx="6"/>
+  <text class="cap" x="454" y="63">screen updated</text>
+  <line class="arr" x1="160" y1="59" x2="208" y2="59"/>
+  <line class="arr" x1="390" y1="59" x2="438" y2="59"/>
+  <text class="cap" x="610" y="63" style="fill:#7a1f1f">↺ repeat everywhere</text>
+
+  <line x1="10" y1="110" x2="750" y2="110" stroke="#d9d3c7" stroke-width="1"/>
+
+  <text class="hd" x="10" y="140">Declarative — React (you describe, React updates)</text>
+  <rect class="box2" x="10"  y="156" width="120" height="50" rx="6"/>
+  <text class="lbl" x="34" y="180">state</text>
+  <text class="cap" x="24" y="197">your data</text>
+
+  <rect class="box2" x="180" y="156" width="150" height="50" rx="6"/>
+  <text class="cap" x="196" y="178">component fn()</text>
+  <text class="cap" x="196" y="194">returns JSX</text>
+
+  <rect class="box2" x="380" y="156" width="150" height="50" rx="6"/>
+  <text class="cap" x="396" y="178">Virtual DOM</text>
+  <text class="cap" x="396" y="194">+ diff (reconcile)</text>
+
+  <rect class="box2" x="580" y="156" width="160" height="50" rx="6"/>
+  <text class="cap" x="596" y="178">minimal real-DOM</text>
+  <text class="cap" x="596" y="194">patch → screen</text>
+
+  <line class="arr" x1="130" y1="181" x2="178" y2="181"/>
+  <line class="arr" x1="330" y1="181" x2="378" y2="181"/>
+  <line class="arr" x1="530" y1="181" x2="578" y2="181"/>
+
+  <path class="arr" d="M660,208 C660,260 300,270 90,235" fill="none"/>
+  <text class="cap" x="330" y="285">setState → React re-runs the function &amp; repeats (you never touch the DOM)</text>
+</svg>
+<figcaption>The core magic: raw DOM makes <em>you</em> mutate the page everywhere; React lets you describe the UI as a
+function of state and does the minimal updating for you.</figcaption>
+</figure>
+
+<h2>Why React exists (the problem it removes)</h2>
+<p>
+As UIs grow, keeping the screen in sync with ever-changing data by hand becomes a bug factory: dozens of places manually
+poke the DOM, and it's easy to update one and forget another. React's answer: <strong>UI = f(state)</strong>. Describe the
+result you want for the current state; let the library reconcile the difference. You get <strong>reusable components</strong>,
+predictable <strong>one-way data flow</strong> (data flows down, events flow up), and updates that are <em>declarative</em>
+instead of a pile of manual mutations. <span class="sources">(<a href="https://react.dev/learn/thinking-in-react">react.dev, Thinking in React</a>)</span>
+</p>
+
+<h2>The subtopic map — our learning order</h2>
+<p>
+Ordered for a backend developer new to React: foundations first, then the core abstractions, then the machinery under
+the magic, then state management, escape hatches, and the ecosystem. <span class="tag deep">deep</span> = React-specific,
+where mastery lives; <span class="tag skim">skim</span> = base language / setup we pass through quickly.
+</p>
+
+<table>
+  <thead><tr><th>#</th><th>Subtopic</th><th>Depth</th><th>What it covers</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td><strong>js-foundations-for-react</strong></td><td><span class="tag skim">skim</span></td><td>The essential modern JS + DOM React assumes: arrow functions, closures, <code>map/filter</code>, destructuring, spread, modules, ternary, async — and what the DOM is.</td></tr>
+    <tr><td class="num">2</td><td><strong>problem-and-philosophy</strong></td><td><span class="tag deep">deep</span></td><td>Imperative DOM vs declarative React; <code>UI = f(state)</code>; why a virtual layer; where React sits in the stack.</td></tr>
+    <tr><td class="num">3</td><td><strong>setup-and-tooling</strong></td><td><span class="tag skim">skim</span></td><td>Bootstrapping with Vite, project structure, the JSX build step, dev server.</td></tr>
+    <tr><td class="num">4</td><td><strong>components-and-jsx</strong></td><td><span class="tag deep">deep</span></td><td>Components as functions; JSX and what it compiles to; nesting; rendering to the root.</td></tr>
+    <tr><td class="num">5</td><td><strong>props-and-data-flow</strong></td><td><span class="tag deep">deep</span></td><td>Passing data parent→child; one-way flow; children; purity.</td></tr>
+    <tr><td class="num">6</td><td><strong>rendering-lists-and-conditionals</strong></td><td><span class="tag deep">deep</span></td><td><code>map</code> to render lists, <code>key</code>, conditional rendering with <code>?</code> and <code>&amp;&amp;</code>.</td></tr>
+    <tr><td class="num">7</td><td><strong>state-and-usestate</strong></td><td><span class="tag deep">deep</span></td><td>A component's memory; the <code>useState</code> hook; state as a snapshot; what triggers a re-render.</td></tr>
+    <tr><td class="num">8</td><td><strong>events-and-interactivity</strong></td><td><span class="tag deep">deep</span></td><td>Event handlers, passing them as props, updating state in response.</td></tr>
+    <tr><td class="num">9</td><td><strong>render-commit-and-virtual-dom</strong></td><td><span class="tag deep">deep</span></td><td><em>The magic, demystified:</em> render vs commit, the Virtual DOM, reconciliation/diffing, why keys matter. <em>The #1 interview differentiator.</em></td></tr>
+    <tr><td class="num">10</td><td><strong>managing-and-lifting-state</strong></td><td><span class="tag deep">deep</span></td><td>Lifting state up, structuring state, sharing between siblings, <code>useReducer</code>.</td></tr>
+    <tr><td class="num">11</td><td><strong>effects-and-synchronization</strong></td><td><span class="tag deep">deep</span></td><td><code>useEffect</code>: synchronizing with the outside world, dependencies, cleanup; when you <em>don't</em> need it.</td></tr>
+    <tr><td class="num">12</td><td><strong>refs-and-escape-hatches</strong></td><td><span class="tag deep">deep</span></td><td><code>useRef</code>, direct DOM access, escaping React's declarative model deliberately.</td></tr>
+    <tr><td class="num">13</td><td><strong>hooks-in-depth-and-custom-hooks</strong></td><td><span class="tag deep">deep</span></td><td>Rules of hooks; <code>useMemo</code>, <code>useCallback</code>, <code>useContext</code>; writing your own hooks.</td></tr>
+    <tr><td class="num">14</td><td><strong>context-and-data-flow</strong></td><td><span class="tag deep">deep</span></td><td>Prop drilling, the Context API, and where dedicated state libraries fit.</td></tr>
+    <tr><td class="num">15</td><td><strong>forms-and-controlled-components</strong></td><td><span class="tag deep">deep</span></td><td>Controlled vs uncontrolled inputs, form state, validation basics.</td></tr>
+    <tr><td class="num">16</td><td><strong>composition-and-patterns</strong></td><td><span class="tag deep">deep</span></td><td>Composition over inheritance, <code>children</code>, container/presentational, common idioms.</td></tr>
+    <tr><td class="num">17</td><td><strong>performance-and-optimization</strong></td><td><span class="tag deep">deep</span></td><td>Wasted re-renders, <code>React.memo</code>, memo hooks, keys, profiling.</td></tr>
+    <tr><td class="num">18</td><td><strong>testing</strong></td><td><span class="tag skim">skim</span></td><td>Testing components with React Testing Library; behavior over implementation.</td></tr>
+    <tr><td class="num">19</td><td><strong>ecosystem-and-real-world</strong></td><td><span class="tag skim">skim</span></td><td>Routing, data fetching, meta-frameworks (Next.js), and how it all fits a real app.</td></tr>
+  </tbody>
+</table>
+
+<div class="app">
+<strong>The app we'll grow — "Task Tracker".</strong> Per the framework rules, every subtopic builds toward
+<em>one small running app</em>. We start with a hand-written raw-DOM version (to feel the pain), then rebuild it in React
+and grow it: static list → props → rendered list with keys → stateful add/complete → lifted state → persistence with an
+effect → a theme via context → a controlled form → a custom hook. By the end you'll have shipped a real, idiomatic React
+app and understood every layer beneath it.
+</div>
+
+<h2>How to read this course</h2>
+<ul>
+  <li><strong>Foundations are woven in, not skipped.</strong> Where a lesson needs a JS feature you're rusty on, it's explained in place.</li>
+  <li><strong>Strip the magic.</strong> For every abstraction we show what React does under the hood vs the hand-written equivalent.</li>
+  <li><strong>You write the notes.</strong> After each lesson, capture it in your own words in <code>notes/</code> — that's where it sticks.</li>
+  <li><strong>Revision is spaced.</strong> After each subtopic, an interview logs questions that come back on a doubling schedule.</li>
+</ul>
+
+<h2 id="glossary">Glossary</h2>
+<dl class="glossary">
+  <dt>Component</dt><dd>A reusable piece of UI written as a JavaScript function that returns markup (JSX).</dd>
+  <dt>JSX</dt><dd>An HTML-like syntax embedded in JavaScript; compiled to <code>React.createElement</code> calls.</dd>
+  <dt>Props</dt><dd>Read-only inputs passed from a parent component to a child (like function arguments).</dd>
+  <dt>State</dt><dd>A component's private, changeable memory; updating it triggers a re-render.</dd>
+  <dt>Hook</dt><dd>A special function starting with <code>use</code> that lets a component tap into React features (e.g. <code>useState</code>, <code>useEffect</code>).</dd>
+  <dt>Virtual DOM</dt><dd>A lightweight in-memory description of the UI that React diffs against the previous one to compute minimal real-DOM updates.</dd>
+  <dt>Reconciliation</dt><dd>React's diffing algorithm that decides what actually changed between two renders.</dd>
+  <dt>Render</dt><dd>React calling your component function to produce JSX; distinct from the <em>commit</em> where the DOM is actually changed.</dd>
+  <dt>Declarative</dt><dd>Describing <em>what</em> the UI should be for the current data, rather than the step-by-step <em>how</em> of updating it.</dd>
+  <dt>One-way data flow</dt><dd>Data flows down through props; changes flow up through event handlers/callbacks.</dd>
+</dl>
+
+<h2>References (primary sources)</h2>
+<div class="refs">
+<ul>
+  <li><strong>Read first:</strong> <a href="https://react.dev/learn">React Docs — Learn / Quick Start</a> (the official, modern guide).</li>
+  <li><a href="https://react.dev/learn/thinking-in-react">React Docs — Thinking in React</a> (the mental model).</li>
+  <li><a href="https://react.dev/learn/describing-the-ui">React Docs — Describing the UI</a> (components, JSX, props, lists).</li>
+  <li><a href="https://react.dev/learn/adding-interactivity">React Docs — Adding Interactivity</a> (events, state, rendering).</li>
+  <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript">MDN — JavaScript</a> &amp; <a href="https://javascript.info/">javascript.info</a> (base-language reference).</li>
+</ul>
+</div>
+
+<hr />
+<p class="sources">Overview grounded in the official React documentation (react.dev). Subtopics are re-ordered from the
+framework topic-style default into the most intuitive sequence for a backend developer new to React.</p>
+
+</body>
+</html>

@@ -1,0 +1,69 @@
+{
+  "topic": "java",
+  "subtopic": "04-jvm-execution-engine",
+  "questions": [
+    {
+      "number": 1,
+      "question": "What are the parts of the execution engine? State each one's job.",
+      "level": "easy",
+      "areas": ["theory", "diagram"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 2,
+      "question": "\"Java is interpreted\" — correct this. Explain interpreter + tiered JIT (C1/C2) and why a server warms up.",
+      "level": "medium",
+      "areas": ["theory", "trade-offs"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 3,
+      "question": "Name three JIT optimizations and what each does. What is deoptimization and when does it happen?",
+      "level": "hard",
+      "areas": ["theory", "trade-offs"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 4,
+      "question": "Contrast invokestatic / invokespecial / invokevirtual / invokeinterface / invokedynamic. Tie each to a language feature.",
+      "level": "hard",
+      "areas": ["theory", "practical"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 5,
+      "question": "Which opcode implements polymorphic dispatch, and how is the actual method chosen at runtime (method selection)?",
+      "level": "medium",
+      "areas": ["theory", "practical"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 6,
+      "question": "App is slow for ~60s after deploy then fast. Diagnose via the engine. What levers exist (tiered compilation, CDS/AppCDS, -Xint/-Xcomp)?",
+      "level": "hard",
+      "areas": ["trade-offs", "practical"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 7,
+      "question": "Why do micro-benchmarks without warm-up mislead? What are you actually measuring, and how does JMH fix it?",
+      "level": "medium",
+      "areas": ["practical", "trade-offs"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    }
+  ]
+}

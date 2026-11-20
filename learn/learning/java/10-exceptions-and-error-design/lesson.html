@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Exceptions &amp; Error Design — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<h1>Exceptions &amp; Error Design</h1>
+<p class="crumb">Java › lesson 10 of 14 · <span style="color:#1f6b4d;font-weight:700">SKIM</span> — handling failure as part of your API</p>
+
+<div class="tldr">
+<strong>In one line —</strong> An exception is Java's way of saying "I can't finish this normally." You <strong>throw</strong> one when
+something goes wrong and <strong>catch</strong> it where you can actually handle it. The real skill isn't syntax — it's
+<em>designing</em> which failures are part of your contract (<strong>checked</strong>) and which are bugs
+(<strong>unchecked</strong>), and never swallowing them silently.</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>Mostly transferable, so we skim the mechanics and dwell on the <em>design</em> angle you'll be judged on as an architect. It
+builds on the type hierarchy (lesson 5) — exceptions are just objects — and pairs with try-with-resources, which needs the
+<code>AutoCloseable</code> interface.</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+<p>The old C way — return <code>-1</code> and set a global error code — mixes the happy path with error checks and is easy to ignore.
+Exceptions <strong>separate</strong> "what to do" from "what if it fails," carry a message and a stack trace to the point of failure,
+and can't be silently dropped (an uncaught one crashes loudly). Java went further and made some exceptions
+<strong>checked</strong> — the compiler forces you to deal with them
+<span class="sources">(<a href="https://docs.oracle.com/javase/tutorial/essential/exceptions/index.html">Oracle Java Tutorials — Exceptions</a>)</span>.</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+<h3>The hierarchy</h3>
+<figure>
+<svg viewBox="0 0 760 240" width="100%" role="img" aria-label="Throwable hierarchy: Error, checked Exception, unchecked RuntimeException">
+  <style>
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}.b2{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}.g{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.3;marker-end:url(#m7);fill:none}
+  </style>
+  <defs><marker id="m7" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+  <rect class="b" x="300" y="15" width="160" height="40" rx="6"/><text class="t" x="345" y="40">Throwable</text>
+  <rect class="b2" x="90" y="95" width="180" height="44" rx="6"/><text class="t" x="130" y="115">Error</text><text class="c" x="100" y="132">JVM-level, don't catch</text>
+  <rect class="g" x="490" y="95" width="200" height="44" rx="6"/><text class="t" x="520" y="115">Exception (checked)</text><text class="c" x="505" y="132">recoverable, must handle</text>
+  <rect class="b2" x="490" y="175" width="200" height="46" rx="6"/><text class="t" x="510" y="197">RuntimeException</text><text class="c" x="505" y="214">unchecked — usually bugs</text>
+  <line class="a" x1="330" y1="55" x2="200" y2="94"/>
+  <line class="a" x1="430" y1="55" x2="560" y2="94"/>
+  <line class="a" x1="590" y1="139" x2="590" y2="174"/>
+  <text class="c" x="95" y="165">OutOfMemoryError,</text><text class="c" x="95" y="180">StackOverflowError</text>
+  <text class="c" x="260" y="200">NullPointer, IllegalArgument,</text><text class="c" x="260" y="215">IndexOutOfBounds …</text>
+</svg>
+<figcaption>Everything thrown is a <code>Throwable</code>. <code>Error</code> = JVM problems you don't catch. Checked
+<code>Exception</code> = recoverable, compiler-enforced. <code>RuntimeException</code> = unchecked, usually programming bugs.
+(Per JLS §11 &amp; Oracle Exceptions tutorial.)</figcaption>
+</figure>
+
+<h3>Checked vs unchecked — the core distinction</h3>
+<table>
+<thead><tr><th></th><th>Checked</th><th>Unchecked (RuntimeException)</th></tr></thead>
+<tbody>
+<tr><td>Means</td><td>an expected, recoverable failure</td><td>a bug in the code</td></tr>
+<tr><td>Compiler</td><td>forces <code>try</code> or <code>throws</code></td><td>no obligation</td></tr>
+<tr><td>Examples</td><td><code>IOException</code>, <code>SQLException</code></td><td><code>NullPointer</code>, <code>IllegalArgument</code></td></tr>
+<tr><td>Design intent</td><td>"caller, you must plan for this"</td><td>"fix the code"</td></tr>
+</tbody></table>
+
+<h3>try / catch / finally / try-with-resources</h3>
+<p><code>try</code> guards risky code, <code>catch</code> handles specific types (most specific first), <code>finally</code> always
+runs (cleanup). Better still, <strong>try-with-resources</strong> auto-closes anything <code>AutoCloseable</code> in
+<strong>reverse</strong> order, even on exception — no leaked files or connections, no verbose <code>finally</code>.</p>
+
+<h3>Wrapping &amp; the cause chain</h3>
+<p>When you catch a low-level exception and rethrow a meaningful one, pass the original as the <em>cause</em>
+(<code>new ServiceException("load failed", e)</code>). The stack trace keeps both, so you don't lose the root. This is
+<strong>exception translation</strong> — expose failures in <em>your</em> layer's vocabulary, not the plumbing's.</p>
+
+<h2><span class="n">§4</span>When to use (design rules)</h2>
+<ul>
+  <li><strong>Throw</strong> at the point you detect a broken assumption; validate inputs early (fail fast).</li>
+  <li><strong>Catch</strong> only where you can actually do something (retry, fallback, user message). Otherwise let it propagate.</li>
+  <li><strong>Unchecked</strong> for programming errors; <strong>checked</strong> only when the caller can realistically recover.</li>
+  <li><strong>try-with-resources</strong> for every closeable resource.</li>
+  <li><strong>Custom exception types</strong> to give callers meaningful, catchable categories.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>Cooking dinner, you hit a problem: no eggs. You don't quietly serve an empty plate — you shout "out of eggs!" (throw). Whoever
+can fix it — maybe a roommate who'll run to the shop — <em>hears</em> and handles it (catch). And no matter what, you turn off the
+stove on your way out (finally). A <strong>checked</strong> problem is "we might run out of eggs — have a plan." An
+<strong>unchecked</strong> one is "you tried to fry a rock" — that's just a mistake to fix.</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← type-system-and-oop:</strong> exceptions are objects in a hierarchy; you catch by supertype.</li>
+  <li><strong>← strings:</strong> a good message is a carefully built string with context.</li>
+  <li><strong>→ java8-functional:</strong> lambdas + checked exceptions clash — a real friction point (wrap or use unchecked).</li>
+  <li><strong>→ concurrency:</strong> exceptions in threads/futures surface differently (via <code>Future.get</code>).</li>
+  <li><strong>Same idea elsewhere:</strong> C#/Python have exceptions but <em>no checked</em> kind; Go and Rust prefer returned error values / <code>Result</code> — a live design debate.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — one file, dissected</h2>
+<pre><span class="k">try</span> (Resource a = <span class="k">new</span> Resource(<span class="s">"A"</span>);
+     Resource b = <span class="k">new</span> Resource(<span class="s">"B"</span>)) {   <span class="c">// both are AutoCloseable</span>
+    a.use(); b.use();
+    <span class="k">throw new</span> RuntimeException(<span class="s">"boom"</span>);       <span class="c">// simulate a failure</span>
+} <span class="k">catch</span> (RuntimeException e) {
+    System.out.println(<span class="s">"caught: "</span> + e.getMessage());
+} <span class="k">finally</span> {
+    System.out.println(<span class="s">"finally always runs"</span>);
+}</pre>
+<div class="ann">Watch the ordering in the output: <code>B</code> closes before <code>A</code> (reverse of opening), and it happens
+<em>before</em> the <code>catch</code> — the resources are cleaned up as the exception unwinds, automatically. That's the whole reason
+try-with-resources exists: correct cleanup with none of the error-prone <code>finally</code> boilerplate.</div>
+
+<h3>Real output <span class="sources">(JDK 1.8 — <a href="../code/ExceptionDemo.java">code/ExceptionDemo.java</a>)</span></h3>
+<pre>open A
+open B
+use A
+use B
+close B
+close A
+caught: boom
+finally always runs</pre>
+
+<div class="try"><strong>Predict the output.</strong> Put a <code>return "X";</code> inside the <code>try</code> and a <code>return "Y";</code>
+inside the <code>finally</code>. Which is returned? <em>(Hint: <code>finally</code> runs last and its <code>return</code> wins —
+which is exactly why you should never <code>return</code> from a <code>finally</code>.)</em></div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Swallowing exceptions.</strong> An empty <code>catch {}</code> hides bugs. At minimum, log with context; better, handle or rethrow.</div>
+<div class="pitfall"><strong>Catching <code>Exception</code> (or <code>Throwable</code>) broadly.</strong> You'll accidentally hide bugs and even <code>Error</code>s. Catch the specific type.</div>
+<div class="pitfall"><strong>Exceptions for control flow.</strong> They're for exceptional cases, not loops/branches — throwing is expensive and obscures intent.</div>
+<div class="pitfall"><strong>Losing the cause.</strong> Rethrowing without passing <code>e</code> as the cause deletes the root-cause trace.</div>
+<div class="pitfall"><strong><code>return</code> in <code>finally</code>.</strong> It silently overrides the real return/exception. Never do it.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>Everything thrown is a <code>Throwable</code>: <strong>Error</strong> (don't catch), <strong>checked Exception</strong> (recoverable), <strong>RuntimeException</strong> (bugs).</li>
+  <li><strong>Checked</strong> = compiler-enforced, expected failure; <strong>unchecked</strong> = programming error.</li>
+  <li><code>finally</code> always runs; <strong>try-with-resources</strong> auto-closes in reverse — prefer it.</li>
+  <li>Catch only where you can act; otherwise let it propagate to a layer that can.</li>
+  <li>Translate exceptions to your layer's vocabulary and <strong>keep the cause</strong>.</li>
+  <li>Never swallow, never use for control flow, never <code>return</code> from <code>finally</code>.</li>
+</ul>
+
+<hr/>
+<h2>Reference — quick rules</h2>
+<table>
+<thead><tr><th>Situation</th><th>Do</th></tr></thead>
+<tbody>
+<tr><td>Bad argument to your method</td><td>throw <code>IllegalArgumentException</code> (unchecked)</td></tr>
+<tr><td>Missing/again-tryable resource</td><td>checked exception the caller can handle</td></tr>
+<tr><td>Any file/stream/connection</td><td>try-with-resources</td></tr>
+<tr><td>Rethrow at a boundary</td><td>wrap with the cause: <code>new X(msg, e)</code></td></tr>
+<tr><td>Cleanup that must always run</td><td><code>finally</code> (no <code>return</code> inside)</td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Throwable</dt><dd>Root of everything you can <code>throw</code>/<code>catch</code>.</dd>
+  <dt>Checked exception</dt><dd>Compiler forces handling or declaration; a recoverable condition.</dd>
+  <dt>Unchecked exception</dt><dd><code>RuntimeException</code> subclass; usually a bug, no compiler obligation.</dd>
+  <dt>Error</dt><dd>Serious JVM-level problem (OOM, stack overflow) you shouldn't catch.</dd>
+  <dt>finally</dt><dd>Block that always runs, for cleanup.</dd>
+  <dt>try-with-resources</dt><dd>Auto-closes <code>AutoCloseable</code> resources in reverse order.</dd>
+  <dt>Cause chain</dt><dd>The wrapped original exception preserved via the cause constructor.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/tutorial/essential/exceptions/index.html">Oracle Java Tutorials — Exceptions trail</a> (read "Unchecked Exceptions — The Controversy"), backed by <a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-11.html">JLS SE 21 — Chapter 11, Exceptions</a>.</p>
+<p class="sources" style="margin-top:2rem">Sources: Oracle, <em>Java Tutorials</em> (Exceptions); Oracle, <em>Java Language Specification SE 21</em> (§11); Bloch, <em>Effective Java</em> (Items 69–77). Code run on JDK 1.8. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lesson 17: Reactive &amp; WebFlux — Spring</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.6rem;margin-bottom:1.8rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{text-decoration:none;font-weight:600} .nav a:hover{text-decoration:underline}
+  h1{font-size:2.2rem;line-height:1.12;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .6rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.12rem;margin:1.5rem 0 .35rem}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.48}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f5f1e6;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner h3{margin:0 0 .4rem;color:var(--accent2);font-size:1.05rem}
+  .flow{background:#fff;border:1px solid var(--rule);border-left:4px solid var(--spring);padding:.8rem 1.1rem;border-radius:6px;margin:1rem 0;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.83rem;line-height:1.6}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.85rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.35rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  @media print{body{padding:1rem;max-width:100%} pre,table,figure{break-inside:avoid}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span><a href="../16-async-events-and-messaging/lesson.html">← Lesson 16: Async, Events &amp; Messaging</a></span>
+  <span><a href="../overview.html">Spring 18-Lesson Map</a> · Lesson 17 of 18</span>
+  <span><a href="../18-architecture-and-microservices/lesson.html">Lesson 18: Architecture &amp; Microservices →</a></span>
+</nav>
+
+<h1>Reactive &amp; WebFlux</h1>
+<p class="crumb"><a href="../overview.html">Spring</a> › lesson 17 of 18 · <span style="color:#1f6b4d;font-weight:700">SKIM</span> — Replacing Box 5 &amp; Box 6 with Netty's Event Loop</p>
+
+<div class="tldr">
+<strong>Summary —</strong> Spring WebFlux keeps Boxes 1–4 intact, but <strong>replaces Box 5 (Tomcat's 200 blocking threads) and Box 6 (<code>DispatcherServlet</code> + <code>ThreadLocal</code>) with Netty's non-blocking Event Loop (4–8 threads total) and Reactive Streams (<code>Mono&lt;T&gt;</code> and <code>Flux&lt;T&gt;</code>)</strong>. In the era of <strong>Java 21 Virtual Threads</strong>, ordinary CRUD apps should stick with Spring MVC + Virtual Threads—use WebFlux only when you genuinely need live streaming (<code>Flux</code>/SSE), consumer-driven <strong>backpressure</strong>, or an API Gateway.
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the Map</h2>
+<p>
+In Lessons 9–16, Box 5 was Embedded Tomcat (one thread per request) and Box 6 was <code>DispatcherServlet</code> (storing the DB transaction and Security user inside <code>ThreadLocal</code>). What if we replace Box 5 and Box 6 completely so no thread ever blocks waiting on I/O?
+</p>
+
+<div class="map-banner">
+  <h3>📍 You Are Here: Replacing Box 5 (Tomcat Thread-Per-Request) &amp; Box 6 (DispatcherServlet) with Netty's Event Loop &amp; Reactive Streams</h3>
+  <p style="margin:.3rem 0">
+    <strong>What happened before:</strong> Boxes 1–4 built our beans and proxies, while Lessons 9–16 used Tomcat threads and <code>ThreadLocal</code> state in Boxes 5–6.<br>
+    <strong>What this lesson zooms into:</strong> How Spring WebFlux swaps Box 5 for <strong>Netty's Event Loop</strong> (a tiny pool of 4–8 OS threads multiplexing 10,000+ sockets via non-blocking callbacks), swaps Box 6 for <code>DispatcherHandler</code> + <code>Mono</code>/<code>Flux</code> pipelines, and replaces <code>ThreadLocal</code> (Rule 3) with Reactor's subscription-scoped <code>Context</code>.<br>
+    <strong>What happens right after:</strong> Lesson 18 zooms out to the whole system—how to organize beans inside Box 3 (Hexagonal / Modular Monolith) and connect multiple Spring Boot machines (Microservices &amp; Spring Cloud Gateway, which is built on WebFlux!).
+  </p>
+</div>
+
+<figure>
+<svg viewBox="0 0 800 350" width="100%" role="img" aria-label="Spring MVC Boxes 5-6 vs Spring WebFlux Boxes 5-6 vs Virtual Threads">
+  <style>
+    .mvc{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.6}
+    .wf{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.6}
+    .vt{fill:#eefaf4;stroke:#1f6b4d;stroke-width:1.6}
+    .h{font:bold 12px Georgia,serif;fill:#2b2b28}
+    .t{font:11px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .s{font:10.5px Georgia,serif;fill:#3f3b34}
+  </style>
+
+  <!-- Left: Spring MVC (Lessons 9-15) -->
+  <rect class="mvc" x="12" y="12" width="380" height="205" rx="6"/>
+  <text class="h" x="24" y="34" style="fill:#7a1f1f">World 1: Spring MVC (Lessons 9–15)</text>
+  <text class="t" x="24" y="54">Box 5: Embedded Tomcat (200 OS Threads)</text>
+  <text class="s" x="24" y="72"> • 1 request = 1 dedicated thread from start to finish</text>
+  <text class="s" x="24" y="88"> • Blocking JDBC/HTTP call parks the thread until data arrives</text>
+  <text class="t" x="24" y="112">Box 6: DispatcherServlet + ThreadLocal (Rule 3)</text>
+  <text class="s" x="24" y="130"> • Controller returns plain Book or List&lt;Book&gt;</text>
+  <text class="s" x="24" y="146"> • @Transactional &amp; SecurityContext live in ThreadLocal</text>
+  <text class="s" x="24" y="162"> • Works with JPA / Hibernate / JDBC</text>
+  <text class="t" x="24" y="186" style="fill:#1f6b4d">✓ Simple imperative code, clean stack traces</text>
+  <text class="t" x="24" y="203" style="fill:#7a1f1f">✗ Without Virtual Threads, caps at 200 concurrent waits</text>
+
+  <!-- Right: Spring WebFlux (Lesson 17) -->
+  <rect class="wf" x="408" y="12" width="380" height="205" rx="6"/>
+  <text class="h" x="420" y="34" style="fill:#1f4d7a">World 2: Spring WebFlux (This Lesson)</text>
+  <text class="t" x="420" y="54">Box 5: Netty Event Loop (Only ~4–8 Threads TOTAL!)</text>
+  <text class="s" x="420" y="72"> • 1 thread multiplexes thousands of sockets via OS epoll</text>
+  <text class="s" x="420" y="88"> • NEVER blocks! Registers a callback and moves to next socket</text>
+  <text class="t" x="420" y="112">Box 6: DispatcherHandler + Reactor Context</text>
+  <text class="s" x="420" y="130"> • Controller returns lazy recipe: Mono&lt;Book&gt; or Flux&lt;Book&gt;</text>
+  <text class="s" x="420" y="146"> • One request hops across threads → ThreadLocal is BROKEN!</text>
+  <text class="s" x="420" y="162"> • Requires R2DBC (no JPA/Hibernate!) + WebClient</text>
+  <text class="t" x="420" y="186" style="fill:#1f6b4d">✓ True streaming + Backpressure (request(n))</text>
+  <text class="t" x="420" y="203" style="fill:#7a1f1f">✗ 1 blocking call freezes the Netty event loop!</text>
+
+  <!-- Bottom: The 2026 Verdict with Java 21 Virtual Threads -->
+  <rect class="vt" x="12" y="230" width="776" height="108" rx="6"/>
+  <text class="h" x="24" y="250" style="fill:#1f6b4d">The 2026 Synthesis: Why Java 21 Virtual Threads Changed the Trade-Off</text>
+  <text class="s" x="24" y="270">• With spring.threads.virtual.enabled=true on Spring MVC (World 1), blocking on JDBC or RestClient unmounts the virtual thread</text>
+  <text class="s" x="24" y="286">  from the OS carrier thread automatically. You get 10,000+ concurrent requests while keeping simple MVC, JPA, and ThreadLocal!</text>
+  <text class="t" x="24" y="308">When does WebFlux (World 2) STILL win?  1) Streaming (Flux/SSE/WebSockets)  2) Backpressure  3) Spring Cloud Gateway</text>
+  <text class="s" x="24" y="325">Bonus: You can use reactive WebClient inside a regular Spring MVC app for parallel fan-out or streaming consumers!</text>
+</svg>
+<figcaption>Contrasting Box 5 and Box 6 in Spring MVC vs Spring WebFlux—and where Java 21 Virtual Threads fit.</figcaption>
+</figure>
+
+<h2><span class="n">§2</span>Why it exists — The Pain of Callback Hell vs Blocking Threads</h2>
+<p>
+Suppose your endpoint needs to fetch a Book, and then in parallel fetch its Author and its Reviews over HTTP.
+</p>
+<ul>
+  <li>In classic Java 8 before Virtual Threads, blocking an OS thread for 200 ms wasted 1 MB of stack memory doing nothing.</li>
+  <li>If you tried to write non-blocking callback code by hand (<code>CompletableFuture.thenCompose(...)</code> nested 5 levels deep), error handling, timeouts, and cancellation turned into unreadable "Callback Hell"—and a fast producer could still flood a slow consumer with millions of objects in RAM!</li>
+</ul>
+
+<pre><span class="c">// ❌ THE PAIN: Hand-rolled async callbacks have no backpressure &amp; messy error handling</span>
+futureBook.thenCompose(book -&gt; {
+    CompletableFuture&lt;Author&gt; f1 = fetchAuthorAsync(book.authorId());
+    CompletableFuture&lt;List&lt;Review&gt;&gt; f2 = fetchReviewsAsync(book.id()); <span class="c">// What if there are 10M reviews?!</span>
+    <span class="k">return</span> f1.thenCombine(f2, (a, r) -&gt; <span class="k">new</span> BookPage(book, a, r));
+}).exceptionally(ex -&gt; ...); <span class="c">// Client disconnected? Too bad, queries keep running!</span></pre>
+
+<div class="callout">
+<strong>The Contrast Anchor:</strong> Project Reactor (<code>Mono&lt;T&gt;</code> for 0..1 items, <code>Flux&lt;T&gt;</code> for 0..N items) gives you a composable pipeline where: (1) <strong>nothing executes until <code>.subscribe()</code> is called</strong>, (2) the consumer controls the rate via <strong>backpressure (<code>request(n)</code>)</strong>, and (3) if the HTTP client disconnects, cancellation propagates upstream to stop the database query immediately!
+</div>
+
+<h2><span class="n">§3</span>How it works — Plain Java Data Structures First (Level 1 → Level 2 Zoom)</h2>
+
+<h3>1. Plain Java Data Structures: Reactive Streams &amp; Event Loop</h3>
+<p>
+Underneath the scary functional words, Reactive Streams is literally just <strong>four tiny Java interfaces</strong> (built into JDK 9+ as <code>java.util.concurrent.Flow</code>):
+</p>
+<pre><span class="k">interface</span> Publisher&lt;T&gt;    { <span class="k">void</span> subscribe(Subscriber&lt;? <span class="k">super</span> T&gt; s); }
+<span class="k">interface</span> Subscriber&lt;T&gt;   {
+    <span class="k">void</span> onSubscribe(Subscription sub);
+    <span class="k">void</span> onNext(T item);                       <span class="c">// Push 1 item downstream</span>
+    <span class="k">void</span> onError(Throwable t);                 <span class="c">// Error signal (replaces throwing exceptions!)</span>
+    <span class="k">void</span> onComplete();                         <span class="c">// Stream finished</span>
+}
+<span class="k">interface</span> Subscription    {
+    <span class="k">void</span> request(<span class="k">long</span> n);                      <span class="c">// ★ BACKPRESSURE: Consumer tells Producer "send at most n items!"</span>
+    <span class="k">void</span> cancel();                             <span class="c">// Consumer disconnects → stop producing!</span>
+}</pre>
+
+<ul>
+  <li><strong><code>Mono&lt;T&gt;</code> vs <code>Flux&lt;T&gt;</code>:</strong> Both implement <code>Publisher&lt;T&gt;</code>. A <code>Mono&lt;T&gt;</code> emits at most <strong>1 item</strong> (like an async <code>Optional&lt;T&gt;</code>). A <code>Flux&lt;T&gt;</code> emits <strong>0 to N items</strong> over time (like an async <code>Stream&lt;T&gt;</code> with backpressure).</li>
+  <li><strong>Assembly Time vs Subscription Time (Recipe vs Execution):</strong> Calling <code>Mono&lt;Book&gt; m = repo.findById(1L).map(Book::title);</code> is just <strong>building a linked list of callback objects in memory</strong> (Assembly). Zero network or DB packets are sent until someone calls <code>m.subscribe(...)</code>!</li>
+  <li><strong>Why <code>ThreadLocal</code> Breaks (Rule 3) → Reactor <code>Context</code>:</strong> In WebFlux, step 1 of your pipeline might run on thread <code>reactor-http-nio-1</code>, step 2 after a database callback on <code>r2dbc-pool-2</code>, and step 3 on <code>reactor-http-nio-4</code>. Because a single request jumps across threads, a <code>ThreadLocal</code> set in step 1 is missing in step 2! Instead, Reactor attaches an immutable <code>Map&lt;Object, Object&gt;</code> called <strong><code>Context</code></strong> directly to the <code>Subscriber</code> chain.</li>
+</ul>
+
+<div class="flow">
+<strong>Step-by-Step Control Flow: A Request Inside Spring WebFlux (Boxes 5 &amp; 6)</strong><br>
+Step 1 (Box 5 Netty)    → HTTP request arrives on Netty event-loop thread <code>reactor-http-nio-1</code> → passes to Box 6 <code>DispatcherHandler</code>.<br>
+Step 2 (Assembly)       → Your Controller method runs and returns a <code>Mono&lt;BookPage&gt;</code> recipe (takes ~0.01 ms; DB query has NOT started yet!).<br>
+Step 3 (Subscribe)      → <code>DispatcherHandler</code> calls <code>.subscribe()</code> on your returned <code>Mono</code> and calls <code>subscription.request(1)</code>.<br>
+Step 4 (Non-Blocking)   → R2DBC sends SQL bytes over the socket and registers an OS selector callback. Thread <code>reactor-http-nio-1</code> is <strong>immediately freed</strong> to serve 500 other users!<br>
+Step 5 (Callback Fires) → When Postgres replies 50 ms later, any free Netty thread runs your <code>.map()</code> callback and writes the JSON response to the socket.
+</div>
+
+<h3>2. The Two Golden Rules of Reactive Programming</h3>
+
+<div class="pitfall">
+<strong>Golden Rule A: Nothing Happens Until You Subscribe!</strong><br>
+If you write <code>bookRepo.deleteById(42L);</code> inside a method and don't return the <code>Mono&lt;Void&gt;</code> (or chain it into the returned pipeline with <code>.then()</code> / <code>.flatMap()</code>), <strong>the row is never deleted</strong> and zero errors are thrown! You built a recipe object and threw the recipe in the trash.
+</div>
+
+<div class="pitfall">
+<strong>Golden Rule B: NEVER Block a Netty Event-Loop Thread!</strong><br>
+Netty only has as many event-loop threads as your CPU cores (e.g., 4 threads on a 4-core container). If you call blocking JDBC/JPA, <code>Thread.sleep()</code>, or <code>.block()</code> on a Netty thread, 25% of your entire web server freezes! If you must call legacy blocking code, isolate it onto a separate thread pool using <code>Mono.fromCallable(() -&gt; blockingCall()).subscribeOn(Schedulers.boundedElastic())</code>.
+</div>
+
+<h2><span class="n">§4</span>When to use — Practical Decision Table</h2>
+<table>
+<thead>
+  <tr><th>Architecture Choice</th><th>Use When…</th><th>Avoid When…</th></tr>
+</thead>
+<tbody>
+  <tr>
+    <td><strong>Spring MVC + Virtual Threads</strong> (<code>spring.threads.virtual.enabled=true</code>)</td>
+    <td><strong>90% of new Java 21+ services:</strong> standard REST APIs, CRUD, complex domain logic, apps using JPA/Hibernate or blocking SDKs.</td>
+    <td>You need end-to-end consumer-driven backpressure or high-fanout streaming pipelines.</td>
+  </tr>
+  <tr>
+    <td><strong>Spring WebFlux (Full Reactive Stack)</strong></td>
+    <td>Server-Sent Events (SSE) / live feeds, WebSockets, API Gateways (<strong>Spring Cloud Gateway</strong>), or streaming millions of rows with <strong>backpressure</strong>.</td>
+    <td>Your database uses JDBC/JPA (Hibernate has no reactive driver; R2DBC has no 1st-level cache, lazy loading, or dirty checking).</td>
+  </tr>
+  <tr>
+    <td><strong><code>WebClient</code> inside a Spring MVC App</strong></td>
+    <td>Calling multiple external HTTP APIs in parallel (<code>Mono.zip</code>) or consuming a streaming SSE/LLM endpoint inside a normal MVC app.</td>
+    <td>Simple synchronous 1-to-1 HTTP calls (use Spring 6.1+ <code>RestClient</code> instead).</td>
+  </tr>
+</tbody>
+</table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine a restaurant with <strong>200 waiters (Spring MVC)</strong>. A waiter takes your order, walks to the kitchen window, and <strong>stands frozen at the window for 10 minutes</strong> staring at the chef until your pizza is cooked. If 201 customers walk in, customer #201 has to wait outside because all 200 waiters are standing frozen at the kitchen window!
+</p>
+<p>
+Now imagine a <strong>Reactive restaurant (Spring WebFlux)</strong> with only <strong>4 super-fast waiters (Netty Event Loop)</strong>. Waiter #1 takes your order, clips the ticket to the kitchen wheel with a little bell, and <strong>immediately</strong> walks to the next table. When the chef rings the bell 10 minutes later, whichever of the 4 waiters is walking past picks up the pizza and brings it to your table! Just 4 waiters can serve 5,000 tables—<strong>unless</strong> one waiter breaks the rule and stands at the kitchen window peeling potatoes for 10 minutes (blocking the event loop!).
+</p>
+<p>
+And what is <strong>Backpressure</strong>? If the chef cooks 100 pizzas a minute, but the delivery boy's scooter only holds <strong>3 boxes at a time</strong>, the delivery boy tells the chef: <em>"Only slide 3 pizzas out of the oven when I ask (<code>request(3)</code>)!"</em> That way pizzas never pile up and fall on the floor.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← Lesson 09 (Web MVC Lifecycle):</strong> WebFlux's <code>DispatcherHandler</code> in Box 6 has the same high-level job as <code>DispatcherServlet</code> (routing, argument binding, writing responses), but every step returns a non-blocking <code>Mono</code> or <code>Flux</code>.</li>
+  <li><strong>← Lesson 11, 12 &amp; 13 (JPA, Transactions &amp; Security):</strong> Because Rule 3's <code>ThreadLocal</code> breaks when hopping across Netty/R2DBC threads, WebFlux cannot use JPA/Hibernate (uses R2DBC instead), and stores transactions and <code>ReactiveSecurityContextHolder</code> inside Reactor's <code>Context</code> Map.</li>
+  <li><strong>← <a href="../../java/07-java8-functional/lesson.html">Java Lesson 07 (Streams &amp; Lambdas)</a>:</strong> Just as a Java <code>Stream</code> does nothing until a terminal operation (<code>.collect()</code>), a <code>Mono</code>/<code>Flux</code> does nothing until <code>.subscribe()</code>—and <code>map</code> vs <code>flatMap</code> works the exact same way!</li>
+  <li><strong>→ Lesson 18 (Microservices):</strong> Spring Cloud Gateway is built on Spring WebFlux so a tiny memory footprint can proxy tens of thousands of concurrent downstream HTTP connections.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Code Dissection &amp; Derive, Don't Memorize</h2>
+
+<pre><span class="c">// ═══ 1. Parallel Non-Blocking Composition + Graceful Fallback ═══════════════</span>
+<span class="an">@RestController</span>
+<span class="k">public class</span> ReactiveBookController {
+
+    <span class="an">@GetMapping</span>(<span class="s">"/books/{id}/page"</span>)
+    <span class="k">public</span> Mono&lt;BookPage&gt; getBookPage(<span class="an">@PathVariable</span> <span class="k">long</span> id) {
+        Mono&lt;Book&gt; bookMono = bookRepo.findById(id)                         <span class="c">// ① Lazy R2DBC recipe</span>
+            .switchIfEmpty(Mono.error(<span class="k">new</span> BookNotFoundException(id)));      <span class="c">// ② Empty Mono → 404 Error signal</span>
+
+        <span class="k">return</span> bookMono.flatMap(book -&gt;                                     <span class="c">// ③ flatMap (returns another Mono!)</span>
+            Mono.zip(                                                       <span class="c">// ④ Runs Author &amp; Reviews in PARALLEL</span>
+                catalogClient.fetchAuthor(book.authorId())
+                    .timeout(Duration.ofSeconds(2))
+                    .onErrorResume(ex -&gt; Mono.just(Author.unknown())),      <span class="c">// ⑤ Fallback value on timeout</span>
+                reviewRepo.findByBookId(id).take(20).collectList()          <span class="c">// ⑥ Backpressure: request(20) rows</span>
+            ).map(tuple -&gt; <span class="k">new</span> BookPage(book, tuple.getT1(), tuple.getT2()))<span class="c">// ⑦ map (synchronous transform)</span>
+        ); <span class="c">// ⑧ WebFlux calls .subscribe() when writing the HTTP response!</span>
+    }
+
+    <span class="c">// ═══ 2. Server-Sent Events (SSE) Streaming — Flat Heap Memory ═══════════</span>
+    <span class="an">@GetMapping</span>(value = <span class="s">"/books/stream"</span>, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    <span class="k">public</span> Flux&lt;Book&gt; streamAllBooks() {
+        <span class="k">return</span> bookRepo.findAll()                                           <span class="c">// ⑨ Streams row-by-row with backpressure</span>
+            .delayElements(Duration.ofMillis(100))
+            .doOnCancel(() -&gt; log.info(<span class="s">"Client closed tab → stopping DB cursor!"</span>));
+    }
+}</pre>
+
+<div class="ann">
+<strong>Code Dissection:</strong><br>
+<strong>① &amp; ⑧ Assembly vs Subscription:</strong> When <code>getBookPage()</code> returns the <code>Mono&lt;BookPage&gt;</code>, zero I/O has happened yet. Box 6 (<code>DispatcherHandler</code>) subscribes to the returned <code>Mono</code>.<br>
+<strong>③ vs ⑦ <code>flatMap</code> vs <code>map</code>:</strong> Use <code>map</code> when transforming a value synchronously (<code>Tuple2 -&gt; BookPage</code>). Use <code>flatMap</code> when the lambda itself returns an asynchronous <code>Mono</code> or <code>Flux</code>!<br>
+<strong>④ Parallel Fan-Out:</strong> <code>Mono.zip(...)</code> subscribes to both the HTTP author call and the R2DBC reviews query simultaneously, so total latency is <code>max(t1, t2)</code> instead of <code>t1 + t2</code>.<br>
+<strong>⑥ &amp; ⑨ Backpressure &amp; Cancellation:</strong> <code>.take(20)</code> sends <code>request(20)</code> upstream, and if a browser tab closes mid-stream in ⑨, <code>cancel()</code> propagates all the way back to close the database cursor!
+</div>
+
+<h3>How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead>
+  <tr><th>Classic Interview Question</th><th>Derive the Answer in 10 Seconds from the 6-Box Map &amp; 3 Rules</th></tr>
+</thead>
+<tbody>
+  <tr>
+    <td><em>"Why did my reactive method `repo.save(entity)` inside an `if` block never save anything to the database?"</em></td>
+    <td><strong>Look at the Publisher interface:</strong> A `Mono` is just a lazy recipe object. Because you didn't chain it into the returned `Mono` (via `.flatMap()` or `.then()`) or call `.subscribe()`, Box 6 never subscribed to it!</td>
+  </tr>
+  <tr>
+    <td><em>"Why can't I use standard JPA / Hibernate or blocking JDBC inside a Spring WebFlux application?"</em></td>
+    <td><strong>Look at Box 5 (Netty Event Loop):</strong> Netty has only ~4–8 threads total for the entire server. A blocking JDBC call parks the event-loop thread, freezing thousands of other connections multiplexed onto that thread.</td>
+  </tr>
+  <tr>
+    <td><em>"Why does `SecurityContextHolder.getContext()` or SLF4J `MDC` fail in WebFlux, and what replaces it?"</em></td>
+    <td><strong>Apply Rule 3 (Where State Lives):</strong> `ThreadLocal` assumes 1 thread = 1 request. In WebFlux, a single request hops across multiple Netty/R2DBC threads as callbacks fire. WebFlux replaces `ThreadLocal` with **Reactor `Context`** (`ReactiveSecurityContextHolder`), which travels with the `Subscription`.</td>
+  </tr>
+  <tr>
+    <td><em>"With Java 21 Virtual Threads available, should we build our new microservice with Spring WebFlux or Spring MVC?"</em></td>
+    <td><strong>Compare Box 5 &amp; Box 6 Trade-offs:</strong> Virtual threads give Spring MVC non-blocking I/O scalability while keeping simple imperative code, readable stack traces, JPA/Hibernate, and `ThreadLocal`. Choose WebFlux only if you need **backpressure (`request(n)`)**, **SSE/WebSocket streaming**, or an **API Gateway**.</td>
+  </tr>
+</tbody>
+</table>
+
+<div class="try">
+<strong>Try This / Predict the Output:</strong><br>
+Look at these two lines inside a WebFlux controller:<br>
+<code>Mono&lt;Book&gt; a = bookRepo.findById(1L);</code><br>
+<code>Mono&lt;Mono&lt;Author&gt;&gt; b = a.map(book -&gt; authorClient.fetchAuthor(book.authorId()));</code><br>
+<strong>Question:</strong> Why did the return type become <code>Mono&lt;Mono&lt;Author&gt;&gt;</code>, what happens when WebFlux subscribes to the outer <code>Mono</code>, and what single word fixes it?<br>
+<em>Answer:</em> Because <code>authorClient.fetchAuthor()</code> returns a <code>Mono&lt;Author&gt;</code>, using synchronous <code>.map()</code> wraps a recipe inside another recipe—so the inner <code>Mono&lt;Author&gt;</code> is never subscribed to and the HTTP call never runs! Change <code>.map(...)</code> to <code>.flatMap(...)</code> so Reactor subscribes to the inner <code>Mono</code> and flattens it to <code>Mono&lt;Author&gt;</code>.
+</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Pitfall 1: Calling a reactive method without chaining or subscribing to its returned <code>Mono</code>/<code>Flux</code>.</strong><br>
+<em>Mechanical cause:</em> Operators only assemble a pipeline graph in memory. If a <code>Mono&lt;Void&gt;</code> is not connected to the pipeline returned to Box 6 (<code>DispatcherHandler</code>), <code>subscribe()</code> is never called on it.</div>
+
+<div class="pitfall"><strong>Pitfall 2: Blocking on a Netty event-loop thread (JDBC, <code>Thread.sleep</code>, <code>.block()</code>, synchronized locks).</strong><br>
+<em>Mechanical cause:</em> Netty runs only <code>CPU_CORES</code> event-loop threads in Box 5. Blocking even a few threads halts all socket reads/writes across the entire server. Use <strong>BlockHound</strong> in tests to catch accidental blocking calls automatically.</div>
+
+<div class="pitfall"><strong>Pitfall 3: Using <code>.map()</code> when the function returns a <code>Mono</code> or <code>Flux</code>.</strong><br>
+<em>Mechanical cause:</em> Produces a nested <code>Mono&lt;Mono&lt;T&gt;&gt;</code> whose inner publisher is never subscribed to. Always use <code>.flatMap()</code> (or <code>.concatMap()</code> if strict sequential ordering is required).</div>
+
+<div class="pitfall"><strong>Pitfall 4: Reading or writing <code>ThreadLocal</code> state inside reactive operators.</strong><br>
+<em>Mechanical cause:</em> Operators execute on whichever thread emits the signal (Netty NIO thread, R2DBC thread, or <code>boundedElastic</code> thread). Use Reactor's <code>contextWrite()</code> and <code>Mono.deferContextual()</code> instead.</div>
+
+<h2><span class="n">§9</span>Recap &amp; Glossary / Reference</h2>
+<ul class="recap">
+  <li><strong>WebFlux swaps Boxes 5 &amp; 6:</strong> Box 5 becomes Netty's Event Loop (4–8 non-blocking threads); Box 6 becomes <code>DispatcherHandler</code> + Reactor <code>Context</code> (replacing <code>ThreadLocal</code>).</li>
+  <li><strong><code>Mono&lt;T&gt;</code> (0..1) and <code>Flux&lt;T&gt;</code> (0..N)</strong> are lazy recipes—<strong>nothing runs until <code>.subscribe()</code></strong>.</li>
+  <li><strong>Backpressure (<code>Subscription.request(n)</code>)</strong> lets a slow consumer throttle a fast producer so memory never overflows.</li>
+  <li><strong>Never block the event loop:</strong> reactive must be non-blocking end-to-end (R2DBC + <code>WebClient</code>), or isolate legacy blocking calls on <code>Schedulers.boundedElastic()</code>.</li>
+  <li><strong>In Java 21+, prefer Spring MVC + Virtual Threads</strong> for standard apps; reserve WebFlux for streaming, backpressure, and API Gateways.</li>
+</ul>
+
+<h3>Quick Reference Cheat-Sheet</h3>
+<table>
+<thead><tr><th>Goal</th><th>Reactor / WebFlux API</th><th>Key Detail</th></tr></thead>
+<tbody>
+<tr><td>Represent 0..1 or 0..N async items</td><td><code>Mono&lt;T&gt;</code> / <code>Flux&lt;T&gt;</code></td><td>Lazy until subscribed!</td></tr>
+<tr><td>Transform value synchronously</td><td><code>.map(x -&gt; y)</code></td><td>Lambda returns plain value <code>Y</code>.</td></tr>
+<tr><td>Chain another async call</td><td><code>.flatMap(x -&gt; fetchAsync(x))</code></td><td>Lambda returns <code>Mono&lt;Y&gt;</code> or <code>Flux&lt;Y&gt;</code>.</td></tr>
+<tr><td>Run 2+ async calls in parallel</td><td><code>Mono.zip(m1, m2)</code></td><td>Total time = slowest single call.</td></tr>
+<tr><td>Turn empty result into an error</td><td><code>.switchIfEmpty(Mono.error(...))</code></td><td>Standard pattern for 404 Not Found.</td></tr>
+<tr><td>Recover from error signal</td><td><code>.onErrorResume(ex -&gt; fallbackMono)</code></td><td>Errors flow as signals, not try/catch.</td></tr>
+<tr><td>Wrap legacy blocking JDBC/SDK call</td><td><code>Mono.fromCallable(...).subscribeOn(Schedulers.boundedElastic())</code></td><td>Keeps Netty event loop unblocked.</td></tr>
+<tr><td>Test a reactive pipeline</td><td><code>StepVerifier.create(flux).expectNext(...).verifyComplete()</code></td><td>Tests signals &amp; virtual time.</td></tr>
+</tbody>
+</table>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>Netty Event Loop (Box 5 in WebFlux)</dt><dd>A tiny pool of non-blocking threads (typically 1–2 per CPU core) that multiplex thousands of network sockets using OS readiness notifications.</dd>
+  <dt>Reactive Streams</dt><dd>The 4-interface specification (<code>Publisher</code>, <code>Subscriber</code>, <code>Subscription</code>, <code>Processor</code>) standardizing asynchronous streams with non-blocking backpressure.</dd>
+  <dt>Mono &amp; Flux</dt><dd>Project Reactor's <code>Publisher</code> implementations for 0..1 items (<code>Mono</code>) and 0..N items (<code>Flux</code>).</dd>
+  <dt>Backpressure</dt><dd>Mechanism where the downstream <code>Subscriber</code> calls <code>subscription.request(n)</code> so a fast upstream <code>Publisher</code> never overwhelms its memory buffer.</dd>
+  <dt>Reactor Context</dt><dd>An immutable key-value Map attached to a reactive subscription that replaces <code>ThreadLocal</code> across thread hops.</dd>
+  <dt>R2DBC</dt><dd>Reactive Relational Database Connectivity—non-blocking SQL driver specification used in WebFlux instead of blocking JDBC/JPA.</dd>
+  <dt>StepVerifier &amp; BlockHound</dt><dd>Testing tools: <code>StepVerifier</code> asserts reactive signals step-by-step; <code>BlockHound</code> throws an error if any test blocks a non-blocking event-loop thread.</dd>
+</dl>
+
+<p class="sources" style="margin-top:2rem">
+<strong>Official Documentation Citations:</strong>
+<a href="https://docs.spring.io/spring-framework/reference/web/webflux.html">Spring Framework Reference — Spring WebFlux (Overview, Reactive Core, DispatcherHandler, WebClient)</a>;
+<a href="https://projectreactor.io/docs/core/release/reference/">Project Reactor Reference Guide (Mono, Flux, Schedulers, Context)</a>;
+<a href="https://docs.spring.io/spring-boot/reference/data/sql.html#data.sql.r2dbc">Spring Boot Reference — R2DBC</a>.
+</p>
+
+</body>
+</html>

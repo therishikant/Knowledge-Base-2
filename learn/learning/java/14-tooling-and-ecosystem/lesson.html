@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tooling &amp; Ecosystem — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<h1>Tooling &amp; Ecosystem</h1>
+<p class="crumb">Java › lesson 14 of 14 · <span style="color:#1f6b4d;font-weight:700">SKIM</span> — how real Java projects are built, tested, and shipped</p>
+
+<div class="tldr">
+<strong>In one line —</strong> You rarely run <code>javac</code> by hand. A <strong>build tool</strong> (Maven or Gradle) compiles,
+fetches dependencies, runs tests, and packages a <strong>JAR</strong> — all from one command. Around it sits the ecosystem: a
+dependency repository, a test framework (<strong>JUnit</strong>), and profilers (<strong>JFR</strong>) to see what your program
+actually does at runtime.</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>The final, mostly-transferable lesson: the machinery that turns your source into a shippable artifact and keeps a team's project
+consistent. It closes the loop from lesson 1 (<code>javac</code> → bytecode) up to a real, deployable application.</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+<p>A real app has dozens of libraries, hundreds of files, tests, and multiple environments. Compiling that by hand is impossible and
+non-repeatable. Build tools give a <strong>declarative</strong>, reproducible description of "how to build this," resolve the whole
+dependency tree automatically, and give everyone — you, your teammates, the CI server — the <em>same</em> build
+<span class="sources">(<a href="https://maven.apache.org/what-is-maven.html">Apache — What is Maven?</a>)</span>.</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+<h3>From source to shippable</h3>
+<figure>
+<svg viewBox="0 0 760 130" width="100%" role="img" aria-label="Build pipeline: sources plus dependencies compile, test, package into a jar">
+  <style>
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}.b2{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}.c{font:10px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#ma);fill:none}
+  </style>
+  <defs><marker id="ma" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+  <rect class="b" x="15" y="45" width="120" height="44" rx="6"/><text class="t" x="40" y="65">src + deps</text><text class="c" x="30" y="82">pom/gradle</text>
+  <rect class="b" x="185" y="45" width="110" height="44" rx="6"/><text class="t" x="205" y="72">compile</text>
+  <rect class="b" x="345" y="45" width="110" height="44" rx="6"/><text class="t" x="375" y="72">test</text>
+  <rect class="b" x="505" y="45" width="110" height="44" rx="6"/><text class="t" x="525" y="72">package</text>
+  <rect class="b2" x="660" y="45" width="90" height="44" rx="6"/><text class="t" x="690" y="72">.jar</text>
+  <line class="a" x1="135" y1="67" x2="183" y2="67"/>
+  <line class="a" x1="295" y1="67" x2="343" y2="67"/>
+  <line class="a" x1="455" y1="67" x2="503" y2="67"/>
+  <line class="a" x1="615" y1="67" x2="658" y2="67"/>
+</svg>
+<figcaption>One command (<code>mvn package</code> / <code>gradle build</code>) walks the whole lifecycle. Maven calls these fixed
+<em>phases</em>; Gradle calls them <em>tasks</em>. (Per Maven Build Lifecycle docs.)</figcaption>
+</figure>
+
+<h3>The core JDK commands (what the tools call for you)</h3>
+<table>
+<thead><tr><th>Command</th><th>Does</th></tr></thead>
+<tbody>
+<tr><td><code>javac</code></td><td>compile <code>.java</code> → <code>.class</code> bytecode</td></tr>
+<tr><td><code>java</code></td><td>launch the JVM and run a class / JAR</td></tr>
+<tr><td><code>jar</code></td><td>bundle classes + resources into one <code>.jar</code></td></tr>
+<tr><td><code>jlink</code></td><td>build a trimmed custom runtime image (modules)</td></tr>
+<tr><td><code>jshell</code></td><td>REPL for trying snippets (Java 9+)</td></tr>
+</tbody></table>
+
+<h3>Maven vs Gradle</h3>
+<p><strong>Maven</strong> uses an XML <code>pom.xml</code> with a fixed lifecycle and strong conventions — predictable and everywhere.
+<strong>Gradle</strong> uses a concise Groovy/Kotlin script, is more flexible, and caches aggressively for speed. Both do the same
+three jobs: <strong>dependency management</strong> (declare a library + version, it fetches it and everything it needs),
+<strong>build lifecycle</strong>, and <strong>plugins</strong> (tests, packaging, coverage).</p>
+
+<h3>Testing &amp; profiling</h3>
+<p><strong>JUnit 5</strong> is the standard test framework (<code>@Test</code>, assertions), usually with <strong>Mockito</strong> for
+fakes and <strong>AssertJ</strong> for fluent checks — and the DI design from lesson 13 is what makes units testable.
+<strong>Java Flight Recorder (JFR)</strong> records what the JVM does (allocations, locks, GC) with almost no overhead; view it in
+<strong>JDK Mission Control</strong> to find real bottlenecks instead of guessing.</p>
+
+<div class="callout"><strong>Semantic versioning.</strong> Dependencies use <code>MAJOR.MINOR.PATCH</code> (e.g. <code>2.15.3</code>): major = breaking,
+minor = new features, patch = fixes. Pin versions for reproducible builds.</div>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong>Maven</strong> — teams that value convention and stability; the safe default.</li>
+  <li><strong>Gradle</strong> — big/multi-module builds or Android; when you need speed and flexibility.</li>
+  <li><strong>JUnit + Mockito</strong> — every project, from day one.</li>
+  <li><strong>jlink / jpackage</strong> — shipping a small self-contained runtime.</li>
+  <li><strong>JFR + Mission Control</strong> — diagnosing a real performance or memory problem in a running app.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>Building a Lego castle from a huge box, you don't hunt for each brick yourself. The <strong>build tool</strong> is a helper who
+reads your instruction sheet, fetches every needed brick set from the warehouse (dependencies), snaps them together (compile), checks
+it doesn't fall over (test), and boxes the finished castle (package) — all when you say one word. And a <strong>profiler</strong> is a
+stopwatch that watches which room took longest to build, so you fix the real slow part instead of guessing.</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← jvm-bytecode-pipeline:</strong> the tool just orchestrates the <code>javac</code>→<code>java</code> steps from lesson 1.</li>
+  <li><strong>← application-architecture:</strong> DI and interfaces are what make the JUnit tests fast and isolated.</li>
+  <li><strong>← modern-java:</strong> <code>jlink</code> and modules (JPMS) shrink and lock down what you ship.</li>
+  <li><strong>← memory-model-and-gc:</strong> JFR is how you actually watch GC and allocation in production.</li>
+  <li><strong>Same idea elsewhere:</strong> npm (JS), pip/Poetry (Python), Cargo (Rust) play Maven/Gradle's role — same concept, different files.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — a minimal <code>pom.xml</code>, dissected</h2>
+<pre><span class="k">&lt;project&gt;</span>
+  <span class="k">&lt;groupId&gt;</span>com.example<span class="k">&lt;/groupId&gt;</span>          <span class="c">// who owns it</span>
+  <span class="k">&lt;artifactId&gt;</span>myapp<span class="k">&lt;/artifactId&gt;</span>            <span class="c">// this project's name</span>
+  <span class="k">&lt;version&gt;</span>1.0.0<span class="k">&lt;/version&gt;</span>                  <span class="c">// its version (semver)</span>
+
+  <span class="k">&lt;dependencies&gt;</span>
+    <span class="k">&lt;dependency&gt;</span>                          <span class="c">// declare a library...</span>
+      <span class="k">&lt;groupId&gt;</span>org.junit.jupiter<span class="k">&lt;/groupId&gt;</span>
+      <span class="k">&lt;artifactId&gt;</span>junit-jupiter<span class="k">&lt;/artifactId&gt;</span>
+      <span class="k">&lt;version&gt;</span>5.10.2<span class="k">&lt;/version&gt;</span>
+      <span class="k">&lt;scope&gt;</span>test<span class="k">&lt;/scope&gt;</span>                    <span class="c">// ...only needed for tests</span>
+    <span class="k">&lt;/dependency&gt;</span>
+  <span class="k">&lt;/dependencies&gt;</span>
+<span class="k">&lt;/project&gt;</span></pre>
+<div class="ann">Those three coordinates — <em>groupId : artifactId : version</em> — are how Maven finds <em>any</em> library in the world (Maven
+Central). You declare JUnit once and Maven downloads it and everything it depends on, at the right versions. <code>scope=test</code>
+keeps it out of your shipped JAR. This tiny file is a full, reproducible recipe: anyone running <code>mvn package</code> gets the
+identical build.</div>
+
+<div class="try"><strong>Try it.</strong> Run <code>mvn dependency:tree</code> (or <code>gradle dependencies</code>) on any project. You'll see
+the <em>transitive</em> dependencies — the libraries your libraries pull in. <em>(Predict: how many total dependencies does adding one
+web framework really bring in?)</em></div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Dependency conflicts ("JAR hell").</strong> Two libraries want different versions of a third. Use <code>dependency:tree</code> and pin/exclude.</div>
+<div class="pitfall"><strong>Unpinned/SNAPSHOT versions.</strong> Non-reproducible builds. Pin exact versions for releases.</div>
+<div class="pitfall"><strong>Committing build output.</strong> <code>target/</code> and <code>build/</code> belong in <code>.gitignore</code>, not the repo.</div>
+<div class="pitfall"><strong>Guessing at performance.</strong> Profile with JFR before optimizing; intuition about hotspots is usually wrong.</div>
+<div class="pitfall"><strong>Skipping tests in the build.</strong> Tests in the lifecycle are your safety net; don't <code>-DskipTests</code> as a habit.</div>
+<div class="pitfall"><strong>Security: stale dependencies.</strong> Old libraries carry known CVEs. Scan (e.g. OWASP Dependency-Check) and update.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>A <strong>build tool</strong> (Maven/Gradle) compiles, resolves dependencies, tests, and packages — one command, reproducible.</li>
+  <li>Under it are the JDK commands: <code>javac</code>, <code>java</code>, <code>jar</code>, <code>jlink</code>, <code>jshell</code>.</li>
+  <li><strong>Maven</strong> = XML + convention; <strong>Gradle</strong> = script + flexibility + caching. Same three jobs.</li>
+  <li>Libraries are addressed by <strong>group : artifact : version</strong>; declare one, get its transitive tree.</li>
+  <li><strong>JUnit (+ Mockito)</strong> for tests — enabled by the DI design from lesson 13.</li>
+  <li><strong>JFR + Mission Control</strong> to measure real runtime behaviour; profile before optimizing.</li>
+</ul>
+
+<hr/>
+<h2>Reference — everyday commands</h2>
+<table>
+<thead><tr><th>Task</th><th>Maven</th><th>Gradle</th></tr></thead>
+<tbody>
+<tr><td>compile + test + package</td><td><code>mvn package</code></td><td><code>gradle build</code></td></tr>
+<tr><td>run tests only</td><td><code>mvn test</code></td><td><code>gradle test</code></td></tr>
+<tr><td>see dependency tree</td><td><code>mvn dependency:tree</code></td><td><code>gradle dependencies</code></td></tr>
+<tr><td>clean build output</td><td><code>mvn clean</code></td><td><code>gradle clean</code></td></tr>
+<tr><td>record a profile</td><td colspan="2"><code>java -XX:+FlightRecorder -XX:StartFlightRecording=... </code></td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Build tool</dt><dd>Automates compile → test → package with dependency resolution (Maven/Gradle).</dd>
+  <dt>JAR</dt><dd>A ZIP of compiled classes + resources; the standard Java artifact.</dd>
+  <dt>Dependency</dt><dd>An external library your project uses, addressed by group:artifact:version.</dd>
+  <dt>Transitive dependency</dt><dd>A dependency pulled in by one of your dependencies.</dd>
+  <dt>Lifecycle / phase</dt><dd>Maven's ordered build steps (validate→compile→test→package→install→deploy).</dd>
+  <dt>JUnit</dt><dd>The standard Java unit-testing framework.</dd>
+  <dt>JFR</dt><dd>Java Flight Recorder — low-overhead runtime event recording.</dd>
+  <dt>jlink</dt><dd>Builds a minimal custom runtime image from modules.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://maven.apache.org/guides/introduction/introduction-to-the-lifecycle.html">Apache — Maven Build Lifecycle</a> (or the <a href="https://docs.gradle.org/current/userguide/userguide.html">Gradle User Manual</a>), plus <a href="https://junit.org/junit5/docs/current/user-guide/">the JUnit 5 User Guide</a>.</p>
+<p class="sources" style="margin-top:2rem">Sources: Apache Maven docs (What is Maven, Build Lifecycle); Gradle User Manual; JUnit 5 User Guide; Oracle JDK tool docs (<code>javac</code>, <code>java</code>, <code>jlink</code>). Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

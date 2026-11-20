@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lesson 14: Testing Spring Applications — Spring</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.6rem;margin-bottom:1.8rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{text-decoration:none;font-weight:600} .nav a:hover{text-decoration:underline}
+  h1{font-size:2.2rem;line-height:1.12;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .6rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.12rem;margin:1.5rem 0 .35rem}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.48}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f5f1e6;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner h3{margin:0 0 .4rem;color:var(--accent2);font-size:1.05rem}
+  .flow{background:#fff;border:1px solid var(--rule);border-left:4px solid var(--spring);padding:.8rem 1.1rem;border-radius:6px;margin:1rem 0;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.83rem;line-height:1.6}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.85rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.35rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  @media print{body{padding:1rem;max-width:100%} pre,table,figure{break-inside:avoid}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span><a href="../13-spring-security/lesson.html">← Lesson 13: Spring Security</a></span>
+  <span><a href="../overview.html">Spring 18-Lesson Map</a> · Lesson 14 of 18</span>
+  <span><a href="../15-observability-and-production/lesson.html">Lesson 15: Observability &amp; Production →</a></span>
+</nav>
+
+<h1>Testing Spring Applications</h1>
+<p class="crumb"><a href="../overview.html">Spring</a> › lesson 14 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — Bootstrapping Only the Boxes You Need</p>
+
+<div class="tldr">
+<strong>Summary —</strong> Testing in Spring is really one simple question: <strong>how many of our 6 Boxes do I need to boot up for this test?</strong> Most business logic needs <strong>0 Boxes</strong> (just call <code>new BookService(fakeRepo)</code> in plain JUnit in 5 ms). Web and database boundaries need <strong>1 Slice Box</strong> (<code>@WebMvcTest</code> for Box 6, or <code>@DataJpaTest</code> for Box 3/4 repositories), and only a few end-to-end smoke tests need <strong>All 6 Boxes</strong> (<code>@SpringBootTest</code>).
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the Map</h2>
+<p>
+In Lessons 1–13 we built all 6 Boxes of a running Spring Boot application across <strong>Phase 1 (Startup)</strong> and <strong>Phase 2 (Request)</strong>. Now we want to test our code without waiting 8 seconds for all 6 Boxes to boot before every single test method.
+</p>
+
+<div class="map-banner">
+  <h3>📍 You Are Here: Bootstrapping Only the Boxes You Need for Each Test Tier</h3>
+  <p style="margin:.3rem 0">
+    <strong>What happened before:</strong> Lesson 3 taught Constructor Injection so our classes don't depend on Spring, and Lessons 9–13 built the Web (Box 5 &amp; 6), JPA/Transaction (Box 4 &amp; 6), and Security (Box 5) layers.<br>
+    <strong>What this lesson zooms into:</strong> How JUnit 5 + Spring's <code>TestContext</code> framework selectively turns on <strong>0 Boxes</strong>, <strong>a single Slice Box</strong>, or <strong>All 6 Boxes</strong>—and caches Box 3 (<code>ApplicationContext</code>) across test classes so you don't rebuild the warehouse 100 times.<br>
+    <strong>What happens right after:</strong> Once our tests prove the app works locally, Lesson 15 takes the 6 Boxes into production with Actuator health probes, metrics, tracing, and Phase 3 (Graceful Shutdown).
+  </p>
+</div>
+
+<figure>
+<svg viewBox="0 0 800 355" width="100%" role="img" aria-label="6-Box Map mapped to the Spring Testing Pyramid">
+  <style>
+    .p-bg{fill:#f7f4ec;stroke:#d9d3c7;stroke-width:1.2}
+    .b-off{fill:#eeeae0;stroke:#9e998e;stroke-width:1.2;stroke-dasharray:4 2}
+    .b-on{fill:#eefaf4;stroke:#1f6b4d;stroke-width:1.8}
+    .b-slice{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.8}
+    .b-all{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.8}
+    .h{font:bold 12px Georgia,serif;fill:#2b2b28}
+    .t{font:11px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .s{font:10.5px Georgia,serif;fill:#3f3b34}
+    .lbl{font:bold 11px Georgia,serif;fill:#7a1f1f}
+  </style>
+
+  <!-- Header row: The 6 Core Boxes -->
+  <rect class="p-bg" x="10" y="10" width="780" height="62" rx="6"/>
+  <text class="h" x="22" y="28">The 6-Box Map Across Phase 1 (Startup) &amp; Phase 2 (Request):</text>
+  <text class="t" x="22" y="48">[Box 1: Env] → [Box 2: BeanDefs] → [Box 3: BeanFactory Map] → [Box 4: Proxies] → [Box 5: Tomcat+Filters] → [Box 6: DispatcherServlet+ThreadLocal]</text>
+  <text class="s" x="22" y="64">Full Phase 1 Startup takes ~3–8 seconds. A test suite that boots all 6 Boxes 50 times takesminutes instead of milliseconds!</text>
+
+  <!-- Tier 1: Plain JUnit -->
+  <rect class="b-on" x="10" y="84" width="780" height="60" rx="6"/>
+  <text class="h" x="22" y="104" style="fill:#1f6b4d">Tier 1 — Plain JUnit 5 + Mockito / Fakes  (70% of your tests · ~5 ms)</text>
+  <text class="t" x="22" y="122">Boxes Started: ZERO!  Just plain Java: new LoanService(fakeBookRepo, fixedClock).borrow(1L, 42L)</text>
+  <text class="s" x="22" y="137">Why it works: Constructor Injection (Lesson 3) means your Service is a plain Java object with zero Spring imports.</text>
+
+  <!-- Tier 2A: @WebMvcTest -->
+  <rect class="b-slice" x="10" y="154" width="384" height="86" rx="6"/>
+  <text class="h" x="22" y="174" style="fill:#1f4d7a">Tier 2A — @WebMvcTest  (Web Slice · ~1 sec)</text>
+  <text class="t" x="22" y="192">Starts: Box 5 (SecurityFilter) + Box 6 (MockMvc)</text>
+  <text class="t" x="22" y="208">Skips:  Box 5 Tomcat Socket, Services, JPA/DB</text>
+  <text class="s" x="22" y="226">Tests URL routing, @Valid, Jackson JSON, @ControllerAdvice, 401/403.</text>
+
+  <!-- Tier 2B: @DataJpaTest -->
+  <rect class="b-slice" x="406" y="154" width="384" height="86" rx="6"/>
+  <text class="h" x="418" y="174" style="fill:#1f4d7a">Tier 2B — @DataJpaTest  (DB Slice · ~2 sec)</text>
+  <text class="t" x="418" y="192">Starts: Box 3/4 Repo Proxies + Hibernate + DB</text>
+  <text class="t" x="418" y="208">Skips:  Box 5 Tomcat, Box 6 Controllers, Services</text>
+  <text class="s" x="418" y="226">Tests SQL queries, constraints, mappings; auto-rolls back Box 6 TX!</text>
+
+  <!-- Tier 3: @SpringBootTest -->
+  <rect class="b-all" x="10" y="250" width="780" height="92" rx="6"/>
+  <text class="h" x="22" y="270" style="fill:#7a1f1f">Tier 3 — @SpringBootTest (+ Testcontainers)  (Full Integration · ~5–10 sec · 5–10% of tests)</text>
+  <text class="t" x="22" y="288">Starts: ALL 6 BOXES (Box 1 Env → Box 2 Scan → Box 3 Beans → Box 4 Proxies → Box 5 Tomcat Port → Box 6 DispatcherServlet)</text>
+  <text class="s" x="22" y="306"> Saved by Context Caching: SpringExtension caches Box 3 in a static Map&lt;MergedContextConfiguration, ApplicationContext&gt;</text>
+  <text class="lbl" x="22" y="326">⚠️ Changing @MockitoBean / @ActiveProfiles / properties changes the Map key → forces a brand-new 8-second Box 1–6 rebuild!</text>
+</svg>
+<figcaption>The Spring Testing Pyramid is literally "How many of the 6 Boxes do you turn on?"</figcaption>
+</figure>
+
+<h2><span class="n">§2</span>Why it exists — The Pain Without Slice Testing &amp; Constructor DI</h2>
+<p>
+Why do we care so much about how you wire dependencies (Lesson 3) and how much of Spring you boot in a test? Look at what happens when a developer uses <code>@Autowired</code> field injection and puts <code>@SpringBootTest</code> on every test class:
+</p>
+
+<pre><span class="c">// ❌ THE PAINFUL WAY: Field injection + booting all 6 Boxes just to test an 'if' statement!</span>
+<span class="k">public class</span> BadLoanService {
+    <span class="an">@Autowired</span> <span class="k">private</span> BookRepository books;   <span class="c">// Private field! Can't pass a fake in 'new BadLoanService()'</span>
+    <span class="an">@Autowired</span> <span class="k">private</span> LoanRepository loans;
+
+    <span class="k">public</span> Loan borrow(<span class="k">long</span> bookId, <span class="k">long</span> memberId) {
+        Book b = books.findById(bookId).orElseThrow();
+        <span class="k">if</span> (!b.isAvailable()) <span class="k">throw new</span> BookUnavailableException(bookId);
+        <span class="k">return</span> loans.save(<span class="k">new</span> Loan(bookId, memberId, LocalDate.now().plusDays(14)));
+    }
+}
+
+<span class="c">// Because fields are private, the developer boots the ENTIRE Spring container (Boxes 1–6):</span>
+<span class="an">@SpringBootTest</span>   <span class="c">// ☠ Boots 150 auto-configs, Hibernate, HikariCP, Tomcat... takes 6,000 ms!</span>
+<span class="k">class</span> BadLoanServiceTest {
+    <span class="an">@Autowired</span> BadLoanService service;
+    <span class="an">@MockitoBean</span> BookRepository books; <span class="c">// Alters the Context Cache key → forces ANOTHER 6,000 ms reboot!</span>
+}</pre>
+
+<div class="callout">
+<strong>The Contrast Anchor:</strong> To test a 3-line <code>if (!b.isAvailable())</code> check, <code>@SpringBootTest</code> ran classpath scanning (Box 2), instantiated 200 singletons (Box 3), generated CGLIB proxies (Box 4), and booted Hibernate. If you have 200 test classes like this, your CI build takes 25 minutes. With <strong>Constructor Injection</strong>, you don't boot Spring at all—you call <code>new LoanService(fakeBooks, fakeLoans, fixedClock)</code> and it finishes in <strong>2 milliseconds</strong>.
+</div>
+
+<h2><span class="n">§3</span>How it works — Plain Java Data Structures First (Level 1 → Level 2 Zoom)</h2>
+
+<h3>1. Plain Java Data Structures Inside Spring's Test Engine</h3>
+<p>
+Before learning any test annotations, look at the three plain Java data structures that power all of Spring testing:
+</p>
+<ul>
+  <li><strong>The Context Cache (<code>Map&lt;MergedContextConfiguration, ApplicationContext&gt;</code>):</strong> When JUnit runs a Spring test, <code>SpringExtension</code> does not destroy Box 3 (<code>ApplicationContext</code>) when the test class finishes. It stores the live container in a static <code>Map</code> keyed by the test's configuration fingerprint:
+    <br><code>record ContextCacheKey(Set&lt;Class&lt;?&gt;&gt; configClasses, Set&lt;String&gt; activeProfiles, Map&lt;String,String&gt; properties, Set&lt;MockitoBeanDef&gt; mockBeans)</code>.
+    <br>If Test Class B has the <em>exact same key</em> as Test Class A, <code>contextCache.get(key)</code> returns the already-running Box 3 in <strong>0 ms</strong>!
+  </li>
+  <li><strong>Slice Filter (<code>Predicate&lt;BeanDefinition&gt;</code>):</strong> A slice annotation like <code>@WebMvcTest</code> is just a filter on <strong>Box 2 (<code>Map&lt;String, BeanDefinition&gt;</code>)</strong>. During scanning, it says: <em>"Is this class a <code>@Controller</code> or <code>@ControllerAdvice</code>? Keep it in Box 2. Is it a <code>@Service</code> or <code>@Repository</code>? Throw its recipe away!"</em></li>
+  <li><strong><code>MockMvc</code> (Fake Box 5 Caller):</strong> Instead of opening a real TCP <code>ServerSocket(8080)</code> in Box 5, <code>MockMvc</code> creates a fake in-memory <code>MockHttpServletRequest</code> and passes it directly into <strong>Box 6 (<code>DispatcherServlet.service(req, resp)</code>)</strong> on the same thread.</li>
+</ul>
+
+<div class="flow">
+<strong>Step-by-Step Control Flow: What Happens When JUnit Runs a Spring Test</strong><br>
+Step 1 (Build Key)   → JUnit 5 triggers <code>SpringExtension</code> → inspects annotations (<code>@WebMvcTest</code>, <code>@ActiveProfiles</code>, <code>@MockitoBean</code>) → builds <code>MergedContextConfiguration</code> key.<br>
+Step 2 (Cache Check) → Looks up key in static <code>Map&lt;MergedContextConfiguration, ApplicationContext&gt;</code>.<br>
+Step 3 (Hit or Miss) → <strong>CACHE HIT:</strong> reuses existing Box 3 instantly (0 ms).<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; → <strong>CACHE MISS:</strong> runs Phase 1 Startup for the requested Boxes (only Web beans for <code>@WebMvcTest</code>, only JPA beans for <code>@DataJpaTest</code>, or all 6 Boxes for <code>@SpringBootTest</code>) and puts Box 3 into the Map.<br>
+Step 4 (Inject Test) → Injects fields into your JUnit test instance (and resets any <code>@MockitoBean</code> stubs).<br>
+Step 5 (Run &amp; Clean) → Runs <code>@Test</code> method. (If <code>@DataJpaTest</code>, wraps Step 5 in a Box 6 <code>ThreadLocal</code> transaction and calls <code>connection.rollback()</code> in an <code>afterEach</code> hook!)
+</div>
+
+<h3>2. Zooming In: The 4 Test Tiers and Which Boxes They Touch</h3>
+
+<figure>
+<svg viewBox="0 0 780 310" width="100%" role="img" aria-label="MockMvc vs TestRestTemplate thread and transaction behaviour">
+  <style>
+    .box{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.5}
+    .warn{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.5}
+    .ok{fill:#eefaf4;stroke:#1f6b4d;stroke-width:1.5}
+    .h{font:bold 12px Georgia,serif;fill:#2b2b28}
+    .t{font:11px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .s{font:10.5px Georgia,serif;fill:#3f3b34}
+    .arr{stroke:#2b2b28;stroke-width:1.5;marker-end:url(#ar);fill:none}
+  </style>
+  <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2b2b28"/></marker></defs>
+
+  <!-- Left: MockMvc (Same Thread) -->
+  <rect class="ok" x="14" y="14" width="364" height="280" rx="6"/>
+  <text class="h" x="28" y="36" style="fill:#1f6b4d">Path A: MockMvc (@WebMvcTest or MOCK env)</text>
+  <text class="t" x="28" y="56">Runs on: SINGLE THREAD (JUnit Test Thread)</text>
+  <rect class="box" x="30" y="72" width="330" height="44" rx="4"/>
+  <text class="t" x="42" y="92">1. Test Thread: mvc.perform(get("/books/1"))</text>
+  <text class="s" x="42" y="108">No TCP socket! Builds MockHttpServletRequest in RAM</text>
+  <path class="arr" d="M195,116 L195,138"/>
+  <rect class="box" x="30" y="140" width="330" height="52" rx="4"/>
+  <text class="t" x="42" y="160">2. Box 5 SecurityFilter → Box 6 DispatcherServlet</text>
+  <text class="s" x="42" y="178">Controller runs on the SAME JUnit Thread!</text>
+  <path class="arr" d="M195,192 L195,214"/>
+  <rect class="box" x="30" y="216" width="330" height="62" rx="4"/>
+  <text class="t" x="42" y="236">3. Rule 3 (ThreadLocal): Shared!</text>
+  <text class="s" x="42" y="252">Because it's 1 thread, @Transactional on the test</text>
+  <text class="s" x="42" y="267">CAN roll back DB writes made inside the controller.</text>
+
+  <!-- Right: RANDOM_PORT (Two Threads!) -->
+  <rect class="warn" x="402" y="14" width="364" height="280" rx="6"/>
+  <text class="h" x="416" y="36" style="fill:#7a1f1f">Path B: RANDOM_PORT (@SpringBootTest)</text>
+  <text class="t" x="416" y="56">Runs on: TWO THREADS (Test Thread → Tomcat Thread)</text>
+  <rect class="box" x="418" y="72" width="330" height="44" rx="4"/>
+  <text class="t" x="430" y="92">1. Test Thread: restClient.post("/loans")</text>
+  <text class="s" x="430" y="108">Sends real HTTP bytes over localhost:randomPort</text>
+  <path class="arr" d="M583,116 L583,138"/>
+  <rect class="box" x="418" y="140" width="330" height="52" rx="4"/>
+  <text class="t" x="430" y="160">2. Box 5 Tomcat Thread Pool: http-nio-exec-1</text>
+  <text class="s" x="430" y="178">A DIFFERENT thread runs Box 6 &amp; commits to DB!</text>
+  <path class="arr" d="M583,192 L583,214"/>
+  <rect class="warn" x="418" y="216" width="330" height="62" rx="4"/>
+  <text class="t" x="430" y="236">3. Rule 3 (ThreadLocal): SEPARATE!</text>
+  <text class="s" x="430" y="252">Test Thread's @Transactional CANNOT see or roll back</text>
+  <text class="s" x="430" y="267">what Tomcat's thread committed! You must clean up SQL.</text>
+</svg>
+<figcaption>Applying <strong>Universal Rule 3 (Where State Lives — <code>ThreadLocal</code>)</strong> explains why <code>@Transactional</code> rolls back <code>MockMvc</code> tests but NEVER rolls back <code>RANDOM_PORT</code> server tests!</figcaption>
+</figure>
+
+<h3>Level 0 — Plain JUnit 5 (0 Boxes Started)</h3>
+<pre><span class="k">class</span> LoanServiceTest {   <span class="c">// Zero Spring annotations! Runs in 3 milliseconds.</span>
+
+    <span class="k">private final</span> InMemoryBookRepository books = <span class="k">new</span> InMemoryBookRepository();
+    <span class="k">private final</span> LoanService service = <span class="k">new</span> LoanService(
+            books, <span class="k">new</span> InMemoryLoanRepository(), Clock.fixed(FIXED_INSTANT, ZoneOffset.UTC));
+
+    <span class="an">@Test</span>
+    <span class="k">void</span> rejects_borrowing_an_unavailable_book() {
+        books.save(aBook().id(1L).unavailable().build());
+        assertThatThrownBy(() -&gt; service.borrow(1L, 42L))
+            .isInstanceOf(BookUnavailable.class);
+    }
+}</pre>
+<div class="idiom">
+<strong>Hand-written Fake vs Mockito Mock:</strong> An <code>InMemoryBookRepository</code> (backed by a simple <code>HashMap&lt;Long, Book&gt;</code>) is often cleaner than writing <code>when(repo.findById(1L)).thenReturn(...)</code> in 40 tests. Use <strong>fakes</strong> for state (repositories) and <strong>mocks</strong> for verifying outbound side effects (was the email sender called?).
+</div>
+
+<h3>Level 1A — <code>@WebMvcTest</code> (Box 5 Security Filter + Box 6 <code>DispatcherServlet</code> Only)</h3>
+<pre><span class="an">@WebMvcTest</span>(BookController.class)           <span class="c">// Filters Box 2 recipes: keeps ONLY BookController + MVC/Security</span>
+<span class="k">class</span> BookControllerTest {
+
+    <span class="an">@Autowired</span> MockMvc mvc;                 <span class="c">// Sends fake HTTP request straight into Box 6 DispatcherServlet</span>
+    <span class="an">@MockitoBean</span> BookService service;       <span class="c">// Boot 3.4+ (replaces deprecated @MockBean) — puts mock in Box 3</span>
+
+    <span class="an">@Test</span>
+    <span class="an">@WithMockUser</span>(roles = <span class="s">"ADMIN"</span>)          <span class="c">// Populates Box 6 SecurityContextHolder ThreadLocal!</span>
+    <span class="k">void</span> rejects_invalid_isbn_with_400() <span class="k">throws</span> Exception {
+        mvc.perform(post(<span class="s">"/api/books"</span>).with(csrf())
+               .contentType(APPLICATION_JSON)
+               .content(<span class="s">"""</span>
+                        <span class="s">{"title":"Dune","author":"Herbert","isbn":"bad"}"""</span>))
+           .andExpect(status().isBadRequest())
+           .andExpect(jsonPath(<span class="s">"$.errors[0].field"</span>).value(<span class="s">"isbn"</span>));
+    }
+}</pre>
+
+<h3>Level 1B — <code>@DataJpaTest</code> + Testcontainers (Box 3/4 Repo Proxies + Real Postgres)</h3>
+<pre><span class="an">@DataJpaTest</span>
+<span class="an">@AutoConfigureTestDatabase</span>(replace = NONE)  <span class="c">// ★ Do NOT swap in fake H2 — test real Postgres SQL!</span>
+<span class="an">@Testcontainers</span>
+<span class="k">class</span> BookRepositoryTest {
+
+    <span class="an">@Container</span> <span class="an">@ServiceConnection</span>             <span class="c">// Boot 3.1+: auto-fills Box 1 spring.datasource.url!</span>
+    <span class="k">static</span> PostgreSQLContainer&lt;?&gt; db = <span class="k">new</span> PostgreSQLContainer&lt;&gt;(<span class="s">"postgres:16-alpine"</span>);
+
+    <span class="an">@Autowired</span> BookRepository repo;
+    <span class="an">@Autowired</span> TestEntityManager em;
+
+    <span class="an">@Test</span>
+    <span class="k">void</span> entity_graph_fetches_author_in_one_query() {
+        em.persist(aBookWithAuthor(<span class="s">"Dune"</span>, <span class="s">"Herbert"</span>));
+        em.flush();                         <span class="c">// 1. Force SQL INSERT to Postgres now</span>
+        em.clear();                         <span class="c">// 2. ★ Wipe Box 6 PersistenceContext 1st-level cache Map!</span>
+
+        Book loaded = repo.findWithAuthorById(1L).orElseThrow();
+        assertThat(loaded.getAuthor().getName()).isEqualTo(<span class="s">"Herbert"</span>);
+    }
+}</pre>
+
+<h2><span class="n">§4</span>When to use — Practical Decision Table</h2>
+<table>
+<thead>
+  <tr><th>Test Annotation / Tool</th><th>Which Boxes Boot?</th><th>Typical Speed</th><th>What It Catches (Use When…)</th></tr>
+</thead>
+<tbody>
+  <tr>
+    <td><strong>Plain JUnit 5</strong> (<code>new Service(...)</code>)</td>
+    <td><strong>0 Boxes</strong></td>
+    <td>~1–5 ms</td>
+    <td>Business rules, calculations, state transitions, edge cases. (Should be 70%+ of your tests).</td>
+  </tr>
+  <tr>
+    <td><code>@WebMvcTest(MyController.class)</code></td>
+    <td><strong>Box 5</strong> (SecurityFilters) + <strong>Box 6</strong> (<code>DispatcherServlet</code>)</td>
+    <td>~0.5–1.5 s (first run)</td>
+    <td>URL paths, HTTP status codes, Jackson JSON names, <code>@Valid</code> rules, <code>@ControllerAdvice</code> error JSON, Security 401/403.</td>
+  </tr>
+  <tr>
+    <td><code>@DataJpaTest</code> + <code>@ServiceConnection</code></td>
+    <td><strong>Box 3/4</strong> (Repositories + JPA) + Docker DB</td>
+    <td>~2–3 s (first run)</td>
+    <td>Custom <code>@Query</code> SQL, unique constraints, foreign keys, <code>@EntityGraph</code> N+1 fixes, Flyway migrations.</td>
+  </tr>
+  <tr>
+    <td><code>@JsonTest</code> / <code>@RestClientTest</code></td>
+    <td>Only Jackson beans / Only <code>RestClient</code> beans</td>
+    <td>~0.3 s</td>
+    <td>Complex custom JSON serializers or outbound HTTP client parsing against <code>MockRestServiceServer</code>.</td>
+  </tr>
+  <tr>
+    <td><code>ApplicationContextRunner</code></td>
+    <td>Throwaway mini Box 1–3</td>
+    <td>~20 ms</td>
+    <td>Testing your own <code>@ConditionalOnProperty</code> / custom Auto-Configuration (Lesson 7).</td>
+  </tr>
+  <tr>
+    <td><code>@SpringBootTest(RANDOM_PORT)</code></td>
+    <td><strong>All 6 Boxes</strong></td>
+    <td>~4–10 s</td>
+    <td>A handful of critical end-to-end happy paths proving all 6 Boxes wire together cleanly.</td>
+  </tr>
+</tbody>
+</table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine you built a Lego race car with a motorized engine, steering wheel, and radio remote control. How do you test if the steering gears work?
+</p>
+<p>
+<strong>Way 1 (Plain Unit Test — 0 Boxes):</strong> You pick up just the front axle in your hands and twist the gear with your fingers. It takes <strong>one second</strong>. You don't need batteries, you don't need the remote control, and you don't need to go outside to the driveway.
+</p>
+<p>
+<strong>Way 2 (Slice Test — 1 Box):</strong> You connect just the radio receiver to the steering motor on your desk (<code>@WebMvcTest</code>) to prove the remote buttons turn the wheel left and right, without bolting on the heavy engine.
+</p>
+<p>
+<strong>Way 3 (Full Integration Test — All 6 Boxes):</strong> You bolt the entire car together, carry it outside to the pavement, turn on everything, and drive a full lap (<code>@SpringBootTest</code>). You definitely want to do one or two full laps before race day! But if you carried the whole car outside every time you changed a single Lego brick, you'd spend all day walking up and down the stairs. And if you have 50 tests to run on the driveway, you don't disassemble and rebuild the car 50 times—you <strong>keep the built car parked on the driveway</strong> and reuse it (that's <strong>Test Context Caching</strong>!).
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← Lesson 01 &amp; 03 (IoC &amp; Constructor Injection):</strong> Constructor injection is what lets you write <code>new LoanService(fakeRepo)</code> with 0 Boxes started. Field injection traps you into booting Box 3.</li>
+  <li><strong>← Lesson 05 &amp; 07 (Component Scanning &amp; Auto-Configuration):</strong> Slice annotations (<code>@WebMvcTest</code>, <code>@DataJpaTest</code>) work by applying a <code>TypeExcludeFilter</code> to Box 2 (<code>Map&lt;String, BeanDefinition&gt;</code>) and importing only a subset of auto-configuration recipes.</li>
+  <li><strong>← Lesson 11 &amp; 12 (JPA Persistence Context &amp; Transactions):</strong> Explains why <code>em.flush(); em.clear();</code> is mandatory in <code>@DataJpaTest</code> (to empty the 1st-level cache Map in Box 6) and why <code>@Transactional</code> on a <code>RANDOM_PORT</code> test cannot roll back the server thread's commit.</li>
+  <li><strong>← <a href="../../java/11-concurrency/lesson.html">Java Lesson 11 (Concurrency &amp; ThreadLocal)</a>:</strong> Explains why <code>MockMvc</code> (1 thread) shares <code>ThreadLocal</code> state with the test method while <code>RANDOM_PORT</code> (2 threads) does not.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Code Dissection &amp; Derive, Don't Memorize</h2>
+
+<pre><span class="c">// ═══ A Shared Base Integration Test that Preserves the Box 3 Context Cache ═══</span>
+<span class="an">@SpringBootTest</span>(webEnvironment = WebEnvironment.RANDOM_PORT)
+<span class="an">@ActiveProfiles</span>(<span class="s">"test"</span>)                             <span class="c">// ① Fixed profile across ALL IT classes = 1 cache key!</span>
+<span class="an">@Testcontainers</span>
+<span class="k">public abstract class</span> AbstractIntegrationTest {
+
+    <span class="an">@Container</span> <span class="an">@ServiceConnection</span>                    <span class="c">// ② static container started ONCE per JVM run</span>
+    <span class="k">static final</span> PostgreSQLContainer&lt;?&gt; POSTGRES =
+        <span class="k">new</span> PostgreSQLContainer&lt;&gt;(<span class="s">"postgres:16-alpine"</span>);
+}
+
+<span class="c">// ═══ Concrete Test Class Reusing the Cached Box 1–6 Container ═══════════════</span>
+<span class="k">class</span> BorrowFlowIT <span class="k">extends</span> AbstractIntegrationTest {
+
+    <span class="an">@Autowired</span> TestRestTemplate rest;               <span class="c">// ③ Sends real HTTP over TCP to Box 5 Tomcat</span>
+    <span class="an">@Autowired</span> LoanRepository loans;
+    <span class="an">@Autowired</span> BookRepository books;
+
+    <span class="an">@AfterEach</span>                                      <span class="c">// ④ Explicit cleanup! (RANDOM_PORT = different thread)</span>
+    <span class="k">void</span> tearDown() {
+        loans.deleteAllInBatch();
+        books.deleteAllInBatch();
+    }
+
+    <span class="an">@Test</span>
+    <span class="k">void</span> borrowing_persists_loan_and_returns_201() {
+        Book saved = books.save(<span class="k">new</span> Book(<span class="s">"9780441013593"</span>, <span class="s">"Dune"</span>, <span class="k">true</span>));
+
+        ResponseEntity&lt;LoanView&gt; res = rest
+            .withBasicAuth(<span class="s">"member"</span>, <span class="s">"secret"</span>)      <span class="c">// ⑤ Passes through real Box 5 SecurityFilterChain</span>
+            .postForEntity(<span class="s">"/api/loans"</span>, <span class="k">new</span> BorrowRequest(saved.getId(), 42L), LoanView.class);
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(loans.count()).isEqualTo(1);
+    }
+}</pre>
+
+<div class="ann">
+<strong>Code Dissection:</strong><br>
+<strong>① Shared Cache Key:</strong> Every subclass of <code>AbstractIntegrationTest</code> has the exact same annotations and profile, so <code>SpringExtension</code> hits the <code>ApplicationContext</code> cache 100% of the time after the first test class.<br>
+<strong>② Singleton Container:</strong> Making <code>POSTGRES</code> <code>static</code> in the base class means Docker boots PostgreSQL once for the entire test run instead of restarting Postgres for every class.<br>
+<strong>④ Why <code>@AfterEach</code> cleanup instead of <code>@Transactional</code>?</strong> Because ③ <code>TestRestTemplate</code> calls Box 5 Tomcat over a real socket on a Tomcat worker thread (Rule 3: separate <code>ThreadLocal</code> transaction).
+</div>
+
+<h3>How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead>
+  <tr><th>Classic Interview Question</th><th>Derive the Answer in 10 Seconds from the 6-Box Map &amp; 3 Rules</th></tr>
+</thead>
+<tbody>
+  <tr>
+    <td><em>"Why did our test suite slow down from 30 seconds to 10 minutes as the project grew?"</em></td>
+    <td><strong>Look at Box 3 Context Cache Map:</strong> Someone used different <code>@MockitoBean</code> fields, <code>@TestPropertySource</code>, or <code>@DirtiesContext</code> across test classes. Each unique combination creates a new cache key in <code>Map&lt;MergedContextConfiguration, ApplicationContext&gt;</code>, forcing Spring to rebuild Boxes 1–6 from scratch dozens of times.</td>
+  </tr>
+  <tr>
+    <td><em>"What is the difference between <code>@Mock</code> and <code>@MockitoBean</code> (formerly <code>@MockBean</code>)?"</em></td>
+    <td><strong>Look at Box 3 (<code>singletonObjects</code>):</strong> Plain Mockito <code>@Mock</code> creates a mock object in your test with <strong>0 Boxes started</strong>. <code>@MockitoBean</code> reaches inside <strong>Box 2 &amp; Box 3</strong> to replace a real Spring Bean definition inside the <code>ApplicationContext</code> Warehouse—and alters the Context Cache key!</td>
+  </tr>
+  <tr>
+    <td><em>"Why did my <code>@DataJpaTest</code> pass even though my SQL <code>@Query</code> has a syntax error or N+1 bug?"</em></td>
+    <td><strong>Look at Box 6 (PersistenceContext <code>Map&lt;EntityKey, Object&gt;</code>):</strong> You called <code>em.persist(entity)</code> and then queried in the same transaction without calling <code>em.flush(); em.clear();</code>. Hibernate returned the entity straight from its in-memory 1st-level cache Map without running the SELECT!</td>
+  </tr>
+  <tr>
+    <td><em>"I put <code>@Transactional</code> on my <code>@SpringBootTest(RANDOM_PORT)</code> test, why didn't it roll back the database?"</em></td>
+    <td><strong>Apply Rule 3 (Where State Lives — <code>ThreadLocal</code>):</strong> The test runs on the JUnit thread, while <code>RANDOM_PORT</code> handles the HTTP request on a Box 5 Tomcat worker thread. The Tomcat thread opens and commits its own independent <code>ThreadLocal</code> transaction before returning the HTTP 200 response!</td>
+  </tr>
+</tbody>
+</table>
+
+<div class="try">
+<strong>Try This / Predict the Output:</strong><br>
+Suppose you have 10 <code>@SpringBootTest</code> classes. Every single one of them declares a different <code>@MockitoBean</code> (Class 1 mocks <code>EmailClient</code>, Class 2 mocks <code>SmsClient</code>, Class 3 mocks both, etc.).<br>
+<strong>Question:</strong> How many times will Spring Boot run Phase 1 Startup (Boxes 1–6)? How can you fix it so Phase 1 runs only <strong>once</strong>?<br>
+<em>Answer:</em> It will boot Boxes 1–6 <strong>10 separate times</strong> because the set of <code>@MockitoBean</code> definitions is part of the <code>MergedContextConfiguration</code> cache key! Fix it by moving common mocks (or a shared <code>@TestConfiguration</code>) into a single base class <code>AbstractIntegrationTest</code> so all 10 classes share the exact same cache key.
+</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Pitfall 1: Using <code>@SpringBootTest</code> to test business logic.</strong><br>
+<em>Mechanical cause:</em> Boots all 6 Boxes (scanning, auto-config, Hibernate, Tomcat) to test code that only needed plain Java objects in memory. Push business logic tests down to Level 0 (plain JUnit + constructor injection).</div>
+
+<div class="pitfall"><strong>Pitfall 2: Defeating the Box 3 Context Cache with scattered <code>@MockitoBean</code> or <code>@DirtiesContext</code>.</strong><br>
+<em>Mechanical cause:</em> <code>SpringExtension</code> keys its cache Map on the exact set of mock beans and properties. Varying them per class causes a cache miss and a full multi-second Phase 1 container rebuild. Turn on <code>logging.level.org.springframework.test.context.cache=DEBUG</code> to see hit/miss counts.</div>
+
+<div class="pitfall"><strong>Pitfall 3: Skipping <code>em.flush(); em.clear();</code> in <code>@DataJpaTest</code>.</strong><br>
+<em>Mechanical cause:</em> The JPA <code>PersistenceContext</code> inside Box 6 caches any entity you just saved in the same transaction. Queries by ID hit that in-memory Map and skip the database, hiding broken SQL mappings and lazy-loading bugs.</div>
+
+<div class="pitfall"><strong>Pitfall 4: Testing with H2 in-memory DB while running PostgreSQL/MySQL in production.</strong><br>
+<em>Mechanical cause:</em> H2 has different SQL syntax, constraint checks, and locking rules. Use Testcontainers + <code>@ServiceConnection</code> and <code>@AutoConfigureTestDatabase(replace = NONE)</code> so Box 3 talks to a real Postgres container.</div>
+
+<h2><span class="n">§9</span>Recap &amp; Glossary / Reference</h2>
+<ul class="recap">
+  <li><strong>Test by turning on the minimum Boxes needed:</strong> 0 Boxes (Plain JUnit) → 1 Slice Box (<code>@WebMvcTest</code> / <code>@DataJpaTest</code>) → All 6 Boxes (<code>@SpringBootTest</code>).</li>
+  <li><strong>Constructor Injection (Lesson 3)</strong> is what makes 0-Box unit tests effortless—just call <code>new MyService(fakeRepo)</code>.</li>
+  <li><strong>Context Caching</strong> keeps Box 3 alive in a static <code>Map&lt;MergedContextConfiguration, ApplicationContext&gt;</code>; changing <code>@MockitoBean</code> or properties per class causes cache misses.</li>
+  <li><strong>In <code>@DataJpaTest</code></strong>, always call <code>em.flush(); em.clear();</code> before querying so Box 6's 1st-level cache doesn't fake the result.</li>
+  <li><strong>Rule 3 (<code>ThreadLocal</code>):</strong> <code>@Transactional</code> rolls back <code>MockMvc</code> (same thread) but never rolls back <code>RANDOM_PORT</code> (separate Box 5 Tomcat thread).</li>
+</ul>
+
+<h3>Quick Reference Cheat-Sheet</h3>
+<table>
+<thead><tr><th>Goal</th><th>Annotation / API</th><th>Boxes Used</th></tr></thead>
+<tbody>
+<tr><td>Test business rules fast</td><td>Plain JUnit 5 + <code>new Service(fake)</code></td><td>0 Boxes</td></tr>
+<tr><td>Test Controller HTTP, JSON, Validation, Auth</td><td><code>@WebMvcTest(XController.class)</code> + <code>MockMvc</code></td><td>Box 5 (Security) + Box 6</td></tr>
+<tr><td>Test JPA Repositories &amp; SQL against real DB</td><td><code>@DataJpaTest</code> + <code>@Testcontainers</code> + <code>@ServiceConnection</code></td><td>Box 3/4 Repos + Box 6 TX</td></tr>
+<tr><td>Replace a bean inside Box 3 with a mock</td><td><code>@MockitoBean</code> (Spring Boot 3.4+ / Framework 6.2+)</td><td>Modifies Box 2 &amp; Box 3</td></tr>
+<tr><td>Simulate a logged-in user in <code>MockMvc</code></td><td><code>@WithMockUser(roles = "ADMIN")</code></td><td>Box 6 <code>SecurityContext</code></td></tr>
+<tr><td>Test custom Auto-Configuration conditions</td><td><code>ApplicationContextRunner</code></td><td>Mini Box 1–3</td></tr>
+<tr><td>Full end-to-end HTTP integration test</td><td><code>@SpringBootTest(webEnvironment = RANDOM_PORT)</code></td><td>All 6 Boxes</td></tr>
+</tbody>
+</table>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>Test Slice</dt><dd>A partial <code>ApplicationContext</code> that filters Box 2 (<code>BeanDefinition</code>s) to start only one layer (e.g., web in <code>@WebMvcTest</code> or JPA in <code>@DataJpaTest</code>).</dd>
+  <dt>Context Caching</dt><dd>Spring Test's mechanism that stores booted <code>ApplicationContext</code> instances in a static Map keyed by <code>MergedContextConfiguration</code> to avoid redundant startups.</dd>
+  <dt>MockMvc</dt><dd>In-memory test client that invokes Box 5 Filters and Box 6 <code>DispatcherServlet</code> directly on the test thread without opening a network port.</dd>
+  <dt>@MockitoBean</dt><dd>Spring Framework 6.2+ / Boot 3.4+ annotation (replacing <code>@MockBean</code>) that replaces or inserts a Mockito mock into Box 3's bean registry.</dd>
+  <dt>TestEntityManager</dt><dd>Helper in <code>@DataJpaTest</code> for setting up JPA test rows and calling <code>flush()</code> and <code>clear()</code> on the persistence context.</dd>
+  <dt>Testcontainers &amp; @ServiceConnection</dt><dd>Library that starts real Docker databases for tests; <code>@ServiceConnection</code> automatically wires the container's dynamic host/port into Box 1 (<code>Environment</code>).</dd>
+</dl>
+
+<p class="sources" style="margin-top:2rem">
+<strong>Official Documentation Citations:</strong>
+<a href="https://docs.spring.io/spring-boot/reference/testing/index.html">Spring Boot Reference — Testing</a> (Auto-configured Slice Tests, <code>@MockitoBean</code>, Testcontainers &amp; <code>@ServiceConnection</code>);
+<a href="https://docs.spring.io/spring-framework/reference/testing/testcontext-framework/ctx-management/caching.html">Spring Framework Reference — TestContext Context Caching</a>;
+<a href="https://docs.spring.io/spring-security/reference/servlet/test/mockmvc/index.html">Spring Security Reference — Testing with MockMvc</a>.
+</p>
+
+</body>
+</html>

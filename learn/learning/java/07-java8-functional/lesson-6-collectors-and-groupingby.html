@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Collectors &amp; groupingBy — Java 8 &amp; Functional, Part 6 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  h4{font-size:1rem;margin:1.1rem 0 .2rem;color:#4a4639}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem;line-height:1.9}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Collectors &amp; <code>groupingBy</code></h1>
+<p class="crumb">Java › Java 8 &amp; functional cluster · lesson 7, <strong>part 6 of 9</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the lesson that fixes "groupingBy is out of my mind"</p>
+
+<p class="nav"><strong>Java 8 &amp; functional cluster:</strong>
+  <a href="lesson.html">1. Lambdas</a> ·
+  <a href="lesson-2-functional-interfaces.html">2. Functional interfaces &amp; method refs</a> ·
+  <a href="lesson-3-stream-pipeline.html">3. How a stream actually runs</a> ·
+  <a href="lesson-4-intermediate-operations.html">4. Intermediate operations</a> ·
+  <a href="lesson-5-terminal-operations.html">5. Terminal operations &amp; reduce</a> ·
+  <strong>6. Collectors &amp; groupingBy</strong> ·
+  <a href="lesson-7-optional.html">7. Optional</a> ·
+  <a href="lesson-8-default-methods-and-java-time.html">8. default methods &amp; java.time</a> ·
+  <a href="lesson-9-stream-recall-playbook.html">9. Recall &amp; interview playbook</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> <code>collect</code> is one terminal operation with a <em>plug-in</em>: the <code>Collector</code> tells
+it what container to build. There are only five families of collector (container, number, map, group, decorate), and
+<strong><code>groupingBy</code> is a single idea with one optional extra argument</strong>: "put things in buckets by this key — and
+optionally, instead of keeping a list in each bucket, do <em>this</em> to each bucket".
+</div>
+
+<div class="callout">
+<strong>Read this part slowly.</strong> This is where interview stream questions actually live. "Group employees by department",
+"count word frequency", "find the highest-paid person per city", "convert a list to a map" — all of them are a
+<code>groupingBy</code> or a <code>toMap</code>. Once the <em>shape</em> below is in your head, you stop recalling names and start
+assembling them.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+<a href="lesson-5-terminal-operations.html">Part 5</a> covered every terminal operation except the biggest one.
+<code>collect</code> is big because it is not really one operation — it is a socket, and <code>Collectors</code> is a box of
+plugs. Learning <code>collect</code> means learning the box.
+</p>
+<p>
+Everything here rests on <a href="../08-collections-and-equality/lesson-2-maps-and-hashing.html">maps and hashing</a>: a
+<code>groupingBy</code> produces a <code>HashMap</code>, so the key's <code>hashCode</code>/<code>equals</code> matter, and the
+result has no predictable order.
+</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+<p>
+<code>reduce</code> can only fold elements into a single <em>immutable</em> value. Building a <code>List</code> is different: you
+want one mutable container that you keep adding to. Doing that with <code>reduce</code> would mean copying the list at every step,
+which is O(n²), and doing it with <code>forEach(list::add)</code> breaks in parallel.
+</p>
+<p>
+So Java 8 added <strong>mutable reduction</strong>. A <code>Collector</code> packages four things so the library can do it safely,
+sequentially <em>or</em> in parallel:
+</p>
+<table>
+  <thead><tr><th>Part</th><th>Question it answers</th><th>For <code>toList()</code></th></tr></thead>
+  <tbody>
+  <tr><td><code>supplier</code></td><td>what empty container do I start with?</td><td><code>new ArrayList&lt;&gt;()</code></td></tr>
+  <tr><td><code>accumulator</code></td><td>how do I add one element?</td><td><code>list.add(e)</code></td></tr>
+  <tr><td><code>combiner</code></td><td>how do I merge two containers? (parallel)</td><td><code>a.addAll(b)</code></td></tr>
+  <tr><td><code>finisher</code></td><td>any final transformation?</td><td>none</td></tr>
+  </tbody>
+</table>
+<p>
+You will almost never write those four by hand — <code>Collectors</code> has ~30 ready-made ones. But knowing the structure is what
+lets you understand why collectors <em>nest</em>, which is the key to <code>groupingBy</code>.
+</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<figure>
+<svg viewBox="0 0 800 340" width="100%" role="img" aria-label="The five families of collector">
+  <style>
+    .g1{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.5}.g2{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.5}
+    .g3{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.5}.g4{fill:#f7f0f7;stroke:#6b3f7a;stroke-width:1.5}
+    .g5{fill:#f1ece0;stroke:#6b675e;stroke-width:1.5}
+    .t{font:bold 12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .m{font:11.5px "SF Mono",Menlo,monospace;fill:#3f3b34}
+    .c{font:11.5px Georgia,serif;fill:#6b675e;font-style:italic}
+  </style>
+  <rect class="g1" x="20" y="20" width="370" height="100" rx="8"/>
+  <text class="t" x="38" y="44">1. INTO A CONTAINER</text>
+  <text class="m" x="38" y="66">toList  toSet  toCollection(TreeSet::new)</text>
+  <text class="m" x="38" y="86">joining()  joining(", ")  joining(", ","[","]")</text>
+  <text class="c" x="38" y="108">"give me the elements back in a box"</text>
+
+  <rect class="g2" x="410" y="20" width="370" height="100" rx="8"/>
+  <text class="t" x="428" y="44">2. INTO A NUMBER</text>
+  <text class="m" x="428" y="66">counting()  summingInt(f)  averagingInt(f)</text>
+  <text class="m" x="428" y="86">minBy(cmp)  maxBy(cmp)  summarizingInt(f)</text>
+  <text class="c" x="428" y="108">"collapse the box into one figure"</text>
+
+  <rect class="g3" x="20" y="140" width="370" height="100" rx="8"/>
+  <text class="t" x="38" y="164">3. INTO A MAP (key -&gt; one value)</text>
+  <text class="m" x="38" y="186">toMap(keyFn, valFn)</text>
+  <text class="m" x="38" y="206">toMap(keyFn, valFn, mergeFn[, mapSupplier])</text>
+  <text class="c" x="38" y="228">"one entry per element — duplicates must be resolved"</text>
+
+  <rect class="g4" x="410" y="140" width="370" height="100" rx="8"/>
+  <text class="t" x="428" y="164">4. INTO GROUPS (key -&gt; many values)</text>
+  <text class="m" x="428" y="186">groupingBy(classifier [, downstream])</text>
+  <text class="m" x="428" y="206">partitioningBy(predicate [, downstream])</text>
+  <text class="c" x="428" y="228">"buckets — duplicates are the POINT"</text>
+
+  <rect class="g5" x="20" y="260" width="760" height="62" rx="8"/>
+  <text class="t" x="38" y="284">5. DECORATORS — collectors that wrap another collector</text>
+  <text class="m" x="38" y="306">mapping(f, down)   filtering(p, down)   flatMapping(f, down)   collectingAndThen(down, finisher)   reducing(...)</text>
+</svg>
+<figcaption>Five families. Family 5 is what makes family 4 powerful: a group's contents can themselves be collected any way you like.</figcaption>
+</figure>
+
+<hr/>
+
+<h3>The data used in every example</h3>
+<pre>name    dept    city     salary
+ann     eng     pune     120
+bob     eng     pune     100
+carol   eng     delhi    140
+dave    sales   pune      90
+erin    sales   delhi    110
+frank   hr      delhi     70</pre>
+<p>Full source: <a href="../code/CollectorsDemo.java">code/CollectorsDemo.java</a>. Every output below was produced on JDK 1.8.0_411.</p>
+
+<h3>Family 1 — into a container</h3>
+<pre>.collect(Collectors.toList())                              <span class="c">// [ann, bob, carol, dave, erin, frank]</span>
+.collect(Collectors.toSet())                               <span class="c">// [hr, sales, eng]   (no order)</span>
+.collect(Collectors.toCollection(TreeSet::new))            <span class="c">// [eng, hr, sales]   (sorted)</span>
+.collect(Collectors.joining(<span class="s">", "</span>, <span class="s">"["</span>, <span class="s">"]"</span>))                 <span class="c">// [ann, bob, carol, dave, erin, frank]</span></pre>
+<div class="ann">
+<code>toList()</code> gives <em>some</em> <code>List</code> (an <code>ArrayList</code> today) with no guarantee of mutability —
+if you need a specific type, say so with <code>toCollection</code>. <code>joining</code> has three overloads: no args, a
+separator, or separator + prefix + suffix. It only works on a <code>Stream&lt;String&gt;</code>, so <code>map</code> to strings
+first. Internally it uses a <code>StringBuilder</code>, which is why it beats <code>reduce</code> for concatenation.
+</div>
+
+<h3>Family 2 — into a number</h3>
+<pre>.collect(Collectors.counting())                             <span class="c">// 6        (Long)</span>
+.collect(Collectors.summingInt(Employee::getSalary))        <span class="c">// 630</span>
+.collect(Collectors.averagingInt(Employee::getSalary))      <span class="c">// 105.0    (Double)</span>
+.collect(Collectors.maxBy(comparingInt(Employee::getSalary))) <span class="c">// Optional[carol]</span>
+.collect(Collectors.summarizingInt(Employee::getSalary))</pre>
+<pre>IntSummaryStatistics{count=6, sum=630, min=70, average=105.000000, max=140}</pre>
+<div class="callout">
+<strong>"Why would I use <code>counting()</code> when <code>count()</code> exists?"</strong> You would not — at the top level.
+These exist to be used <strong>inside</strong> <code>groupingBy</code>, where you cannot call a terminal operation. That is the
+whole reason family 2 exists, and it is the insight that makes <code>groupingBy</code> click.
+</div>
+
+<h3>Family 3 — <code>toMap</code>: one entry per element</h3>
+<pre>Collectors.toMap(keyFn, valueFn)
+Collectors.toMap(keyFn, valueFn, mergeFn)
+Collectors.toMap(keyFn, valueFn, mergeFn, mapSupplier)</pre>
+<pre>toMap    : {frank=70, ann=120, carol=140, dave=90, bob=100, erin=110}
+dup key  : java.lang.IllegalStateException: Duplicate key ann
+toMap+mrg: {hr=frank, sales=dave+erin, eng=ann+bob+carol}
+toMap+sup: {eng=ann+bob+carol, hr=frank, sales=dave+erin}</pre>
+<div class="ann">
+<strong>Line 1</strong> — keys are names, which are unique, so the two-argument form is safe. Note the jumbled order: a
+<code>HashMap</code> has no encounter order.<br/>
+<strong>Line 2</strong> — using <code>dept</code> as the key means three employees map to <code>eng</code>, and the two-argument
+form throws <code>IllegalStateException: Duplicate key</code>. <strong>Memorise this exception.</strong> It is the number-one
+<code>toMap</code> bug and a favourite interview trap.<br/>
+<strong>Line 3</strong> — the third argument is the merge function, called with the two colliding <em>values</em>. Common choices:
+<code>(a, b) -&gt; a</code> (keep first), <code>(a, b) -&gt; b</code> (keep last), <code>Integer::sum</code>,
+<code>(a, b) -&gt; a + "+" + b</code>.<br/>
+<strong>Line 4</strong> — the fourth argument picks the map type; <code>TreeMap::new</code> gives sorted keys, as the output shows.
+</div>
+<div class="pitfall"><strong><code>toMap</code> throws on a <code>null</code> value</strong>, even though <code>HashMap</code> allows
+them. It is an implementation consequence of using <code>merge</code> internally. Filter nulls out first.</div>
+<div class="idiom"><strong>Idiom.</strong> To key a list by an id, keeping the whole object as the value:
+<code>collect(toMap(Employee::getName, Function.identity()))</code>. That is what <code>Function.identity()</code> is for.</div>
+
+<h3>Family 4 — <code>groupingBy</code>, properly understood</h3>
+<p>
+<code>groupingBy</code> is <code>SQL GROUP BY</code>. You give it a <strong>classifier</strong>: a function from element to key. Every
+element is dropped into the bucket for its key. By default each bucket is a <code>List</code>.
+</p>
+
+<figure>
+<svg viewBox="0 0 800 320" width="100%" role="img" aria-label="groupingBy with and without a downstream collector">
+  <style>
+    .src{fill:#f1ece0;stroke:#6b675e;stroke-width:1.4}
+    .bk{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .dn{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.tb{font:bold 12px Georgia,serif;fill:#2b2b28}
+    .c{font:11.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#gm);fill:none}
+  </style>
+  <defs><marker id="gm" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="src" x="20" y="90" width="140" height="130" rx="6"/>
+  <text class="tb" x="38" y="112">elements</text>
+  <text class="t" x="38" y="134">ann  eng</text>
+  <text class="t" x="38" y="152">bob  eng</text>
+  <text class="t" x="38" y="170">carol eng</text>
+  <text class="t" x="38" y="188">dave sales</text>
+  <text class="t" x="38" y="206">frank hr</text>
+
+  <rect class="bk" x="230" y="40" width="250" height="100" rx="6"/>
+  <text class="tb" x="248" y="62">classifier: e -&gt; e.getDept()</text>
+  <text class="t" x="248" y="86">eng   -&gt; [ann, bob, carol]</text>
+  <text class="t" x="248" y="106">sales -&gt; [dave]</text>
+  <text class="t" x="248" y="126">hr    -&gt; [frank]</text>
+  <text class="c" x="248" y="32">groupingBy(f)  — one argument</text>
+
+  <rect class="dn" x="230" y="180" width="250" height="100" rx="6"/>
+  <text class="tb" x="248" y="202">+ downstream: counting()</text>
+  <text class="t" x="248" y="226">eng   -&gt; 3</text>
+  <text class="t" x="248" y="246">sales -&gt; 1</text>
+  <text class="t" x="248" y="266">hr    -&gt; 1</text>
+  <text class="c" x="248" y="172">groupingBy(f, downstream)  — two arguments</text>
+
+  <line class="a" x1="162" y1="130" x2="228" y2="95"/>
+  <line class="a" x1="162" y1="180" x2="228" y2="225"/>
+
+  <text class="c" x="520" y="80">Think of the second argument as:</text>
+  <text class="c" x="520" y="102">"instead of leaving a List in each bucket,</text>
+  <text class="c" x="520" y="122">run THIS collector on the bucket's contents."</text>
+  <text class="c" x="520" y="160">counting()        -&gt; Map&lt;K,Long&gt;</text>
+  <text class="c" x="520" y="180">summingInt(f)     -&gt; Map&lt;K,Integer&gt;</text>
+  <text class="c" x="520" y="200">mapping(f,toList())-&gt; Map&lt;K,List&lt;R&gt;&gt;</text>
+  <text class="c" x="520" y="220">toSet()           -&gt; Map&lt;K,Set&lt;T&gt;&gt;</text>
+  <text class="c" x="520" y="240">groupingBy(g)     -&gt; Map&lt;K,Map&lt;K2,List&lt;T&gt;&gt;&gt;</text>
+</svg>
+<figcaption>One idea, one optional extra argument. The "downstream collector" is just what to do with each bucket.</figcaption>
+</figure>
+
+<h4>The three overloads</h4>
+<pre>groupingBy(classifier)                           <span class="c">// Map&lt;K, List&lt;T&gt;&gt;</span>
+groupingBy(classifier, downstream)               <span class="c">// Map&lt;K, D&gt;</span>
+groupingBy(classifier, mapFactory, downstream)   <span class="c">// pick the Map type too</span></pre>
+<div class="callout">
+<strong>Say this sentence when you write it:</strong> <em>"group by <span style="color:#7a1f1f">&lt;key&gt;</span>, and for each group
+give me <span style="color:#1f6b4d">&lt;downstream&gt;</span>."</em> The sentence maps one-to-one onto the two arguments. If the
+sentence ends at "group by X", you need the one-argument form.
+</div>
+
+<h4>Every shape, with verified output</h4>
+<pre>groupingBy(Employee::getDept)
+  {hr=[frank], sales=[dave, erin], eng=[ann, bob, carol]}
+
+groupingBy(Employee::getDept, counting())
+  {hr=1, sales=2, eng=3}
+
+groupingBy(Employee::getDept, summingInt(Employee::getSalary))
+  {hr=70, sales=200, eng=360}
+
+groupingBy(Employee::getDept, mapping(Employee::getName, toList()))
+  {hr=[frank], sales=[dave, erin], eng=[ann, bob, carol]}
+
+groupingBy(Employee::getDept, TreeMap::new, counting())
+  {eng=3, hr=1, sales=2}                       <span class="c">// sorted keys</span>
+
+groupingBy(Employee::getDept, groupingBy(Employee::getCity))
+  {hr={delhi=[frank]}, sales={pune=[dave], delhi=[erin]}, eng={pune=[ann, bob], delhi=[carol]}}
+
+groupingBy(e -&gt; e.getSalary() &gt;= 110 ? <span class="s">"senior"</span> : <span class="s">"junior"</span>, counting())
+  {senior=3, junior=3}                         <span class="c">// the key can be computed, not just a field</span></pre>
+<div class="ann">
+Four things to notice. <strong>(1)</strong> The default bucket is a <code>List</code> — the one-argument form is just the
+two-argument form with <code>toList()</code> implied. <strong>(2)</strong> <code>mapping(f, toList())</code> is how you keep only
+one field per group instead of whole objects; it is the most under-used collector in the whole API. <strong>(3)</strong> Nesting
+<code>groupingBy</code> inside <code>groupingBy</code> gives multi-level grouping and needs no new concept. <strong>(4)</strong> The
+classifier is an ordinary function, so computed keys (<code>"senior"</code>/<code>"junior"</code>, first letter, salary band) work
+exactly the same.
+</div>
+
+<h4>The <code>maxBy</code>-inside-a-group problem</h4>
+<p>"Highest-paid employee per department" is asked in interviews constantly. The naive version:</p>
+<pre>groupingBy(Employee::getDept, maxBy(comparingInt(Employee::getSalary)))
+  {hr=Optional[frank], sales=Optional[erin], eng=Optional[carol]}   <span class="c">// ugly Optional values</span></pre>
+<p>The fix is <code>collectingAndThen</code> — "run this collector, then apply this function to its result":</p>
+<pre>groupingBy(Employee::getDept,
+    collectingAndThen(
+        maxBy(comparingInt(Employee::getSalary)),
+        Optional::get))
+  {hr=frank, sales=erin, eng=carol}</pre>
+<div class="ann">
+<code>maxBy</code> must return an <code>Optional</code> because, in general, a collector may see zero elements. Inside a
+<code>groupingBy</code> a bucket can never be empty — a bucket only exists because something landed in it — so
+<code>Optional::get</code> is safe <em>here</em> and nowhere else. Being able to explain <em>why</em> it is safe is what separates a
+memorised answer from an understood one.
+</div>
+
+<h4><code>partitioningBy</code> — grouping into exactly two buckets</h4>
+<pre>partitioningBy(e -&gt; e.getSalary() &gt; 100)
+  {false=[bob, dave, frank], true=[ann, carol, erin]}
+
+partitioningBy(e -&gt; e.getSalary() &gt; 100, counting())
+  {false=3, true=3}
+
+partitioningBy(e -&gt; e.getSalary() &gt; 999)
+  {false=[ann, bob, carol, dave, erin, frank], true=[]}   <span class="c">// BOTH keys always present</span></pre>
+<div class="callout">
+<strong><code>partitioningBy</code> vs <code>groupingBy</code>:</strong> the classifier is a <code>Predicate</code>, the key type is
+<code>Boolean</code>, and <strong>both <code>true</code> and <code>false</code> keys always exist</strong>, even when one side is
+empty. <code>groupingBy</code> would simply have no entry for the empty side. That guarantee is the only real reason to prefer it —
+it also avoids boxing the key.
+</div>
+
+<h3>Family 5 — the decorators</h3>
+<table>
+  <thead><tr><th>Collector</th><th>Meaning</th><th>Since</th></tr></thead>
+  <tbody>
+  <tr><td><code>mapping(f, down)</code></td><td>transform each element, then collect</td><td>8</td></tr>
+  <tr><td><code>collectingAndThen(down, fin)</code></td><td>collect, then transform the final result</td><td>8</td></tr>
+  <tr><td><code>reducing(id, f, op)</code></td><td><code>reduce</code> usable as a downstream collector</td><td>8</td></tr>
+  <tr><td><code>filtering(p, down)</code></td><td>drop non-matching elements <em>inside</em> a group</td><td>9</td></tr>
+  <tr><td><code>flatMapping(f, down)</code></td><td><code>flatMap</code> inside a group</td><td>9</td></tr>
+  <tr><td><code>teeing(c1, c2, merger)</code></td><td>run two collectors over one stream and combine</td><td>12</td></tr>
+  <tr><td><code>toUnmodifiableList/Set/Map</code></td><td>immutable results</td><td>10</td></tr>
+  </tbody>
+</table>
+<div class="pitfall"><strong><code>filtering</code> vs a plain <code>filter</code> before the collect.</strong> Filtering upstream
+removes elements entirely, so a group whose every member was filtered out <em>disappears</em>. <code>Collectors.filtering</code>
+keeps the empty group. Different answers — and a sharp interview follow-up. (Java 9+.)</div>
+<div class="idiom"><strong>Idiom.</strong> Make a collected list immutable in one step:
+<code>collectingAndThen(toList(), Collections::unmodifiableList)</code>.</div>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong><code>toList</code>/<code>toSet</code></strong> — you just want the elements back.</li>
+  <li><strong><code>joining</code></strong> — building a CSV, a log line, a message. Never <code>reduce</code> for this.</li>
+  <li><strong><code>toMap</code></strong> — <em>one</em> value per key: an id-to-object lookup, a config map. Always think about
+      duplicates and supply a merge function.</li>
+  <li><strong><code>groupingBy</code></strong> — <em>many</em> values per key: reports, buckets, counts, "per department /
+      per city / per status".</li>
+  <li><strong><code>partitioningBy</code></strong> — a yes/no split where you need both sides even if one is empty
+      (valid vs invalid, passed vs failed).</li>
+  <li><strong><code>mapping</code></strong> — inside a group, when you want a field rather than the whole object.</li>
+  <li><strong><code>collectingAndThen</code></strong> — unwrapping an <code>Optional</code> from <code>maxBy</code>, or making the
+      result immutable.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine sorting a huge pile of Lego into a tray with compartments.
+</p>
+<ul>
+  <li><strong><code>groupingBy</code></strong> — you decide the rule for which compartment a brick goes in ("by colour"). Then you
+      throw each brick into its compartment. At the end each compartment holds a <em>pile</em>.</li>
+  <li><strong>The downstream collector</strong> — instead of leaving a pile, you say what to do with each compartment before you
+      finish: "just write down how many" (<code>counting</code>), "only keep their sizes" (<code>mapping</code>), "keep the biggest
+      one" (<code>maxBy</code>), or even "split each pile again, by shape" (a nested <code>groupingBy</code>).</li>
+  <li><strong><code>partitioningBy</code></strong> — a tray with exactly two compartments, yes and no. Even if nothing is a "yes",
+      the yes compartment still exists; it is just empty.</li>
+  <li><strong><code>toMap</code></strong> — a tray where each compartment may hold only <em>one</em> brick. If two bricks want the
+      same slot, you must say in advance which one wins — otherwise the whole job stops with an error.</li>
+</ul>
+<p>
+Naive question: <em>"why is <code>counting()</code> different from counting the pile afterwards?"</em> Because you would have to
+build every pile first and then walk back over all of them. Telling the tray up front "just count" means no pile is ever built.
+Same answer, much less work.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="../08-collections-and-equality/lesson-2-maps-and-hashing.html">maps &amp; hashing</a>:</strong>
+      <code>groupingBy</code> and <code>toMap</code> build a <code>HashMap</code>, so the key class needs correct
+      <code>hashCode</code>/<code>equals</code>, and the result order is unspecified.</li>
+  <li><strong>← <a href="lesson-5-terminal-operations.html">part 5</a>:</strong> <code>collect</code> is <em>mutable</em> reduction;
+      <code>reduce</code> is immutable reduction. Same family, different tool.</li>
+  <li><strong>← <a href="lesson-2-functional-interfaces.html">part 2</a>:</strong> the classifier is a <code>Function</code>, the
+      partitioner a <code>Predicate</code>, the merge function a <code>BinaryOperator</code>,
+      <code>mapFactory</code> a <code>Supplier</code>.</li>
+  <li><strong>→ <a href="lesson-7-optional.html">part 7</a>:</strong> <code>maxBy</code>/<code>minBy</code> return
+      <code>Optional</code>, which is why <code>collectingAndThen</code> keeps appearing.</li>
+  <li><strong>Same idea elsewhere:</strong> SQL <code>GROUP BY … COUNT(*)</code>; Python
+      <code>collections.Counter</code> / <code>itertools.groupby</code>; JavaScript
+      <code>Object.groupBy</code>. If you can write the SQL, you can write the collector — the classifier is the
+      <code>GROUP BY</code> column and the downstream is the aggregate function.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — the classic problems, solved and verified</h2>
+<p>These are the exact questions interviews ask. Output is real, from <a href="../code/CollectorsDemo.java">code/CollectorsDemo.java</a>.</p>
+
+<h4>1. Word frequency</h4>
+<pre>Arrays.stream(text.split(<span class="s">" "</span>))
+      .collect(groupingBy(w -&gt; w, counting()));</pre>
+<pre>{over=1, the=3, quick=1, lazy=1, jumps=1, end=1, brown=1, dog=1, fox=1}</pre>
+<div class="ann">The classifier is the identity function — "group each word under itself". <code>Function.identity()</code> also works and
+reads better. This one line replaces about fifteen lines of <code>HashMap</code> plus <code>containsKey</code> code.</div>
+
+<h4>2. Character frequency, in first-seen order</h4>
+<pre><span class="s">"banana"</span>.chars()
+         .mapToObj(c -&gt; (<span class="k">char</span>) c)
+         .collect(groupingBy(c -&gt; c, LinkedHashMap::new, counting()));</pre>
+<pre>{b=1, a=3, n=2}</pre>
+<div class="ann">Two things worth stealing: <code>chars().mapToObj(c -&gt; (char) c)</code> is <em>the</em> way to stream characters, and the
+three-argument <code>groupingBy</code> with <code>LinkedHashMap::new</code> is how you keep insertion order. With a plain
+<code>HashMap</code> the order would be arbitrary — a detail interviewers probe.</div>
+
+<h4>3. Group words by length</h4>
+<pre>Stream.of(<span class="s">"ann"</span>,<span class="s">"bob"</span>,<span class="s">"carol"</span>,<span class="s">"dave"</span>).collect(groupingBy(String::length));
+  {3=[ann, bob], 4=[dave], 5=[carol]}</pre>
+
+<h4>4. Group anagrams</h4>
+<pre>Stream.of(<span class="s">"eat"</span>,<span class="s">"tea"</span>,<span class="s">"tan"</span>,<span class="s">"ate"</span>,<span class="s">"nat"</span>,<span class="s">"bat"</span>)
+      .collect(groupingBy(CollectorsDemo::sortLetters));
+  {aet=[eat, tea, ate], abt=[bat], ant=[tan, nat]}</pre>
+<div class="ann">A famous algorithm question that becomes trivial once you see it as grouping: the key is "the word's letters, sorted".
+Any "group things that are equivalent under some rule" problem is a <code>groupingBy</code> whose classifier computes the
+rule.</div>
+
+<h4>5. Top 3 entries of a map, by value descending</h4>
+<pre>map.entrySet().stream()
+   .sorted(Map.Entry.&lt;String,Long&gt;comparingByValue().reversed()
+                    .thenComparing(Map.Entry.comparingByKey()))
+   .limit(3)
+   .collect(toMap(Map.Entry::getKey, Map.Entry::getValue,
+                  (a, b) -&gt; a, LinkedHashMap::new));
+  {the=3, brown=1, dog=1}</pre>
+<div class="ann">
+Three things most people get wrong here. <strong>(a)</strong> <code>Map</code> has no <code>stream()</code> — you must go via
+<code>entrySet()</code>. <strong>(b)</strong> <code>Map.Entry.comparingByValue()</code> and <code>comparingByKey()</code> exist; use
+them instead of hand-written comparators, and note the explicit type witness
+<code>Map.Entry.&lt;String,Long&gt;comparingByValue()</code> that inference needs when you chain <code>.reversed()</code>.
+<strong>(c)</strong> Collecting back into a plain <code>HashMap</code> would throw the sorted order away — you must ask for
+<code>LinkedHashMap::new</code>.
+</div>
+
+<h4>6. Second-highest value</h4>
+<pre>staff.stream().map(Employee::getSalary)
+     .distinct()
+     .sorted(Comparator.reverseOrder())
+     .skip(1)
+     .findFirst();
+  120</pre>
+<div class="ann"><code>distinct()</code> is not optional: without it, two people on 140 would make the "second highest" 140 again.
+Mentioning that unprompted is the kind of detail that passes interviews.</div>
+
+<h4>7. First duplicate (and the honest caveat)</h4>
+<pre>Set&lt;Integer&gt; seen = <span class="k">new</span> HashSet&lt;&gt;();
+xs.stream().filter(x -&gt; !seen.add(x)).findFirst();
+  2</pre>
+<div class="pitfall"><code>Set.add</code> returns <code>false</code> when the element was already there, so
+<code>!seen.add(x)</code> means "already seen". It is neat, and it is a <strong>stateful lambda</strong> — it breaks on a parallel
+stream and violates the stream contract. Use it, but say so.</div>
+
+<div class="try"><strong>Write these without looking.</strong> Using the employee list:
+<ol>
+  <li>a <code>Map&lt;String, List&lt;String&gt;&gt;</code> of city → employee names;</li>
+  <li>a <code>Map&lt;String, Double&gt;</code> of department → average salary;</li>
+  <li>a <code>Map&lt;String, Map&lt;String, Long&gt;&gt;</code> of department → city → head count;</li>
+  <li>the single highest-paid employee in each city, with no <code>Optional</code> in the result.</li>
+</ol>
+<em>Answers:</em>
+<pre>groupingBy(Employee::getCity, mapping(Employee::getName, toList()))
+groupingBy(Employee::getDept, averagingInt(Employee::getSalary))
+groupingBy(Employee::getDept, groupingBy(Employee::getCity, counting()))
+groupingBy(Employee::getCity, collectingAndThen(
+        maxBy(comparingInt(Employee::getSalary)), Optional::get))</pre>
+</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong><code>IllegalStateException: Duplicate key</code>.</strong> <code>toMap</code> with two arguments and a
+non-unique key. Add a merge function, or you probably wanted <code>groupingBy</code>.</div>
+<div class="pitfall"><strong><code>toMap</code> with a <code>null</code> value throws <code>NullPointerException</code>.</strong>
+Filter or map nulls away first.</div>
+<div class="pitfall"><strong>Expecting the result map to be ordered.</strong> <code>groupingBy</code> and <code>toMap</code> return a
+<code>HashMap</code>. Pass <code>TreeMap::new</code> or <code>LinkedHashMap::new</code> if order matters.</div>
+<div class="pitfall"><strong>Forgetting that the downstream collector replaces the list.</strong>
+<code>groupingBy(f, counting())</code> gives <code>Map&lt;K,Long&gt;</code>, not <code>Map&lt;K,List&lt;T&gt;&gt;</code>. Read the
+return type off the downstream collector.</div>
+<div class="pitfall"><strong><code>Optional</code> values from <code>maxBy</code>/<code>minBy</code> inside a group.</strong> Wrap
+with <code>collectingAndThen(..., Optional::get)</code>.</div>
+<div class="pitfall"><strong>Assuming <code>toList()</code> returns something mutable or immutable.</strong> It guarantees neither.
+Use <code>toCollection(ArrayList::new)</code> for mutable, <code>toUnmodifiableList()</code> (Java 10+) or
+<code>collectingAndThen</code> for immutable.</div>
+<div class="pitfall"><strong>Grouping by a mutable key.</strong> If the key object changes after insertion, its hash changes and you
+can never find the bucket again — the same hazard as any <code>HashMap</code> key.</div>
+<div class="pitfall"><strong><code>groupingByConcurrent</code> is not a drop-in replacement.</strong> It only helps on an unordered
+parallel stream, and it abandons encounter order.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li><code>collect</code> performs <strong>mutable reduction</strong>; a <code>Collector</code> is supplier + accumulator +
+      combiner + finisher.</li>
+  <li>Five families: <strong>container</strong>, <strong>number</strong>, <strong>map</strong>, <strong>group</strong>,
+      <strong>decorator</strong>.</li>
+  <li><code>toMap</code> = one value per key; duplicates <strong>throw</strong> unless you pass a merge function.</li>
+  <li><code>groupingBy(classifier)</code> = buckets with lists; <code>groupingBy(classifier, downstream)</code> = "instead of a
+      list, do this to each bucket".</li>
+  <li>The downstream can be anything, including another <code>groupingBy</code> — that is multi-level grouping for free.</li>
+  <li><code>mapping(f, toList())</code> keeps a field instead of whole objects inside each group.</li>
+  <li><code>collectingAndThen(maxBy(cmp), Optional::get)</code> is the "best per group" idiom.</li>
+  <li><code>partitioningBy</code> = exactly two <code>Boolean</code> keys, both always present.</li>
+  <li>Choose the map type with the three-argument form: <code>TreeMap::new</code> sorts, <code>LinkedHashMap::new</code> preserves
+      insertion order.</li>
+</ul>
+
+<hr/>
+<h2>Reference — the <code>Collectors</code> card</h2>
+<pre>INTO A CONTAINER
+toList()                                   List&lt;T&gt;
+toSet()                                    Set&lt;T&gt;
+toCollection(TreeSet::new)                 any Collection you name
+joining() / joining(sep) / joining(sep,pre,suf)   String   (Stream&lt;String&gt; only)
+
+INTO A NUMBER   (designed to be used as a DOWNSTREAM)
+counting()                                 Long
+summingInt/Long/Double(f)                  Integer/Long/Double
+averagingInt/Long/Double(f)                Double
+minBy(cmp) / maxBy(cmp)                    Optional&lt;T&gt;
+summarizingInt(f)                          IntSummaryStatistics
+
+INTO A MAP  (one value per key)
+toMap(k, v)                                throws on duplicate key
+toMap(k, v, merge)                         (a,b)-&gt;a keep first · (a,b)-&gt;b keep last · Integer::sum
+toMap(k, v, merge, TreeMap::new)           choose the map type
+
+INTO GROUPS (many values per key)
+groupingBy(f)                              Map&lt;K, List&lt;T&gt;&gt;
+groupingBy(f, downstream)                  Map&lt;K, D&gt;
+groupingBy(f, TreeMap::new, downstream)    Map type + downstream
+partitioningBy(p)                          Map&lt;Boolean, List&lt;T&gt;&gt;  both keys always present
+partitioningBy(p, downstream)              Map&lt;Boolean, D&gt;
+
+DECORATORS
+mapping(f, downstream)                     transform elements before collecting
+collectingAndThen(downstream, finisher)    post-process the result
+reducing(identity, f, op)                  reduce as a downstream
+filtering(p, downstream)        (Java 9)   keeps empty groups
+flatMapping(f, downstream)      (Java 9)
+teeing(c1, c2, merger)          (Java 12)
+
+THE FOUR SENTENCES TO SAY OUT LOUD
+"collect the elements into X"              -&gt; toList/toSet/joining
+"collapse them into one number"            -&gt; counting/summing/averaging
+"one entry per element, keyed by X"        -&gt; toMap
+"group by X, and per group give me Y"      -&gt; groupingBy(X, Y)</pre>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Collector</dt><dd>A recipe for accumulating stream elements into a result container.</dd>
+  <dt>Mutable reduction</dt><dd>Accumulating into a mutable container instead of folding into a new value each step.</dd>
+  <dt>Classifier</dt><dd>The function <code>groupingBy</code> uses to compute each element's group key.</dd>
+  <dt>Downstream collector</dt><dd>The collector applied to the contents of each group.</dd>
+  <dt>Merge function</dt><dd><code>toMap</code>'s rule for resolving two values competing for one key.</dd>
+  <dt>Finisher</dt><dd>The final transformation applied to a collector's accumulated result.</dd>
+  <dt><code>collectingAndThen</code></dt><dd>Wraps a collector with a finishing function.</dd>
+  <dt><code>partitioningBy</code></dt><dd>Grouping with a <code>Boolean</code> key; both keys always present.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/8/docs/api/java/util/stream/Collectors.html">Oracle — <code>java.util.stream.Collectors</code>
+javadoc</a>. The class description opens with worked examples of <code>groupingBy</code>, <code>partitioningBy</code>,
+<code>mapping</code> and <code>toMap</code> that match this lesson exactly; the per-method pages state the duplicate-key and
+null-value behaviour.</p>
+
+<p class="nav" style="margin-top:2rem">← <a href="lesson-5-terminal-operations.html">Part 5 — Terminal operations &amp; reduce</a> ·
+Next: <a href="lesson-7-optional.html">Part 7 — Optional</a> →</p>
+<p class="sources">Sources: Oracle, <code>java.util.stream.Collectors</code> javadoc (SE 8) and <code>java.util.stream</code>
+package summary, "Mutable reduction". All outputs produced by running <code>CollectorsDemo.java</code> on JDK 1.8.0_411.
+Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

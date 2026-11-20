@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Access &amp; Spring Data JPA — Spring</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:2.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    padding:.55rem .85rem;background:#f4f0e6;border:1px solid var(--rule);border-radius:6px;margin-bottom:1.8rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.6rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f8f5ec;border:1.5px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.95rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.5rem}
+  .step-flow{background:#fff;border:1px solid var(--rule);border-left:4px solid var(--spring);padding:.8rem 1rem;border-radius:0 6px 6px 0;margin:1rem 0;font-size:.93rem}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../10-building-rest-apis/lesson.html">10 · Building REST APIs</a></span>
+  <span><a href="../overview.html">Spring Map (Lesson 11 of 18)</a></span>
+  <span><a href="../12-transactions/lesson.html">12 · Transactions</a> →</span>
+</nav>
+
+<h1>Data Access &amp; Spring Data JPA</h1>
+<p class="crumb"><a href="../overview.html">Spring</a> › lesson 11 of 18 · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — where the magic is thickest</p>
+
+<div class="tldr">
+<strong>In simple English —</strong> Two things happen here that look like magic until you see the plain Java underneath:
+(1) At <strong>Startup (Boxes 2 &amp; 4)</strong>, Spring turns your empty <code>interface BookRepository extends JpaRepository</code> into a live <strong>JDK Dynamic Proxy</strong> backed by <code>SimpleJpaRepository</code>, parsing method names like <code>findByAuthor</code> into JPQL once at boot.
+(2) During a <strong>Request (Box 6 <code>ThreadLocal</code>)</strong>, Hibernate attaches a <code>PersistenceContext</code> (a per-transaction <code>Map&lt;EntityKey, Object&gt;</code> + original field snapshots) to the current thread. At commit, Hibernate compares current fields to the snapshot (<strong>Dirty Checking</strong>) and auto-generates <code>UPDATE</code> SQL!
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the Map</h2>
+<p>
+Spring Data JPA spans both <strong>Phase 1 (Startup)</strong> and <strong>Phase 2 (The Request Loop)</strong>:
+in Phase 1, Boxes 2, 3, and 4 build the Repository Proxy and store it in <code>singletonObjects</code>. In Phase 2, when your service calls that proxy inside a transaction, Hibernate stores loaded entities inside a <code>ThreadLocal</code> map (Rule 3) that lives only until the transaction commits.
+</p>
+
+<div class="map-banner">
+  <div class="map-title">🗺️ You Are Here on the 3-Level Zoom Map</div>
+  <figure style="margin:.4rem 0">
+  <svg viewBox="0 0 760 220" width="100%" role="img" aria-label="You Are Here: Phase 1 Box 2 and 4 build the Repository Proxy; Phase 2 ThreadLocal holds the JPA PersistenceContext Map">
+    <style>
+      .act4{fill:#eefaf4;stroke:#6db33f;stroke-width:2.2}
+      .act6{fill:#eef3f7;stroke:#1f4d7a;stroke-width:2.2}
+      .dim{fill:#f4f0e6;stroke:#b8b1a3;stroke-width:1.2}
+      .tx{font:11px "SF Mono",Menlo,monospace;fill:#2b2b28}
+      .th{font:bold 12px Georgia,serif;fill:#2b2b28}
+      .tm{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+      .ar{stroke:#2b2b28;stroke-width:1.5;marker-end:url(#mc);fill:none}
+    </style>
+    <defs><marker id="mc" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2b2b28"/></marker></defs>
+
+    <!-- Phase 1: Box 2 & 4 -->
+    <rect class="act4" x="10" y="10" width="340" height="148" rx="7"/>
+    <text class="th" x="22" y="30" style="fill:#1f6b4d">★ Phase 1 (Startup): Box 2 &amp; Box 4</text>
+    <text class="tx" x="22" y="50">interface BookRepository (no class!)</text>
+    <text class="tx" x="22" y="70">→ JpaRepositoryFactoryBean (Box 2)</text>
+    <text class="tx" x="22" y="90">→ JDK Dynamic Proxy (Box 4)</text>
+    <text class="tm" x="22" y="112">Backed by SimpleJpaRepository +</text>
+    <text class="tm" x="22" y="128">parsed method-name queries cached at boot</text>
+    <text class="tm" x="22" y="144">+ @Repository SQLException translator</text>
+
+    <!-- Phase 2: ThreadLocal PersistenceContext -->
+    <rect class="act6" x="380" y="10" width="370" height="148" rx="7"/>
+    <text class="th" x="394" y="30" style="fill:#1f4d7a">★ Phase 2 (Request): ThreadLocal State (Box 6)</text>
+    <text class="tx" x="394" y="50">PersistenceContext (1st-Level Cache)</text>
+    <text class="tx" x="394" y="70">= Map&lt;EntityKey, Object&gt; entitiesByKey</text>
+    <text class="tx" x="394" y="90">+ Map&lt;EntityKey, Object[]&gt; snapshots</text>
+    <text class="tm" x="394" y="112">Attached to current thread via ThreadLocal!</text>
+    <text class="tm" x="394" y="128">At commit(): compares entity vs snapshot</text>
+    <text class="tm" x="394" y="144">(Dirty Checking) → auto-runs UPDATE SQL!</text>
+
+    <line class="ar" x1="350" y1="84" x2="378" y2="84"/>
+
+    <!-- Bottom timeline -->
+    <rect x="10" y="168" width="740" height="42" rx="5" fill="#fff8ee" stroke="#7a1f1f" stroke-width="1.2"/>
+    <text class="tx" x="22" y="185">Right before: @RestController (L10) called @Service, opening @Transactional proxy (L12)</text>
+    <text class="tx" x="22" y="201">Right after:  @Transactional commits (flushing dirty entities to DB) and closes the ThreadLocal PersistenceContext</text>
+  </svg>
+  </figure>
+</div>
+
+<h2><span class="n">§2</span>Why it exists — what you'd write by hand without it</h2>
+<p>
+In <a href="../01-problem-and-philosophy/lesson.html">lesson 1</a>, we saw what raw JDBC looks like without Spring: 25 lines of boilerplate per query just to borrow a connection, bind parameters, loop through a <code>ResultSet</code>, catch checked <code>SQLException</code>, and close resources in <code>finally</code>:
+</p>
+<pre><span class="c">// ❌ Raw JDBC by hand — 20 lines of ceremony surrounding 1 line of SQL</span>
+<span class="k">public</span> Optional&lt;Book&gt; findByIsbn(String isbn) {
+    String sql = <span class="s">"SELECT id, title, author, isbn FROM book WHERE isbn = ?"</span>;
+    <span class="k">try</span> (Connection conn = dataSource.getConnection();
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+        ps.setString(1, isbn);
+        <span class="k">try</span> (ResultSet rs = ps.executeQuery()) {
+            <span class="k">if</span> (!rs.next()) <span class="k">return</span> Optional.empty();
+            <span class="k">return</span> Optional.of(<span class="k">new</span> Book(rs.getLong(<span class="s">"id"</span>), rs.getString(<span class="s">"title"</span>),
+                                        rs.getString(<span class="s">"author"</span>), rs.getString(<span class="s">"isbn"</span>)));
+        }
+    } <span class="k">catch</span> (SQLException e) {
+        <span class="k">throw new</span> RuntimeException(<span class="s">"DB error"</span>, e); <span class="c">// vendor error code lost!</span>
+    }
+}</pre>
+<p>
+Spring removes this tedium in <strong>four stacked layers</strong> — and crucial to remember, <strong>every upper layer still runs the lower layers underneath</strong>:
+</p>
+<figure>
+<svg viewBox="0 0 760 280" width="100%" role="img" aria-label="The four layers of Spring data access abstraction">
+  <style>
+    .l1{fill:#f1ece0;stroke:#6b675e;stroke-width:1.3}
+    .l2{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.3}
+    .l3{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.3}
+    .l4{fill:#eefaf4;stroke:#6db33f;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .lb{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+  </style>
+  <rect class="l4" x="14" y="10" width="732" height="56" rx="6"/>
+  <text class="t" x="30" y="32">Layer 4: Spring Data JPA — interface BookRepository extends JpaRepository&lt;Book, Long&gt;</text>
+  <text class="lb" x="30" y="50">Removes: writing a repository class at all. Proxy delegates to SimpleJpaRepository + derived queries.</text>
+
+  <rect class="l3" x="14" y="74" width="732" height="56" rx="6"/>
+  <text class="t" x="30" y="96">Layer 3: JPA / Hibernate — @Entity, EntityManager, PersistenceContext (ThreadLocal Map)</text>
+  <text class="lb" x="30" y="114">Removes: hand-writing CRUD SQL, row→object mapping, change tracking (dirty checking), identity map.</text>
+
+  <rect class="l2" x="14" y="138" width="732" height="56" rx="6"/>
+  <text class="t" x="30" y="160">Layer 2: Spring JDBC — JdbcClient / JdbcTemplate + DataAccessException translation</text>
+  <text class="lb" x="30" y="178">Removes: connection open/close, try-finally, checked SQLException, vendor-specific SQL error codes.</text>
+
+  <rect class="l1" x="14" y="202" width="732" height="68" rx="6"/>
+  <text class="t" x="30" y="224">Layer 1: Raw JDBC + HikariCP — DataSource, Connection, PreparedStatement, ResultSet</text>
+  <text class="lb" x="30" y="244">The JDK's raw socket API. Hibernate and Spring Data still call PreparedStatement.execute() here!</text>
+  <text class="lb" x="30" y="260">Senior skill = knowing how to debug downwards and when to drop down to JdbcClient.</text>
+</svg>
+<figcaption>Four layers of abstraction. Nothing replaces the layer below it — when debugging performance, always look down at the generated SQL and JDBC connections.</figcaption>
+</figure>
+
+<h2><span class="n">§3</span>How it works (Level 1 → Level 2 Zoom)</h2>
+
+<h3>Mystery #1 Demystified: How an <code>interface</code> with No Class Becomes a Working Bean</h3>
+<p>
+You write <code>public interface BookRepository extends JpaRepository&lt;Book, Long&gt; {}</code> — no class, no <code>@Repository</code> annotation needed — and yet <code>@Autowired BookRepository repo</code> injects a working object! How?
+</p>
+<div class="step-flow">
+  <strong>Step-by-Step Startup Flow (Phase 1: Box 2 → Box 3 → Box 4):</strong><br/>
+  <strong>Step 1 (Box 2 Scanner):</strong> At startup, <code>JpaRepositoriesRegistrar</code> (an <code>ImportBeanDefinitionRegistrar</code> from <a href="../05-configuration-and-component-model/lesson.html">lesson 5</a>) scans your packages for any interface extending <code>Repository</code>.<br/>
+  ↓<br/>
+  <strong>Step 2 (Box 2 Recipe Registration):</strong> For <code>BookRepository</code>, it registers a <code>BeanDefinition</code> in the recipe map whose class is <code>JpaRepositoryFactoryBean</code> (<a href="../04-bean-lifecycle-and-extension-points/lesson.html">lesson 4</a>'s <code>FactoryBean</code> hook).<br/>
+  ↓<br/>
+  <strong>Step 3 (Query Parsing at Startup):</strong> While creating the bean, the factory inspects every method name in <code>BookRepository</code> (e.g., <code>findByAuthorOrderByTitleAsc</code>), parses the grammar (<code>find…By</code> + <code>Author</code> + <code>OrderBy</code> + <code>TitleAsc</code>), validates that <code>Book</code> actually has <code>author</code> and <code>title</code> fields, and pre-builds the JPQL AST. <em>(If you typo a field name as <code>findByAuthr</code>, the app fails to start right here — fail-fast!)</em><br/>
+  ↓<br/>
+  <strong>Step 4 (Box 4 Proxy Creation):</strong> <code>JpaRepositoryFactoryBean.getObject()</code> calls <code>Proxy.newProxyInstance(...)</code> to generate a <strong>JDK Dynamic Proxy</strong> implementing <code>BookRepository</code>, and stores it in <strong>Box 3 (<code>singletonObjects</code>)</strong>.
+</div>
+
+<p>
+In plain Java, the generated proxy sitting in Box 3 looks like this:
+</p>
+<pre><span class="c">// Plain Java mental model of the JDK Dynamic Proxy Spring puts in Box 3 for BookRepository</span>
+<span class="k">final class</span> $ProxyBookRepository <span class="k">implements</span> BookRepository {
+
+    <span class="k">private final</span> SimpleJpaRepository&lt;Book, Long&gt; defaultCrudTarget; <span class="c">// has save(), findById(), delete()</span>
+    <span class="k">private final</span> Map&lt;Method, RepositoryQuery&gt; parsedQueries;        <span class="c">// pre-parsed at startup!</span>
+
+    <span class="k">public</span> Object invoke(Object proxy, Method method, Object[] args) {
+        <span class="c">// Wrap in @Transactional (readOnly=true for queries, read-write for save/delete)</span>
+        <span class="c">// Wrap in PersistenceExceptionTranslationInterceptor (SQLException -&gt; DataAccessException)</span>
+        <span class="k">if</span> (parsedQueries.containsKey(method)) {
+            <span class="k">return</span> parsedQueries.get(method).execute(args);          <span class="c">// derived query or @Query</span>
+        }
+        <span class="k">return</span> method.invoke(defaultCrudTarget, args);               <span class="c">// inherited save(), findById(), etc.</span>
+    }
+}</pre>
+
+<h3>Mystery #2 Demystified: What the JPA <code>PersistenceContext</code> Actually Is in Plain Java</h3>
+<p>
+People call the <code>PersistenceContext</code> (inside Hibernate's <code>Session</code> / JPA's <code>EntityManager</code>) a "first-level cache," which sounds vague. In plain Java data structures, it is simply <strong>two <code>HashMap</code>s and a list of pending SQL statements attached to the current worker thread via <code>ThreadLocal</code></strong> for the duration of one transaction:
+</p>
+<pre><span class="c">// Plain Java data structure inside Hibernate's PersistenceContext (bound to ThreadLocal in Box 6)</span>
+<span class="k">class</span> SimplePersistenceContext {
+    <span class="c">// 1. The Identity Map (1st-level cache): (EntityClass + PrimaryKey) -&gt; live Java @Entity object</span>
+    Map&lt;EntityKey, Object&gt; entitiesByKey = <span class="k">new</span> HashMap&lt;&gt;();
+
+    <span class="c">// 2. The Loaded Snapshot Map: (EntityClass + PrimaryKey) -&gt; copy of field values when SELECTed</span>
+    Map&lt;EntityKey, Object[]&gt; loadedSnapshots = <span class="k">new</span> HashMap&lt;&gt;();
+
+    <span class="c">// 3. At flush() / commit(): DIRTY CHECKING</span>
+    <span class="k">void</span> flushToDatabase(Connection conn) {
+        <span class="k">for</span> (var entry : entitiesByKey.entrySet()) {
+            EntityKey key = entry.getKey();
+            Object currentEntity = entry.getValue();
+            Object[] originalSnapshot = loadedSnapshots.get(key);
+
+            <span class="k">if</span> (!Arrays.equals(extractFields(currentEntity), originalSnapshot)) {
+                <span class="c">// ★ Entity changed in memory! Auto-generate and run UPDATE SQL!</span>
+                executeUpdateSql(conn, key, currentEntity);
+            }
+        }
+    }
+}</pre>
+
+<div class="step-flow">
+  <strong>Trace of Dirty Checking inside a <code>@Transactional</code> method:</strong><br/>
+  <strong>Step 1 (<code>Book b = repo.findById(42L).orElseThrow()</code>):</strong> Hibernate runs <code>SELECT ... WHERE id = 42</code>, creates the <code>Book</code> object, puts <code>(Book#42 → b)</code> into <code>entitiesByKey</code>, and saves a copy of its initial field values <code>["1984", "Orwell"]</code> in <code>loadedSnapshots</code>. The entity is now <strong>MANAGED</strong>.<br/>
+  ↓<br/>
+  <strong>Step 2 (Second <code>repo.findById(42L)</code> in the same transaction):</strong> Hibernate checks <code>entitiesByKey.get(Book#42)</code> — <strong>cache hit!</strong> Zero SQL is run, and it returns the exact same Java reference (<code>b1 == b2</code> is <code>true</code>).<br/>
+  ↓<br/>
+  <strong>Step 3 (<code>b.setTitle("Animal Farm")</code>):</strong> You call a plain Java setter. You do <em>not</em> call <code>repo.save(b)</code>.<br/>
+  ↓<br/>
+  <strong>Step 4 (Transaction Commit → Flush):</strong> Before committing the transaction, Hibernate loops over <code>entitiesByKey</code>, compares <code>b</code>'s current fields <code>["Animal Farm", "Orwell"]</code> against <code>loadedSnapshots</code> <code>["1984", "Orwell"]</code>, sees the difference, and executes <code>UPDATE book SET title = 'Animal Farm' WHERE id = 42</code>!<br/>
+  ↓<br/>
+  <strong>Step 5 (Transaction Ends → Detached):</strong> The <code>ThreadLocal</code> <code>PersistenceContext</code> is cleared and closed. <code>b</code> is now <strong>DETACHED</strong>.
+</div>
+
+<figure>
+<svg viewBox="0 0 760 330" width="100%" role="img" aria-label="JPA entity states and the persistence context lifecycle">
+  <style>
+    .st{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .pc{fill:#eefaf4;stroke:#6db33f;stroke-width:1.5}
+    .db{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#3f3b34}
+    .lb{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .h{font:bold 12.5px Georgia,serif;fill:#2b2b28}
+    .a{stroke:#6b675e;stroke-width:1.3;marker-end:url(#me);fill:none}
+  </style>
+  <defs><marker id="me" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="pc" x="150" y="40" width="460" height="200" rx="8"/>
+  <text class="h" x="168" y="62">PERSISTENCE CONTEXT (ThreadLocal in Box 6 — scoped to 1 Transaction)</text>
+  <text class="lb" x="168" y="80">= Map&lt;EntityKey, Object&gt; (1st-level cache) + Map&lt;EntityKey, Object[]&gt; (snapshot)</text>
+
+  <rect class="st" x="180" y="96" width="400" height="56" rx="6"/>
+  <text class="t" x="198" y="118">MANAGED (Inside entitiesByKey Map)</text>
+  <text class="c" x="198" y="138">tracked · changes auto-detected · same id ⇒ same object instance (==)</text>
+
+  <rect class="db" x="180" y="166" width="400" height="56" rx="6"/>
+  <text class="t" x="198" y="188">on commit (or flush): DIRTY CHECKING</text>
+  <text class="c" x="198" y="208">compare current fields to snapshot → generate UPDATE SQL automatically</text>
+
+  <rect class="st" x="14" y="96" width="110" height="56" rx="6"/>
+  <text class="t" x="34" y="118">TRANSIENT</text><text class="lb" x="26" y="136">new Book()</text>
+
+  <rect class="st" x="636" y="96" width="110" height="56" rx="6"/>
+  <text class="t" x="652" y="118">DETACHED</text><text class="lb" x="648" y="136">tx ended</text>
+
+  <rect class="st" x="636" y="176" width="110" height="46" rx="6"/>
+  <text class="t" x="656" y="204">REMOVED</text>
+
+  <path class="a" d="M124,118 L178,118"/><text class="lb" x="128" y="110">persist()</text>
+  <path class="a" d="M580,118 L634,118"/><text class="lb" x="582" y="110">commit</text>
+  <path class="a" d="M690,96 C690,40 620,30 590,96"/><text class="lb" x="600" y="34">merge()</text>
+  <path class="a" d="M580,196 L634,196"/><text class="lb" x="584" y="188">remove()</text>
+
+  <text class="h" x="14" y="268" style="fill:#7a1f1f">Three consequences you can derive directly from those two Maps:</text>
+  <text class="c" x="14" y="288">1. You never need save() to update a MANAGED entity — a setter mutates the object in entitiesByKey, and dirty checking writes it.</text>
+  <text class="c" x="14" y="306">2. Calling findById(42) twice in one tx runs ONE query; the second call returns the cached reference from entitiesByKey.</text>
+  <text class="c" x="14" y="324">3. When the tx ends, the ThreadLocal PersistenceContext closes (DETACHED) — touching an uninitialized lazy proxy throws LazyInitializationException.</text>
+</svg>
+<figcaption>The PersistenceContext is a thread-bound working set of managed objects and their load-time snapshots.
+<span class="sources">(Model per <a href="https://jakarta.ee/specifications/persistence/">Jakarta Persistence spec</a> and <a href="https://docs.spring.io/spring-data/jpa/reference/jpa/getting-started.html">Spring Data JPA Reference</a>.)</span></figcaption>
+</figure>
+
+<h3>★ Lazy Loading Proxies, <code>LazyInitializationException</code>, and the N+1 Query Problem</h3>
+<p>
+When a <code>Book</code> has a <code>@ManyToOne(fetch = FetchType.LAZY) Author author</code>, Hibernate does not load the <code>Author</code> row when loading the <code>Book</code>. Instead, it sets <code>book.author</code> to a <strong>Hibernate-generated subclass proxy</strong> (Box 4 concept applied to entities!) that holds only <code>authorId = 7</code>:
+</p>
+<pre><span class="c">// What book.getAuthor() actually holds when LAZY: a ghost proxy subclass!</span>
+<span class="k">class</span> Author$HibernateProxy <span class="k">extends</span> Author {
+    <span class="k">private final long</span> id = 7L;
+    <span class="k">private</span> Author target = <span class="k">null</span>; <span class="c">// not loaded yet</span>
+
+    <span class="an">@Override</span>
+    <span class="k">public</span> String getName() {
+        <span class="k">if</span> (target == <span class="k">null</span>) {
+            <span class="c">// Look up current thread's PersistenceContext in ThreadLocal:</span>
+            Session s = ThreadLocalSessionContext.currentSession();
+            <span class="k">if</span> (s == <span class="k">null</span> || !s.isOpen()) {
+                <span class="k">throw new</span> LazyInitializationException(<span class="s">"could not initialize proxy - no Session"</span>);
+            }
+            target = s.executeSelect(<span class="s">"SELECT * FROM author WHERE id = ?"</span>, id);
+        }
+        <span class="k">return</span> target.getName();
+    }
+}</pre>
+<p>
+Look at what that proxy code reveals:
+</p>
+<ul>
+  <li><strong>Why <code>LazyInitializationException</code> happens:</strong> If you return <code>Book</code> from your <code>@Transactional</code> service back to the controller (Box 6), the transaction has already finished and closed the <code>ThreadLocal</code> session. When Jackson calls <code>book.getAuthor().getName()</code> to write JSON, <code>s</code> is closed → <strong>boom!</strong></li>
+  <li><strong>Why the N+1 Query Problem happens:</strong> If you stay <em>inside</em> the transaction, load 100 books with <code>List&lt;Book&gt; books = repo.findAll()</code> (<strong>Query #1</strong>), and loop over them calling <code>b.getAuthor().getName()</code>, the lazy proxy fires a separate <code>SELECT * FROM author WHERE id = ?</code> on every iteration (<strong>+100 queries = 101 queries total!</strong>).</li>
+</ul>
+
+<table>
+<thead><tr><th>N+1 Fix</th><th>How to write it</th><th>Best used when</th></tr></thead>
+<tbody>
+<tr><td><code>JOIN FETCH</code></td><td><code>@Query("select b from Book b join fetch b.author where b.id = :id")</code></td><td>Explicit single-query fetch of an association you know you need.</td></tr>
+<tr><td><code>@EntityGraph</code></td><td><code>@EntityGraph(attributePaths = "author")</code> on derived query method</td><td>Cleanest way to add a <code>LEFT JOIN FETCH</code> to derived queries or <code>Pageable</code> methods.</td></tr>
+<tr><td><strong>DTO / Interface Projection</strong></td><td><code>select new BookDto(b.title, a.name) from Book b join b.author a</code></td><td><strong>Read-only endpoints — fastest!</strong> Skips entity proxies and dirty-check snapshots completely.</td></tr>
+<tr><td>Batch Fetching</td><td><code>spring.jpa.properties.hibernate.default_batch_fetch_size=50</code></td><td>Global safety net: turns 100 lazy queries into 2 queries using <code>WHERE id IN (?, ?, ...)</code>.</td></tr>
+</tbody></table>
+<div class="pitfall"><strong>Never fix N+1 by changing <code>fetch = FetchType.EAGER</code>.</strong> <code>EAGER</code> permanently forces every query on <code>Book</code> to join/fetch <code>Author</code> even when not needed. Worse, in JPA, <strong><code>@ManyToOne</code> and <code>@OneToOne</code> default to <code>EAGER</code>!</strong> Always write <code>@ManyToOne(fetch = FetchType.LAZY)</code> explicitly.</div>
+
+<h3>Connection Pooling (HikariCP) &amp; <code>open-in-view=false</code></h3>
+<pre>spring.datasource.hikari.maximum-pool-size=10      <span class="c"># Small pool (cores * 2) beats 100!</span>
+spring.datasource.hikari.connection-timeout=3000   <span class="c"># Fail fast after 3s if pool exhausted</span>
+spring.jpa.hibernate.ddl-auto=validate             <span class="c"># Use Flyway/Liquibase for schema; validate only</span>
+spring.jpa.open-in-view=false                      <span class="c"># ★ Turn off Open-Session-In-View!</span></pre>
+<div class="callout"><strong>Why <code>spring.jpa.open-in-view=false</code> is mandatory in serious production apps:</strong> By default, Spring Boot registers an <code>OpenEntityManagerInViewInterceptor</code> in Box 6 (Step 4) that keeps the Hibernate <code>PersistenceContext</code> open all the way through controller execution and JSON rendering. That hides <code>LazyInitializationException</code> by letting Jackson fire N+1 SQL queries from the web layer while holding database connections longer than necessary! Turn it off and map Entities to DTOs inside your <code>@Transactional</code> service.</div>
+
+<h2><span class="n">§4</span>When to use</h2>
+<table>
+<thead><tr><th>Workload</th><th>Right Tool</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Standard domain CRUD &amp; aggregate updates</td><td>Spring Data JPA (<code>JpaRepository</code>)</td><td>Zero boilerplate, dirty checking, optimistic locking (<code>@Version</code>).</td></tr>
+<tr><td>Read-only API list/search endpoints</td><td>JPA DTO / Interface Projections</td><td>Selects only needed columns; zero snapshot memory or dirty-check overhead.</td></tr>
+<tr><td>Complex analytical SQL, window functions, CTEs, bulk reporting</td><td><strong><code>JdbcClient</code></strong> (Spring 6.1+)</td><td>ORM fights complex SQL; <code>JdbcClient</code> shares the exact same <code>DataSource</code> and <code>ThreadLocal</code> transaction!</td></tr>
+<tr><td>Database schema migrations</td><td><strong>Flyway</strong> or <strong>Liquibase</strong> (+ <code>ddl-auto=validate</code>)</td><td>Versioned, repeatable SQL scripts; never use <code>ddl-auto=update</code> in prod.</td></tr>
+</tbody></table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine the database is a giant filing vault in the basement. Walking down the stairs takes time. So when you start a task (<code>@Transactional</code>), your assistant brings a rolling cart up to your desk (<code>PersistenceContext</code> in <code>ThreadLocal</code>).
+</p>
+<p>
+Every time you ask for Folder #42, your assistant puts it on your cart and secretly takes a <strong>photocopy</strong> of how it looked when it arrived (the snapshot). If you ask for Folder #42 again five seconds later, she just hands you the folder already sitting on your cart!
+</p>
+<p>
+While working, you erase the title on Folder #42 and pencil in a new one (<code>book.setTitle(...)</code>). You don't have to shout "SAVE!" When your task finishes, your assistant compares every folder on your cart against her photocopies. She spots the changed title on Folder #42 and carries that update down to the basement automatically (<strong>Dirty Checking</strong>).
+</p>
+<p>
+And what if Folder #42 has a sticky note saying <em>"Author details are in Basement Box 7 — fetch only if asked"</em> (a <strong>Lazy Proxy</strong>)? If you ask for the author while your assistant is still on duty, she runs downstairs and grabs Box 7. If you ask <em>after</em> she has clocked out and locked the basement door (transaction ended), she throws up her hands: <code>LazyInitializationException</code>!
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← 04 &amp; 05 (Lifecycle &amp; Config):</strong> <code>JpaRepository</code> interfaces work by combining <code>ImportBeanDefinitionRegistrar</code> (Box 2) + <code>FactoryBean</code> + JDK Dynamic Proxy (Box 4).</li>
+  <li><strong>→ 12-transactions:</strong> the <code>PersistenceContext</code> lives in the exact same <code>ThreadLocal</code> (<code>TransactionSynchronizationManager</code>) managed by <code>@Transactional</code>.</li>
+  <li><strong>← java/08-collections-and-equality:</strong> why <code>equals</code>/<code>hashCode</code> on JPA <code>@Entity</code> classes cannot naively use a generated <code>@Id</code> field.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Code Dissection &amp; Derive, Don't Memorize</h2>
+
+<h3>1. Production-Grade Entity, Repository, and <code>JdbcClient</code> Escape Hatch</h3>
+<pre><span class="c">// ---------- 1. Entity: explicit LAZY, @Version, safe equals/hashCode ----------</span>
+<span class="an">@Entity</span>
+<span class="an">@Table</span>(name = <span class="s">"book"</span>, uniqueConstraints = <span class="an">@UniqueConstraint</span>(columnNames = <span class="s">"isbn"</span>))
+<span class="k">public class</span> Book {
+    <span class="an">@Id</span> <span class="an">@GeneratedValue</span>(strategy = GenerationType.IDENTITY) <span class="k">private</span> Long id;
+    <span class="an">@Column</span>(nullable = <span class="k">false</span>, length = 200)              <span class="k">private</span> String title;
+    <span class="an">@Column</span>(nullable = <span class="k">false</span>, unique = <span class="k">true</span>, length = 13) <span class="k">private</span> String isbn;
+
+    <span class="an">@ManyToOne</span>(fetch = FetchType.LAZY, optional = <span class="k">false</span>)  <span class="c">// ① override JPA's bad EAGER default!</span>
+    <span class="an">@JoinColumn</span>(name = <span class="s">"author_id"</span>)
+    <span class="k">private</span> Author author;
+
+    <span class="an">@Version</span> <span class="k">private long</span> version;                         <span class="c">// ② optimistic locking column</span>
+
+    <span class="k">protected</span> Book() {}                                   <span class="c">// ③ required by Hibernate reflection</span>
+
+    <span class="an">@Override</span> <span class="k">public boolean</span> equals(Object o) {              <span class="c">// ④ null-safe id equality</span>
+        <span class="k">return</span> o <span class="k">instanceof</span> Book b &amp;&amp; id != <span class="k">null</span> &amp;&amp; id.equals(b.id);
+    }
+    <span class="an">@Override</span> <span class="k">public int</span> hashCode() { <span class="k">return</span> Book.class.hashCode(); }  <span class="c">// ⑤ constant across persist()!</span>
+}
+
+<span class="c">// ---------- 2. Repository Interface (Proxy created in Box 4 at startup) ----------</span>
+<span class="k">public interface</span> BookRepository <span class="k">extends</span> JpaRepository&lt;Book, Long&gt; {
+
+    <span class="an">@EntityGraph</span>(attributePaths = <span class="s">"author"</span>)                 <span class="c">// ⑥ fetches author in 1 LEFT JOIN query</span>
+    Page&lt;Book&gt; findByTitleContainingIgnoreCase(String part, Pageable page);
+
+    <span class="c">// ⑦ Interface projection: selects 2 columns, no managed entity or snapshot overhead</span>
+    <span class="an">@Query</span>(<span class="s">"select b.title as title, a.name as author from Book b join b.author a where a.id = :id"</span>)
+    List&lt;BookCard&gt; findCardsByAuthor(<span class="an">@Param</span>(<span class="s">"id"</span>) <span class="k">long</span> authorId);
+    <span class="k">interface</span> BookCard { String getTitle(); String getAuthor(); }
+
+    <span class="an">@Modifying</span>(clearAutomatically = <span class="k">true</span>, flushAutomatically = <span class="k">true</span>) <span class="c">// ⑧ bulk SQL</span>
+    <span class="an">@Query</span>(<span class="s">"update Book b set b.title = :t where b.id = :id"</span>)
+    <span class="k">int</span> bulkRename(<span class="an">@Param</span>(<span class="s">"id"</span>) <span class="k">long</span> id, <span class="an">@Param</span>(<span class="s">"t"</span>) String title);
+}</pre>
+<div class="ann"><strong>Dissection.</strong>
+<strong>①</strong> Always set <code>fetch = FetchType.LAZY</code> on <code>@ManyToOne</code> and <code>@OneToOne</code>.
+<strong>②</strong> <code>@Version</code> makes Hibernate append <code>WHERE id = ? AND version = ?</code> to every <code>UPDATE</code>. If another thread updated the row first, 0 rows match and Spring throws <code>OptimisticLockingFailureException</code>.
+<strong>④⑤</strong> Before <code>persist()</code>, <code>id</code> is <code>null</code>; after <code>persist()</code>, <code>id</code> becomes <code>42L</code>. If <code>hashCode()</code> returned <code>Objects.hashCode(id)</code>, the entity's hash bucket would change when saved, losing it inside any <code>HashSet</code>! Returning a constant class hashCode (or using a natural immutable business key like <code>isbn</code>) prevents this bug.
+<strong>⑧</strong> <code>@Modifying</code> runs a direct SQL <code>UPDATE</code> that bypasses the in-memory <code>PersistenceContext</code> map; <code>clearAutomatically = true</code> evicts stale entities from the map so subsequent reads see the updated DB data.</div>
+
+<h3>2. How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead><tr><th>Classic Interview Question</th><th>Which Box / Rule?</th><th>10-Second Derivation</th></tr></thead>
+<tbody>
+<tr>
+  <td><em>"How does <code>BookRepository</code> work when it's just an interface and I never wrote a class implementing it?"</em></td>
+  <td><strong>Box 2 &amp; Box 4</strong><br/>(Startup + Proxy)</td>
+  <td>In Phase 1, <code>JpaRepositoriesRegistrar</code> (Box 2) registers a <code>JpaRepositoryFactoryBean</code> for the interface. That factory parses method names into JPQL at boot and wraps <code>SimpleJpaRepository</code> in a <strong>JDK Dynamic Proxy (Box 4)</strong> stored in Box 3.</td>
+</tr>
+<tr>
+  <td><em>"In a <code>@Transactional</code> method, I called <code>book.setTitle("New")</code> without calling <code>repo.save(book)</code>, and the database still updated! Why?"</em></td>
+  <td><strong>Rule 3</strong><br/>(<code>ThreadLocal</code> Snapshot Map)</td>
+  <td><code>book</code> is inside the current thread's <code>PersistenceContext</code> (<code>entitiesByKey</code> Map). At transaction commit, Hibernate compares <code>book</code>'s current fields against its load-time <code>loadedSnapshots</code> entry (<strong>Dirty Checking</strong>) and auto-generates the <code>UPDATE</code> SQL.</td>
+</tr>
+<tr>
+  <td><em>"What causes <code>LazyInitializationException</code> and what is the right vs wrong way to fix it?"</em></td>
+  <td><strong>Rule 1 &amp; Rule 3</strong><br/>(Box 4 vs Box 6)</td>
+  <td><strong>Cause:</strong> Touching an uninitialized lazy proxy <em>after</em> the Box 4 <code>@Transactional</code> proxy closed the <code>ThreadLocal</code> <code>PersistenceContext</code> (e.g., during Jackson serialization in Box 6). <strong>Wrong fix:</strong> <code>FetchType.EAGER</code> or <code>open-in-view=true</code>. <strong>Right fix:</strong> Fetch needed data via <code>@EntityGraph</code>/<code>JOIN FETCH</code> and map to a DTO <em>inside</em> the transaction.</td>
+</tr>
+<tr>
+  <td><em>"Why did my entity loaded BEFORE a <code>@Modifying @Query("UPDATE ...")</code> still have old field values afterwards?"</em></td>
+  <td><strong>Rule 3</strong><br/>(<code>entitiesByKey</code> Cache)</td>
+  <td>A bulk <code>@Modifying</code> query sends SQL straight to the DB, bypassing the in-memory <code>entitiesByKey</code> Map in the <code>PersistenceContext</code>. Without <code>@Modifying(clearAutomatically = true)</code>, the <code>PersistenceContext</code> still returns the stale cached Java object!</td>
+</tr>
+<tr>
+  <td><em>"Why shouldn't I use Lombok <code>@Data</code> or <code>@EqualsAndHashCode</code> on a JPA <code>@Entity</code>?"</em></td>
+  <td><strong>Box 4 &amp; Java Collections</strong></td>
+  <td>1) It calls getters on lazy fields, triggering accidental SQL queries or <code>StackOverflowError</code> on bidirectional links. 2) It hashes the mutable <code>@GeneratedValue id</code> (which changes from <code>null</code> to a number on save), corrupting any <code>HashSet</code> holding the entity.</td>
+</tr>
+</tbody></table>
+
+<div class="try"><strong>Predict the Output / Try This.</strong>
+<ol style="margin:.4rem 0 0">
+<li>Enable <code>logging.level.org.hibernate.SQL=DEBUG</code>. Inside a <code>@Transactional</code> test, call <code>repo.findById(1L)</code> twice and check that only <strong>one</strong> <code>SELECT</code> logs and <code>b1 == b2</code> is <code>true</code>.</li>
+<li>Now add <code>@Transactional(readOnly = true)</code> to a method that calls <code>book.setTitle("Mutated")</code>. Check the database after the method finishes — why was no <code>UPDATE</code> executed? (Because <code>readOnly = true</code> sets Hibernate's flush mode to <code>MANUAL</code> and skips dirty checking!)</li>
+<li>Typo a repository method name as <code>findByNonExistentField(String x)</code> and start the app. Observe that it fails at <strong>Phase 1 Startup</strong>, not when someone calls the method at runtime.</li>
+</ol></div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>The N+1 Query Problem.</strong> Loading a list of N parent entities (1 query) and iterating over a lazy child association fires N additional queries. Fix per-query with <code>@EntityGraph</code>, <code>JOIN FETCH</code>, or DTO projections — never with <code>FetchType.EAGER</code>.</div>
+<div class="pitfall"><strong>Leaving <code>@ManyToOne</code> / <code>@OneToOne</code> at their default <code>FetchType.EAGER</code>.</strong> The JPA specification made <code>ToOne</code> associations eager by default. Always write <code>fetch = FetchType.LAZY</code> explicitly.</div>
+<div class="pitfall"><strong>Leaving <code>spring.jpa.open-in-view=true</code> (Spring Boot's default).</strong> Keeps the <code>PersistenceContext</code> and DB connection open during HTTP view/JSON rendering in Box 6, hiding N+1 queries and starving HikariCP under slow network clients. Set <code>spring.jpa.open-in-view=false</code>.</div>
+<div class="pitfall"><strong>Accidental DB updates from mutating a managed entity.</strong> Any setter call on a managed entity inside a read-write transaction will be written to the database at commit! Mark query methods <code>@Transactional(readOnly = true)</code> or use DTO projections.</div>
+<div class="pitfall"><strong>Using <code>Page&lt;Entity&gt;</code> with <code>JOIN FETCH</code> on a <code>@OneToMany</code> collection.</strong> If a Book has 10 Reviews, a SQL <code>JOIN</code> produces 10 rows for 1 Book, so SQL <code>LIMIT 20</code> cannot paginate Books accurately! Hibernate logs <code>HHH90003004: firstResult/maxResults specified with collection fetch; applying in memory!</code> and <strong>loads the entire table into JVM RAM</strong>! Fix by paginating IDs first or using <code>@BatchSize</code> instead of collection <code>JOIN FETCH</code> on paged queries.</div>
+<div class="pitfall"><strong><code>@Modifying</code> queries without <code>clearAutomatically = true</code>.</strong> Bulk JPQL <code>UPDATE</code>/<code>DELETE</code> statements bypass the 1st-level cache map, leaving already-loaded entities in that transaction stale.</div>
+
+<h2><span class="n">§9</span>Recap &amp; Glossary / Reference</h2>
+<ul class="recap">
+  <li><strong>Four data-access layers:</strong> Raw JDBC (HikariCP) → Spring JDBC (<code>JdbcClient</code> + <code>DataAccessException</code> translation) → JPA/Hibernate → Spring Data JPA.</li>
+  <li><strong>How repository interfaces work:</strong> In Phase 1, <code>JpaRepositoriesRegistrar</code> (Box 2) + <code>JpaRepositoryFactoryBean</code> create a <strong>JDK Dynamic Proxy (Box 4)</strong> backed by <code>SimpleJpaRepository</code> and pre-parsed method queries.</li>
+  <li><strong>What the <code>PersistenceContext</code> is:</strong> A thread-bound (<code>ThreadLocal</code>) <code>Map&lt;EntityKey, Object&gt;</code> (identity map / 1st-level cache) + <code>Map&lt;EntityKey, Object[]&gt;</code> (field snapshots) scoped to one transaction.</li>
+  <li><strong>Dirty checking:</strong> At flush/commit, Hibernate diffs each managed entity against its load-time snapshot and auto-generates <code>UPDATE</code> SQL without needing a <code>save()</code> call.</li>
+  <li><strong>Lazy loading &amp; N+1:</strong> Lazy fields are Hibernate proxy subclasses. Accessing them after the <code>ThreadLocal</code> session closes throws <code>LazyInitializationException</code>; accessing them in a loop causes 1+N queries.</li>
+  <li><strong>Production defaults:</strong> <code>fetch = LAZY</code> everywhere, <code>spring.jpa.open-in-view=false</code>, <code>ddl-auto=validate</code> + Flyway, and <code>@Version</code> for optimistic locking.</li>
+</ul>
+
+<hr/>
+<h2>Reference — quick cheat-sheet</h2>
+<table>
+<thead><tr><th>You want…</th><th>Reach for</th></tr></thead>
+<tbody>
+<tr><td>Standard CRUD + pagination</td><td><code>interface BookRepository extends JpaRepository&lt;Book, Long&gt;</code></td></tr>
+<tr><td>Prevent N+1 on a query method</td><td><code>@EntityGraph(attributePaths = "author")</code> or <code>JOIN FETCH</code></td></tr>
+<tr><td>Fast read-only query (no entity overhead)</td><td>Interface/Record projection + <code>@Transactional(readOnly = true)</code></td></tr>
+<tr><td>Bulk UPDATE / DELETE query</td><td><code>@Modifying(clearAutomatically = true, flushAutomatically = true) @Query(...)</code></td></tr>
+<tr><td>Clean fluent SQL for reporting/analytics</td><td><code>JdbcClient</code> (Spring 6.1+)</td></tr>
+<tr><td>Prevent lost updates under concurrency</td><td><code>@Version private long version;</code> on the entity</td></tr>
+<tr><td>See generated SQL and bound parameters</td><td><code>logging.level.org.hibernate.SQL=DEBUG</code> &amp; <code>logging.level.org.hibernate.orm.jdbc.bind=TRACE</code></td></tr>
+</tbody></table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>DataSource</dt><dd>Factory for pooled database connections (HikariCP by default in Spring Boot).</dd>
+  <dt>PersistenceContext</dt><dd>JPA's per-transaction <code>ThreadLocal</code> cache holding managed entities (<code>Map&lt;EntityKey, Object&gt;</code>) and their initial field snapshots.</dd>
+  <dt>Managed / Detached / Transient</dt><dd>An entity's lifecycle state: <em>Transient</em> (new, not in DB), <em>Managed</em> (tracked inside the active <code>PersistenceContext</code>), <em>Detached</em> (transaction closed, no longer tracked).</dd>
+  <dt>Dirty checking</dt><dd>Hibernate's mechanism of comparing managed entities against their load-time snapshots at flush/commit and automatically issuing <code>UPDATE</code> statements.</dd>
+  <dt>Flush</dt><dd>Synchronizing in-memory <code>PersistenceContext</code> changes to the database via SQL statements (occurs before commit, before queries, or via <code>flush()</code>).</dd>
+  <dt>Lazy loading</dt><dd>Deferring SQL loading of an association by injecting a Hibernate subclass proxy that queries the DB only when a getter is called.</dd>
+  <dt>N+1 Query Problem</dt><dd>Executing 1 query to load N parent rows, followed by N separate queries as a loop accesses a lazy association on each parent.</dd>
+  <dt>@EntityGraph / JOIN FETCH</dt><dd>Instructions telling Hibernate to fetch an association eagerly in a single SQL <code>JOIN</code> for one specific query.</dd>
+  <dt>Projection</dt><dd>Selecting only specific columns directly into a Java <code>record</code> or interface proxy instead of loading full managed <code>@Entity</code> objects.</dd>
+  <dt>Open Session in View (OSIV)</dt><dd>Anti-pattern (<code>spring.jpa.open-in-view=true</code>) that keeps the <code>PersistenceContext</code> open during HTTP view rendering.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.spring.io/spring-data/jpa/reference/jpa/getting-started.html">Spring Data JPA Reference</a> —
+especially <em>Defining Query Methods</em> and <em>Projections</em>. Then
+<a href="https://docs.spring.io/spring-framework/reference/data-access/jdbc.html">Spring Framework Reference — Data Access with
+JDBC</a> for what <code>JdbcClient</code> gives you, and skim
+<a href="https://docs.jboss.org/hibernate/orm/current/introduction/html_single/Hibernate_Introduction.html">Hibernate's
+Introduction guide</a> for the persistence-context model from the horse's mouth.</p>
+<p class="sources" style="margin-top:2rem">Sources: Spring Data JPA Reference Documentation (Getting Started, Defining Query
+Methods, Projections, Custom Implementations); Spring Framework Reference (Data Access → DAO support &amp; exception
+translation, JDBC, <code>JdbcClient</code>); Spring Boot Reference (SQL Databases, <code>spring.jpa.open-in-view</code>,
+HikariCP); Hibernate ORM documentation (persistence context, fetching strategies); HikariCP pool-sizing guidance.
+Targeting Spring Boot 3.x / Hibernate 6.x. Authored per Knowledge-Base-2 rules §6.2–§6.3 and
+<code>topic-styles/framework.md</code>.</p>
+
+</body>
+</html>

@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>How a Stream Actually Runs — Java 8 &amp; Functional, Part 3 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem;line-height:1.9}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>How a Stream Actually Runs</h1>
+<p class="crumb">Java › Java 8 &amp; functional cluster · lesson 7, <strong>part 3 of 9</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — laziness, fusion and one-shot pipelines, proved by real output</p>
+
+<p class="nav"><strong>Java 8 &amp; functional cluster:</strong>
+  <a href="lesson.html">1. Lambdas</a> ·
+  <a href="lesson-2-functional-interfaces.html">2. Functional interfaces &amp; method refs</a> ·
+  <strong>3. How a stream actually runs</strong> ·
+  <a href="lesson-4-intermediate-operations.html">4. Intermediate operations</a> ·
+  <a href="lesson-5-terminal-operations.html">5. Terminal operations &amp; reduce</a> ·
+  <a href="lesson-6-collectors-and-groupingby.html">6. Collectors &amp; groupingBy</a> ·
+  <a href="lesson-7-optional.html">7. Optional</a> ·
+  <a href="lesson-8-default-methods-and-java-time.html">8. default methods &amp; java.time</a> ·
+  <a href="lesson-9-stream-recall-playbook.html">9. Recall &amp; interview playbook</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> A <code>Stream</code> is <strong>not a collection</strong>. It holds no data. It is a
+<em>recipe</em> — a plan for walking over some source and doing things to each element. Writing
+<code>.filter(...).map(...)</code> builds the plan and executes nothing. Only the final operation
+(<code>collect</code>, <code>forEach</code>, <code>count</code>…) actually runs it, and when it does, elements go through the
+<strong>whole chain one at a time</strong>.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+This is the part of streams that interviews actually probe, and the part most people skip. If you understand the execution model,
+then every operation in <a href="lesson-4-intermediate-operations.html">part 4</a> and
+<a href="lesson-5-terminal-operations.html">part 5</a> becomes obvious, and every "what does this print?" question becomes
+mechanical. If you skip it, you are memorising method names with no frame to hang them on — which is exactly the problem.
+</p>
+
+<h3>The mental switch this part asks you to make</h3>
+<table>
+  <thead><tr><th></th><th>A <code>List</code></th><th>A <code>Stream</code></th></tr></thead>
+  <tbody>
+  <tr><td>What it is</td><td>a box holding elements</td><td>a plan for processing elements</td></tr>
+  <tr><td>Stores data?</td><td>yes</td><td>no — it reads from a source</td></tr>
+  <tr><td>Can you use it twice?</td><td>yes, forever</td><td>no — one terminal operation and it is spent</td></tr>
+  <tr><td>Size</td><td>known, <code>size()</code></td><td>may be unknown or infinite</td></tr>
+  <tr><td>When does work happen?</td><td>when you ask</td><td>only at the terminal operation</td></tr>
+  <tr><td>Changes the source?</td><td>yes, if you mutate it</td><td>never — it produces a new result</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+
+<h3>The problem with a plain loop</h3>
+<p>Here is "upper-case the long names, sorted, joined with commas" the old way:</p>
+<pre>List&lt;String&gt; tmp = <span class="k">new</span> ArrayList&lt;&gt;();
+<span class="k">for</span> (String n : names) {              <span class="c">// HOW to iterate</span>
+    <span class="k">if</span> (n.length() &gt; 3) {             <span class="c">// WHAT I actually wanted</span>
+        tmp.add(n.toUpperCase());     <span class="c">// WHAT I actually wanted</span>
+    }
+}
+Collections.sort(tmp);
+StringBuilder sb = <span class="k">new</span> StringBuilder();
+<span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; tmp.size(); i++) {  <span class="c">// HOW again, plus an index to get wrong</span>
+    <span class="k">if</span> (i &gt; 0) sb.append(<span class="s">", "</span>);
+    sb.append(tmp.get(i));
+}</pre>
+<p>Three problems, and only the first is about typing:</p>
+<ol>
+  <li><strong>Intent is buried.</strong> The two lines you cared about are hidden inside loop scaffolding, a temporary list, and an
+      index.</li>
+  <li><strong>It is a specification of <em>how</em>.</strong> You told Java to walk the list front-to-back, one element at a time, on
+      this thread. Java is not allowed to do anything smarter, because you dictated the mechanism.</li>
+  <li><strong>Every step materialises a whole collection.</strong> Filter builds a list, map builds another list. For a million
+      elements that is a million wasted objects.</li>
+</ol>
+
+<p>The stream version states only the <em>what</em>:</p>
+<pre>names.stream()
+     .filter(n -&gt; n.length() &gt; 3)
+     .map(String::toUpperCase)
+     .sorted()
+     .collect(Collectors.joining(<span class="s">", "</span>));</pre>
+
+<h3>Why "lazy"? Three concrete payoffs</h3>
+<ul>
+  <li><strong>No intermediate collections.</strong> <code>filter</code> and <code>map</code> are fused into a single pass. One
+      element goes all the way through before the next one starts.</li>
+  <li><strong>Short-circuiting is possible.</strong> <code>findFirst()</code> on a billion-element source can stop after three
+      elements, because nothing was computed in advance.</li>
+  <li><strong>Infinite sources work.</strong> <code>Stream.iterate(1, n -&gt; n * 2).limit(5)</code> is fine. An eager
+      implementation would hang forever.</li>
+</ul>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>Step 1 — the three parts of every pipeline</h3>
+<p>Every stream expression, no matter how long, has exactly this shape:</p>
+<pre>  SOURCE          INTERMEDIATE (zero or more)        TERMINAL (exactly one)
+list.stream()  .filter(...).map(...).sorted()     .collect(...)
+  |               |                                 |
+  where elements  each returns a NEW Stream;        returns something that is
+  come from       builds the plan, runs nothing     NOT a Stream; runs the plan</pre>
+
+<div class="callout">
+<strong>The test that never fails.</strong> Is an operation intermediate or terminal? <em>Look at its return type.</em> Returns a
+<code>Stream</code> (or <code>IntStream</code>…) → intermediate, lazy. Returns anything else — a <code>List</code>, a
+<code>long</code>, an <code>Optional</code>, <code>void</code>, a <code>boolean</code> → terminal, eager. You never have to
+memorise two lists of method names.
+</div>
+
+<h3>Step 2 — the picture of an element flowing through</h3>
+<figure>
+<svg viewBox="0 0 800 420" width="100%" role="img" aria-label="Elements flowing one at a time through filter and map into a terminal collect">
+  <style>
+    .src{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.5}
+    .op{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.5}
+    .term{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.5}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .tb{font:bold 12px Georgia,serif;fill:#2b2b28}
+    .c{font:11.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.5;marker-end:url(#mk3);fill:none}
+    .drop{stroke:#7a1f1f;stroke-width:1.3;stroke-dasharray:4 3;marker-end:url(#mk3r);fill:none}
+  </style>
+  <defs>
+    <marker id="mk3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker>
+    <marker id="mk3r" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker>
+  </defs>
+
+  <rect class="src" x="20" y="40" width="130" height="300" rx="8"/>
+  <text class="tb" x="38" y="64">SOURCE</text>
+  <text class="t" x="38" y="92">"ann"</text>
+  <text class="t" x="38" y="124">"bob"</text>
+  <text class="t" x="38" y="156">"carol"</text>
+  <text class="t" x="38" y="188">"dave"</text>
+  <text class="t" x="38" y="220">"erin"</text>
+  <text class="c" x="30" y="260">pulled one</text>
+  <text class="c" x="30" y="278">at a time,</text>
+  <text class="c" x="30" y="296">on demand</text>
+
+  <rect class="op" x="200" y="40" width="170" height="300" rx="8"/>
+  <text class="tb" x="218" y="64">filter(len &gt; 3)</text>
+  <text class="c" x="218" y="86">lazy — asks for the</text>
+  <text class="c" x="218" y="104">next element only</text>
+  <text class="c" x="218" y="122">when pushed</text>
+  <text class="t" x="218" y="160">ann  ✗ dropped</text>
+  <text class="t" x="218" y="188">bob  ✗ dropped</text>
+  <text class="t" x="218" y="216">carol ✓</text>
+  <text class="t" x="218" y="244">dave  ✓</text>
+  <text class="t" x="218" y="272">erin  ✓</text>
+
+  <rect class="op" x="420" y="40" width="170" height="300" rx="8"/>
+  <text class="tb" x="438" y="64">map(toUpperCase)</text>
+  <text class="c" x="438" y="86">never even sees</text>
+  <text class="c" x="438" y="104">ann or bob</text>
+  <text class="t" x="438" y="216">CAROL</text>
+  <text class="t" x="438" y="244">DAVE</text>
+  <text class="t" x="438" y="272">ERIN</text>
+
+  <rect class="term" x="640" y="40" width="140" height="300" rx="8"/>
+  <text class="tb" x="658" y="64">collect()</text>
+  <text class="c" x="658" y="86">TERMINAL —</text>
+  <text class="c" x="658" y="104">this is what</text>
+  <text class="c" x="658" y="122">pulls everything</text>
+  <text class="t" x="658" y="216">[CAROL,</text>
+  <text class="t" x="658" y="240">DAVE,</text>
+  <text class="t" x="658" y="264">ERIN]</text>
+
+  <line class="a" x1="152" y1="190" x2="198" y2="190"/>
+  <line class="a" x1="372" y1="190" x2="418" y2="190"/>
+  <line class="a" x1="592" y1="190" x2="638" y2="190"/>
+
+  <text class="c" x="20" y="378">Order of execution is NOT "filter the whole list, then map the whole list".</text>
+  <text class="c" x="20" y="398">It is: filter ann · filter bob · filter carol → map carol → collect carol · filter dave → map dave → … (verified below).</text>
+</svg>
+<figcaption>Vertical slices, not horizontal passes. Each element is pushed through the entire chain before the next is fetched. <span class="sources">(Model per <a href="https://docs.oracle.com/javase/8/docs/api/java/util/stream/package-summary.html">Oracle <code>java.util.stream</code> package summary</a>, "Stream operations and pipelines".)</span></figcaption>
+</figure>
+
+<h3>Step 3 — proving it, not just claiming it</h3>
+<p>These four experiments are in <a href="../code/StreamOpsDemo.java">code/StreamOpsDemo.java</a>. The output is real.</p>
+
+<h4>Proof 1 — without a terminal operation, nothing happens at all</h4>
+<pre>names.stream()
+     .peek(n -&gt; System.out.println(<span class="s">"  peek: "</span> + n))
+     .filter(n -&gt; n.length() &gt; 3);          <span class="c">// no terminal op</span></pre>
+<pre>-- building a pipeline with no terminal op --
+  (nothing printed above - the pipeline never ran)</pre>
+<div class="ann">Not one <code>peek</code> line printed. The chain of objects was built and then thrown away. This single experiment is the
+clearest possible definition of "lazy".</div>
+
+<h4>Proof 2 — elements flow one at a time (operation fusion)</h4>
+<pre>names.stream()
+     .filter(n -&gt; { System.out.println(<span class="s">"  filter "</span> + n); <span class="k">return</span> n.length() &gt; 3; })
+     .map(n -&gt; { System.out.println(<span class="s">"    map  "</span> + n); <span class="k">return</span> n.toUpperCase(); })
+     .forEach(n -&gt; System.out.println(<span class="s">"      got "</span> + n));</pre>
+<pre>  filter ann
+  filter bob
+  filter carol
+    map  carol
+      got CAROL
+  filter dave
+    map  dave
+      got DAVE
+  filter erin
+    map  erin
+      got ERIN</pre>
+<div class="ann">
+Read the indentation. If streams worked stage-by-stage you would see five <code>filter</code> lines, then three <code>map</code>
+lines, then three <code>got</code> lines. Instead <code>carol</code> goes <em>all the way through</em> before <code>dave</code> is
+even looked at. That is <strong>fusion</strong>: no intermediate list is ever created. This is the single most common
+"what is the output?" interview question about streams.
+</div>
+
+<h4>Proof 3 — short-circuiting really stops early</h4>
+<pre>names.stream()
+     .peek(n -&gt; System.out.println(<span class="s">"  saw "</span> + n))
+     .filter(n -&gt; n.length() &gt; 3)
+     .findFirst();</pre>
+<pre>  saw ann
+  saw bob
+  saw carol
+  first = carol</pre>
+<div class="ann">Five names in the list, three lines printed. <code>dave</code> and <code>erin</code> were never touched. Because the plan was
+lazy, <code>findFirst</code> could simply stop asking. Short-circuiting operations are
+<code>findFirst</code>, <code>findAny</code>, <code>anyMatch</code>, <code>allMatch</code>, <code>noneMatch</code>,
+<code>limit</code>.</div>
+
+<h4>Proof 4 — a stream is one-shot</h4>
+<pre>Stream&lt;String&gt; s = names.stream();
+s.count();
+s.count();   <span class="c">// boom</span></pre>
+<pre>java.lang.IllegalStateException: stream has already been operated upon or closed</pre>
+<div class="ann">
+A stream is consumed, like an iterator, not re-readable like a list. If you need two results from the same data, either call
+<code>.stream()</code> twice on the collection, or keep a <code>Supplier&lt;Stream&lt;T&gt;&gt;</code> and call
+<code>get()</code> each time. Note it is the <em>stream</em> that is spent, not the list.
+</div>
+
+<h3>Step 4 — where streams come from</h3>
+<table>
+  <thead><tr><th>Source</th><th>Code</th><th>Notes</th></tr></thead>
+  <tbody>
+  <tr><td>Any collection</td><td><code>list.stream()</code>, <code>set.stream()</code></td><td>the everyday case</td></tr>
+  <tr><td>A map</td><td><code>map.entrySet().stream()</code></td><td><code>Map</code> has no <code>stream()</code> of its own</td></tr>
+  <tr><td>Fixed values</td><td><code>Stream.of("a", "b")</code></td><td>great for quick tests</td></tr>
+  <tr><td>An array</td><td><code>Arrays.stream(arr)</code></td><td>for <code>int[]</code> this gives an <code>IntStream</code></td></tr>
+  <tr><td>A number range</td><td><code>IntStream.range(0, 5)</code> / <code>rangeClosed(1, 5)</code></td><td><code>range</code> excludes the end; <code>rangeClosed</code> includes it</td></tr>
+  <tr><td>A repeating rule</td><td><code>Stream.iterate(1, n -&gt; n * 2)</code></td><td><strong>infinite</strong> — must be followed by <code>limit</code></td></tr>
+  <tr><td>A generator</td><td><code>Stream.generate(Math::random)</code></td><td><strong>infinite</strong>, unordered</td></tr>
+  <tr><td>A string's characters</td><td><code>"hello".chars()</code></td><td>gives an <code>IntStream</code> of code points</td></tr>
+  <tr><td>Splitting text</td><td><code>Arrays.stream(text.split(" "))</code> or <code>Pattern.compile(" ").splitAsStream(text)</code></td><td>word-frequency problems start here</td></tr>
+  <tr><td>File lines</td><td><code>Files.lines(path)</code></td><td>must be closed — use try-with-resources</td></tr>
+  <tr><td>Nothing</td><td><code>Stream.empty()</code></td><td>useful as a neutral value</td></tr>
+  </tbody>
+</table>
+<h4>Verified output of the sources block</h4>
+<pre>of       : [x, y]
+range    : [1, 2, 3]
+closed   : [1, 2, 3, 4]
+iterate  : [1, 2, 4, 8, 16]
+generate : [ping, ping, ping]
+chars    : [h, e, l, l, o]
+empty    : []</pre>
+
+<h3>Step 5 — stateless vs stateful operations</h3>
+<p>
+This distinction explains several surprises later. A <strong>stateless</strong> operation (<code>filter</code>, <code>map</code>,
+<code>peek</code>) can decide about an element knowing only that element. A <strong>stateful</strong> operation
+(<code>sorted</code>, <code>distinct</code>, <code>limit</code>, <code>skip</code>) needs to remember something about the elements it
+has already seen.
+</p>
+<div class="callout">
+<strong>Consequence:</strong> <code>sorted()</code> cannot emit anything until it has seen <em>every</em> element — it is a barrier
+in the middle of a lazy pipeline. That is why <code>sorted()</code> on an infinite stream never finishes, and why putting
+<code>filter</code> <em>before</em> <code>sorted</code> is a genuine performance win, not just style.
+</div>
+
+<h3>Step 6 — the three stream "flavours" and the primitive bridge</h3>
+<p>
+<code>Stream&lt;T&gt;</code> holds objects. <code>IntStream</code>, <code>LongStream</code> and <code>DoubleStream</code> hold raw
+primitives and so avoid boxing — and they add arithmetic methods (<code>sum</code>, <code>average</code>,
+<code>summaryStatistics</code>) that <code>Stream&lt;T&gt;</code> does not have. Moving between them:
+</p>
+<pre>stream.mapToInt(String::length)       <span class="c">// Stream&lt;String&gt; → IntStream</span>
+intStream.boxed()                     <span class="c">// IntStream → Stream&lt;Integer&gt;</span>
+intStream.mapToObj(i -&gt; <span class="s">"#"</span> + i)     <span class="c">// IntStream → Stream&lt;String&gt;</span>
+intStream.asLongStream()              <span class="c">// IntStream → LongStream</span></pre>
+<div class="pitfall"><strong>Why you keep hitting this:</strong> <code>IntStream</code> has <code>sum()</code> but no
+<code>collect(Collectors.toList())</code> that gives you a <code>List&lt;Integer&gt;</code>. The fix is always
+<code>.boxed()</code> first. Conversely <code>Stream&lt;Integer&gt;</code> has no <code>sum()</code> — use
+<code>.mapToInt(Integer::intValue).sum()</code>.</div>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong>Use a stream</strong> when you are describing a transformation of a collection: filter, map, group, aggregate, join.
+      The code should read like the sentence you would say out loud.</li>
+  <li><strong>Use a stream</strong> when the source is huge or infinite and you want short-circuiting or laziness.</li>
+  <li><strong>Use a plain loop</strong> when you need the index, when you mutate several variables, when you must
+      <code>break</code> on a complex condition, or when checked exceptions are involved.</li>
+  <li><strong>Use a loop</strong> for trivial cases too — <code>for (String s : list) System.out.println(s);</code> is not worse
+      than a stream.</li>
+</ul>
+<div class="idiom"><strong>Idiom.</strong> One operation per line, aligned under the source. It makes the pipeline read top-to-bottom
+like a recipe and makes diffs clean:
+<pre>List&lt;String&gt; result = names.stream()
+        .filter(n -&gt; n.length() &gt; 3)
+        .map(String::toUpperCase)
+        .collect(Collectors.toList());</pre></div>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine you order a pizza. You tell the shop: <em>thin base, no olives, extra cheese, cut into eight.</em> You have just described a
+pipeline. Nothing is cooked yet — you only gave instructions.
+</p>
+<p>
+The moment you say <strong>"okay, make it"</strong>, the kitchen starts. That final word is the terminal operation. Before it,
+nothing happens — you can change your mind for free.
+</p>
+<p>
+And here is the part people get wrong: the kitchen does <em>not</em> make a hundred bases, then put sauce on all hundred, then
+cheese on all hundred. It makes <em>your</em> pizza start to finish, then the next one. That is why "no olives" means the cheese
+station never even sees an olive pizza.
+</p>
+<p>
+Finally, the naive question: <em>"why can't I eat the same pizza twice?"</em> Because a stream is the <em>order</em>, not the
+ingredients. Once it has been made, that order is done. The ingredients (your list) are still in the fridge — place a new order.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson-2-functional-interfaces.html">part 2</a>:</strong> <code>filter</code> takes a
+      <code>Predicate</code>, <code>map</code> takes a <code>Function</code>, <code>forEach</code> takes a <code>Consumer</code>.
+      You can now read every signature in the API.</li>
+  <li><strong>← <a href="../08-collections-and-equality/lesson.html">collections</a>:</strong> collections are the usual source;
+      <code>Collection.stream()</code> was added as a <code>default</code> method
+      (<a href="lesson-8-default-methods-and-java-time.html">part 8</a>).</li>
+  <li><strong>← <a href="../08-collections-and-equality/lesson-3-equality-and-ordering.html">equality &amp; ordering</a>:</strong>
+      <code>distinct()</code> uses <code>equals</code>/<code>hashCode</code>; <code>sorted()</code> uses
+      <code>Comparable</code>/<code>Comparator</code>.</li>
+  <li><strong>→ <a href="lesson-4-intermediate-operations.html">part 4</a> and
+      <a href="lesson-5-terminal-operations.html">part 5</a>:</strong> the full catalogue, now that you know how they execute.</li>
+  <li><strong>→ <a href="../11-concurrency/lesson.html">concurrency</a>:</strong> <code>parallelStream()</code> splits the source
+      across the common ForkJoin pool — only safe because stream operations are supposed to be side-effect free.</li>
+  <li><strong>Same idea elsewhere:</strong> JavaScript's array <code>filter</code>/<code>map</code> are <em>eager</em> (each builds a
+      new array); Python generators and .NET LINQ are lazy like Java streams. Knowing which model a language uses tells you whether
+      an infinite source is allowed.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — dissected</h2>
+<p>Full file: <a href="../code/StreamOpsDemo.java">code/StreamOpsDemo.java</a>, run on JDK 1.8.0_411.</p>
+<pre>List&lt;String&gt; names = Arrays.asList(<span class="s">"ann"</span>,<span class="s">"bob"</span>,<span class="s">"carol"</span>,<span class="s">"dave"</span>,<span class="s">"erin"</span>);
+
+names.stream()                                    <span class="c">// 1 source: a view over the list</span>
+     .filter(n -&gt; { print(<span class="s">"filter "</span>+n); <span class="k">return</span> n.length()&gt;3; })   <span class="c">// 2</span>
+     .map(n -&gt; { print(<span class="s">"map "</span>+n); <span class="k">return</span> n.toUpperCase(); })        <span class="c">// 3</span>
+     .forEach(n -&gt; print(<span class="s">"got "</span>+n));                               <span class="c">// 4</span></pre>
+<div class="ann">
+<strong>1</strong> <code>stream()</code> does not copy the list. It wraps a <code>Spliterator</code> over it, so creating a stream on
+a million-element list is essentially free.<br/>
+<strong>2–3</strong> Each call returns a <em>new</em> <code>Stream</code> object that remembers "my upstream is the previous stage,
+and my job is X". No data moves. Writing them on separate lines costs nothing at run time.<br/>
+<strong>4</strong> The terminal operation walks the chain backwards to the source, then pulls. This is why the
+<code>filter/map/got</code> interleaving in Proof 2 happens.<br/>
+<strong>Gotcha:</strong> the lambdas here print, which is a side effect. That is fine for a teaching demo and wrong in real code —
+see the pitfalls.
+</div>
+
+<h3>The ordering experiment</h3>
+<pre>filter-then-skip : names.stream().filter(len&gt;3).skip(1)   →  [dave, erin]
+skip-then-filter : names.stream().skip(1).filter(len&gt;3)   →  [carol, dave, erin]</pre>
+<div class="ann">
+Same two operations, opposite results. <code>filter</code> first leaves <code>[carol, dave, erin]</code> and then drops
+<code>carol</code>; <code>skip</code> first drops <code>ann</code> and then filters the rest. Streams are an <em>ordered sequence of
+stages</em> — rearranging them changes meaning, not just speed. Always read a pipeline top to bottom and track what the list looks
+like after each line.
+</div>
+
+<div class="try"><strong>Predict the output.</strong>
+<pre>Stream.of(<span class="s">"a"</span>,<span class="s">"bb"</span>,<span class="s">"ccc"</span>,<span class="s">"dddd"</span>)
+      .peek(s -&gt; System.out.println(<span class="s">"peek "</span> + s))
+      .filter(s -&gt; s.length() % 2 == 0)
+      .limit(1)
+      .forEach(s -&gt; System.out.println(<span class="s">"out "</span> + s));</pre>
+How many lines print, and in what order?<br/>
+<em>(Answer: <code>peek a</code>, <code>peek bb</code>, <code>out bb</code> — three lines. <code>limit(1)</code> short-circuits, so
+<code>ccc</code> and <code>dddd</code> are never fetched.)</em>
+</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Forgetting the terminal operation.</strong> The most common beginner bug. The code compiles, runs, and
+does nothing. If your stream "didn't work", check for a missing <code>collect</code>/<code>forEach</code>.</div>
+<div class="pitfall"><strong>Reusing a stream variable.</strong> <code>IllegalStateException: stream has already been operated upon
+or closed</code>. Create a new one, or hold a <code>Supplier&lt;Stream&lt;T&gt;&gt;</code>.</div>
+<div class="pitfall"><strong>Using <code>peek</code> for real work.</strong> <code>peek</code> exists for debugging. It is tied to
+laziness, so elements that get short-circuited away are never peeked, and an implementation is allowed to skip it entirely when the
+result is not needed (for example <code>count()</code> on a sized source). Never put business logic in it.</div>
+<div class="pitfall"><strong>Side effects inside lambdas.</strong> Adding to an outside list from inside
+<code>map</code>/<code>filter</code> works by accident in sequential code and corrupts data in parallel. The stream contract asks for
+non-interfering, stateless functions. Use a collector instead.</div>
+<div class="pitfall"><strong>Modifying the source while streaming it.</strong> Adding to the list mid-pipeline throws
+<code>ConcurrentModificationException</code> — the same hazard as mutating a list during a for-each loop.</div>
+<div class="pitfall"><strong>Infinite source without <code>limit</code>.</strong> <code>Stream.iterate</code> and
+<code>Stream.generate</code> never end on their own. And <code>sorted()</code> or <code>count()</code> on an infinite stream hangs
+forever, because they need to see every element.</div>
+<div class="pitfall"><strong>Assuming parallel is faster.</strong> <code>parallelStream()</code> uses the shared common ForkJoin
+pool, costs coordination, and is a real loss for small collections or IO-bound work. Measure before using it.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>A stream is a <strong>plan</strong>, not a container. It stores no elements and never changes its source.</li>
+  <li>Pipeline shape: <strong>source → zero or more intermediate ops → exactly one terminal op</strong>.</li>
+  <li><strong>Returns a <code>Stream</code> = intermediate and lazy; returns anything else = terminal and eager.</strong> That one
+      rule replaces memorising two lists.</li>
+  <li>Nothing executes until the terminal operation — proved by the <code>peek</code> experiment.</li>
+  <li>Elements are <strong>fused</strong>: one element travels the whole chain before the next is fetched.</li>
+  <li><strong>Short-circuiting</strong> ops (<code>findFirst</code>, <code>anyMatch</code>, <code>limit</code>…) can stop early.</li>
+  <li>A stream is <strong>one-shot</strong>; reuse throws <code>IllegalStateException</code>.</li>
+  <li><strong>Stateful</strong> ops (<code>sorted</code>, <code>distinct</code>) must buffer; keep them late and after filtering.</li>
+  <li>Cross the primitive bridge with <code>mapToInt</code> / <code>boxed</code> / <code>mapToObj</code>.</li>
+</ul>
+
+<hr/>
+<h2>Reference — the execution model on one card</h2>
+<pre>source  .stream() / Stream.of / IntStream.range / Arrays.stream / Files.lines
+        |
+        v  LAZY: builds a plan, runs nothing
+intermediate  filter map flatMap distinct sorted limit skip peek mapToInt boxed
+        |
+        v  EAGER: runs the whole plan exactly once
+terminal     collect forEach count min max reduce anyMatch findFirst toArray
+
+RULES
+1. no terminal op            -> nothing happens
+2. one element at a time     -> filter(x) map(x) collect(x), then next x
+3. short-circuit             -> findFirst/anyMatch/limit may stop early
+4. one-shot                  -> second terminal op throws IllegalStateException
+5. stateful ops buffer       -> sorted/distinct wait for all elements
+6. source is never modified  -> streams produce new results</pre>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Stream</dt><dd>A lazily evaluated sequence of elements supporting aggregate operations; not a data structure.</dd>
+  <dt>Pipeline</dt><dd>A source plus its chain of operations, ending in one terminal operation.</dd>
+  <dt>Intermediate operation</dt><dd>Returns a new <code>Stream</code>; lazy.</dd>
+  <dt>Terminal operation</dt><dd>Returns a non-stream result and triggers execution.</dd>
+  <dt>Laziness</dt><dd>Work is deferred until a result is actually demanded.</dd>
+  <dt>Fusion</dt><dd>Running several stages per element in a single pass, with no intermediate collections.</dd>
+  <dt>Short-circuiting</dt><dd>An operation that can produce its result without consuming the whole source.</dd>
+  <dt>Stateful operation</dt><dd>One that must remember earlier elements (<code>sorted</code>, <code>distinct</code>, <code>limit</code>, <code>skip</code>).</dd>
+  <dt>Spliterator</dt><dd>The low-level object a stream uses to traverse and, for parallel streams, split its source.</dd>
+  <dt>Encounter order</dt><dd>The order a source defines (a <code>List</code> has one; a <code>HashSet</code> does not).</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/8/docs/api/java/util/stream/package-summary.html">Oracle — <code>java.util.stream</code>
+package summary</a>. Read the sections "Stream operations and pipelines", "Non-interference" and "Side-effects"; they are the
+authoritative statement of everything proved above.</p>
+
+<p class="nav" style="margin-top:2rem">← <a href="lesson-2-functional-interfaces.html">Part 2 — Functional interfaces</a> ·
+Next: <a href="lesson-4-intermediate-operations.html">Part 4 — Intermediate operations</a> →</p>
+<p class="sources">Sources: Oracle, <code>java.util.stream</code> package summary (SE 8); Oracle, <em>The Java Tutorials</em> —
+Aggregate Operations. All outputs produced by compiling and running <code>StreamOpsDemo.java</code> on JDK 1.8.0_411.
+Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

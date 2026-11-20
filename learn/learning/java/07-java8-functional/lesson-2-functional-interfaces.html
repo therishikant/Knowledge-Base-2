@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Functional Interfaces &amp; Method References — Java 8 &amp; Functional, Part 2 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem;line-height:1.9}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>Functional Interfaces &amp; Method References</h1>
+<p class="crumb">Java › Java 8 &amp; functional cluster · lesson 7, <strong>part 2 of 9</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the vocabulary every stream method is written in</p>
+
+<p class="nav"><strong>Java 8 &amp; functional cluster:</strong>
+  <a href="lesson.html">1. Lambdas</a> ·
+  <strong>2. Functional interfaces &amp; method refs</strong> ·
+  <a href="lesson-3-stream-pipeline.html">3. How a stream actually runs</a> ·
+  <a href="lesson-4-intermediate-operations.html">4. Intermediate operations</a> ·
+  <a href="lesson-5-terminal-operations.html">5. Terminal operations &amp; reduce</a> ·
+  <a href="lesson-6-collectors-and-groupingby.html">6. Collectors &amp; groupingBy</a> ·
+  <a href="lesson-7-optional.html">7. Optional</a> ·
+  <a href="lesson-8-default-methods-and-java-time.html">8. default methods &amp; java.time</a> ·
+  <a href="lesson-9-stream-recall-playbook.html">9. Recall &amp; interview playbook</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> A <strong>functional interface</strong> is an interface with exactly one abstract method — the "shape"
+a lambda is allowed to fill. Java ships about 43 of them in <code>java.util.function</code>, but they are not 43 things to memorise:
+they are <strong>four basic shapes</strong> plus a small set of naming rules. Learn the rules once and you can derive any name on the
+spot, which is exactly the skill you need when a stream method asks for <code>Function&lt;? super T, ? extends R&gt;</code>.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+<a href="lesson.html">Part 1</a> said a lambda is an object implementing a one-method interface. This part answers the obvious
+follow-up: <em>which</em> interface? Every single method in the Stream API is declared in terms of these types —
+<code>filter</code> takes a <code>Predicate</code>, <code>map</code> takes a <code>Function</code>, <code>forEach</code> takes a
+<code>Consumer</code>. So reading a stream signature is just reading this vocabulary.
+</p>
+<div class="callout">
+<strong>Why this matters for your interview problem.</strong> People freeze on stream questions not because the logic is hard but
+because they cannot recall whether the argument is a <code>Function</code> or a <code>Predicate</code>, and whether the method is
+<code>apply</code> or <code>test</code>. After this part you will derive those names rather than recall them.
+</div>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+<p>
+Java 8 needed a <em>common vocabulary</em>. If every library invented its own one-method interface — <code>StringMapper</code>,
+<code>IntChecker</code>, <code>ThingMaker</code> — then a lambda written for one library could not be handed to another, and every
+API would look different.
+</p>
+<p>
+So the JDK defined a small standard set in <code>java.util.function</code>. Now <em>any</em> library that wants "give me a
+transformation" writes <code>Function&lt;T,R&gt;</code>, and your lambda works everywhere. Think of it as standardising plug
+sockets rather than letting every appliance invent its own.
+</p>
+<p>
+The older one-method interfaces (<code>Runnable</code>, <code>Callable</code>, <code>Comparator</code>) were simply
+<em>re-labelled</em> as functional interfaces. Nothing about them changed; they were already the right shape.
+</p>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>Step 1 — what makes an interface "functional"</h3>
+<p>An interface is functional if it has <strong>exactly one abstract method</strong>. These do not count against that total:</p>
+<ul>
+  <li><code>default</code> methods (they have a body)</li>
+  <li><code>static</code> methods (they have a body)</li>
+  <li>public methods of <code>Object</code> — <code>equals</code>, <code>hashCode</code>, <code>toString</code></li>
+</ul>
+<p>
+That last rule is why <code>Comparator</code> is a functional interface even though it declares <code>int compare(T,T)</code>
+<em>and</em> <code>boolean equals(Object)</code>: <code>equals</code> is already on <code>Object</code>, so every implementer
+inherits it. It is a favourite trick interview question.
+</p>
+<div class="idiom"><strong>Idiom.</strong> Put <code>@FunctionalInterface</code> on your own ones. It is documentation that the
+compiler enforces — adding a second abstract method later becomes a build error instead of a surprise for every caller.</div>
+
+<h3>Step 2 — the four shapes everything is built from</h3>
+<p>Ask two questions: <strong>does it take something in? does it give something back?</strong> Four answers, four interfaces.</p>
+
+<figure>
+<svg viewBox="0 0 780 330" width="100%" role="img" aria-label="The four core functional interface shapes arranged by whether they take input and produce output">
+  <style>
+    .q{fill:#f1ece0;stroke:#6b675e;stroke-width:1.2}
+    .f1{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.5}.f2{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.5}
+    .f3{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.5}.f4{fill:#f7f0f7;stroke:#6b3f7a;stroke-width:1.5}
+    .t{font:bold 13px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .m{font:11.5px "SF Mono",Menlo,monospace;fill:#3f3b34}
+    .c{font:11.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .h{font:bold 12px Georgia,serif;fill:#2b2b28}
+  </style>
+  <text class="h" x="210" y="26">gives something back</text>
+  <text class="h" x="470" y="26">gives nothing back</text>
+  <text class="h" x="18" y="110" transform="rotate(-90 18,110)">takes input</text>
+  <text class="h" x="18" y="250" transform="rotate(-90 18,250)">no input</text>
+
+  <rect class="f1" x="60" y="45" width="300" height="95" rx="8"/>
+  <text class="t" x="80" y="72">Function&lt;T,R&gt;</text>
+  <text class="m" x="80" y="94">R apply(T t)      T  →  R</text>
+  <text class="c" x="80" y="116">transform one thing into another</text>
+  <text class="c" x="80" y="132">stream: .map(...)</text>
+
+  <rect class="f2" x="60" y="155" width="300" height="95" rx="8"/>
+  <text class="t" x="80" y="182">Predicate&lt;T&gt;</text>
+  <text class="m" x="80" y="204">boolean test(T t)  T  →  boolean</text>
+  <text class="c" x="80" y="226">answer a yes/no question</text>
+  <text class="c" x="80" y="242">stream: .filter(...), .anyMatch(...)</text>
+
+  <rect class="f3" x="400" y="45" width="300" height="95" rx="8"/>
+  <text class="t" x="420" y="72">Consumer&lt;T&gt;</text>
+  <text class="m" x="420" y="94">void accept(T t)   T  →  (nothing)</text>
+  <text class="c" x="420" y="116">do something with it; a side effect</text>
+  <text class="c" x="420" y="132">stream: .forEach(...), .peek(...)</text>
+
+  <rect class="f4" x="400" y="155" width="300" height="95" rx="8"/>
+  <text class="t" x="420" y="182">Supplier&lt;T&gt;</text>
+  <text class="m" x="420" y="204">T get()        (nothing) →  T</text>
+  <text class="c" x="420" y="226">produce a value on demand</text>
+  <text class="c" x="420" y="242">Optional.orElseGet(...), Stream.generate(...)</text>
+
+  <text class="c" x="60" y="285">Everything else in java.util.function is one of these four with a prefix or suffix glued on.</text>
+  <text class="c" x="60" y="305">Bi = two inputs · Operator = input and output are the SAME type · Int/Long/Double = primitive, no boxing.</text>
+</svg>
+<figcaption>The 2×2 that generates the whole package. Learn the grid, derive the names. <span class="sources">(Shapes per <a href="https://docs.oracle.com/javase/8/docs/api/java/util/function/package-summary.html">Oracle <code>java.util.function</code> package summary</a>.)</span></figcaption>
+</figure>
+
+<h3>Step 3 — the naming rules that generate the other 39</h3>
+<p>This is the part that fixes "I forget the names". There are only four modifiers:</p>
+<table>
+  <thead><tr><th>Modifier</th><th>Means</th><th>Example</th><th>Reads as</th></tr></thead>
+  <tbody>
+  <tr><td><code>Bi</code>…</td><td>takes <strong>two</strong> inputs instead of one</td><td><code>BiFunction&lt;T,U,R&gt;</code></td><td><code>(T,U) → R</code></td></tr>
+  <tr><td>…<code>Operator</code></td><td>input and output are the <strong>same</strong> type</td><td><code>UnaryOperator&lt;T&gt;</code></td><td><code>T → T</code></td></tr>
+  <tr><td><code>Int</code>/<code>Long</code>/<code>Double</code>…</td><td>works on a <strong>primitive</strong>, no boxing</td><td><code>IntPredicate</code></td><td><code>int → boolean</code></td></tr>
+  <tr><td>…<code>To</code><em>X</em>…</td><td>the <strong>output</strong> is that primitive</td><td><code>ToIntFunction&lt;T&gt;</code></td><td><code>T → int</code></td></tr>
+  </tbody>
+</table>
+<div class="callout">
+<strong>Read any name left to right and it tells you the signature.</strong><br/>
+<code>ToIntBiFunction&lt;T,U&gt;</code> → "to int" (returns <code>int</code>) + "bi" (two inputs) + function → <code>(T,U) → int</code>.<br/>
+<code>IntUnaryOperator</code> → int + same-in-same-out → <code>int → int</code>.<br/>
+<code>ObjIntConsumer&lt;T&gt;</code> → an object and an int in, nothing out → <code>(T,int) → void</code>.
+</div>
+
+<h3>Step 4 — the single abstract method name of each</h3>
+<p>
+The second half of the recall problem is "what do I <em>call</em> on it?". There are only five method names in the whole package,
+and each one matches the shape's verb:
+</p>
+<table>
+  <thead><tr><th>Interface</th><th>Method</th><th>Mnemonic</th></tr></thead>
+  <tbody>
+  <tr><td><code>Function</code>, <code>BiFunction</code>, <code>UnaryOperator</code>, <code>BinaryOperator</code></td><td><code>apply</code></td><td>you <em>apply</em> a transformation</td></tr>
+  <tr><td><code>Predicate</code>, <code>BiPredicate</code></td><td><code>test</code></td><td>you <em>test</em> a condition</td></tr>
+  <tr><td><code>Consumer</code>, <code>BiConsumer</code></td><td><code>accept</code></td><td>it <em>accepts</em> the value and swallows it</td></tr>
+  <tr><td><code>Supplier</code></td><td><code>get</code></td><td>you <em>get</em> a value out</td></tr>
+  <tr><td><code>Runnable</code></td><td><code>run</code></td><td>unchanged since Java 1.0</td></tr>
+  <tr><td><code>Callable&lt;V&gt;</code></td><td><code>call</code></td><td>like <code>Supplier</code>, but may throw a checked exception</td></tr>
+  <tr><td><code>Comparator&lt;T&gt;</code></td><td><code>compare</code></td><td><code>(T,T) → int</code></td></tr>
+  </tbody>
+</table>
+<p>
+Primitive variants swap in the type: <code>IntPredicate.test(int)</code>, <code>IntSupplier.getAsInt()</code>,
+<code>ToIntFunction.applyAsInt(T)</code>. The pattern is always <em>verb</em> + <code>As</code> + <em>primitive</em> when the return
+type is a primitive.
+</p>
+
+<h3>Step 5 — the full map (you never need to memorise this table; you derive it)</h3>
+<table>
+  <thead><tr><th>Shape</th><th>Object version</th><th>Two-input version</th><th>Same-type version</th><th>Primitive examples</th></tr></thead>
+  <tbody>
+  <tr><td><code>T → R</code></td><td><code>Function&lt;T,R&gt;</code></td><td><code>BiFunction&lt;T,U,R&gt;</code></td><td><code>UnaryOperator&lt;T&gt;</code></td><td><code>IntFunction&lt;R&gt;</code>, <code>ToIntFunction&lt;T&gt;</code>, <code>IntToLongFunction</code></td></tr>
+  <tr><td><code>T → boolean</code></td><td><code>Predicate&lt;T&gt;</code></td><td><code>BiPredicate&lt;T,U&gt;</code></td><td>—</td><td><code>IntPredicate</code>, <code>LongPredicate</code>, <code>DoublePredicate</code></td></tr>
+  <tr><td><code>T → void</code></td><td><code>Consumer&lt;T&gt;</code></td><td><code>BiConsumer&lt;T,U&gt;</code></td><td>—</td><td><code>IntConsumer</code>, <code>ObjIntConsumer&lt;T&gt;</code></td></tr>
+  <tr><td><code>() → T</code></td><td><code>Supplier&lt;T&gt;</code></td><td>—</td><td>—</td><td><code>IntSupplier</code>, <code>BooleanSupplier</code></td></tr>
+  <tr><td><code>(T,T) → T</code></td><td colspan="2"><code>BinaryOperator&lt;T&gt;</code> (used by <code>reduce</code> and <code>toMap</code>'s merge function)</td><td></td><td><code>IntBinaryOperator</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Step 6 — the default methods that let you combine them</h3>
+<p>These are small, highly interviewable, and genuinely useful:</p>
+<table>
+  <thead><tr><th>On</th><th>Method</th><th>Effect</th></tr></thead>
+  <tbody>
+  <tr><td><code>Function</code></td><td><code>andThen(g)</code></td><td>me first, then <code>g</code> — left to right</td></tr>
+  <tr><td><code>Function</code></td><td><code>compose(g)</code></td><td><code>g</code> first, then me — right to left</td></tr>
+  <tr><td><code>Function</code></td><td><code>identity()</code> <em>(static)</em></td><td><code>x -&gt; x</code>; used constantly with <code>Collectors.toMap</code></td></tr>
+  <tr><td><code>Predicate</code></td><td><code>and</code>, <code>or</code>, <code>negate</code></td><td>boolean algebra on predicates</td></tr>
+  <tr><td><code>Predicate</code></td><td><code>isEqual(x)</code> <em>(static)</em></td><td>a predicate testing <code>Objects.equals(x, t)</code></td></tr>
+  <tr><td><code>Consumer</code></td><td><code>andThen(c)</code></td><td>run both consumers on the same input, in order</td></tr>
+  <tr><td><code>Comparator</code></td><td><code>comparing</code>, <code>thenComparing</code>, <code>reversed</code>, <code>naturalOrder</code>, <code>reverseOrder</code>, <code>nullsFirst</code>, <code>nullsLast</code></td><td>the comparator construction kit</td></tr>
+  </tbody>
+</table>
+
+<h3>Step 7 — method references: four kinds</h3>
+<p>
+A method reference is a lambda whose body does <em>nothing but call one existing method</em>. If your lambda is
+<code>s -&gt; s.toUpperCase()</code>, the parameter is pure plumbing — <code>String::toUpperCase</code> says the same thing with the
+plumbing removed.
+</p>
+<table>
+  <thead><tr><th>Kind</th><th>Syntax</th><th>Example</th><th>Equivalent lambda</th></tr></thead>
+  <tbody>
+  <tr><td>Static method</td><td><code>Type::staticMethod</code></td><td><code>Integer::parseInt</code></td><td><code>s -&gt; Integer.parseInt(s)</code></td></tr>
+  <tr><td>Instance method of an <em>arbitrary</em> object</td><td><code>Type::instanceMethod</code></td><td><code>String::toUpperCase</code></td><td><code>s -&gt; s.toUpperCase()</code></td></tr>
+  <tr><td>Instance method of a <em>specific</em> object</td><td><code>object::instanceMethod</code></td><td><code>System.out::println</code></td><td><code>x -&gt; System.out.println(x)</code></td></tr>
+  <tr><td>Constructor</td><td><code>Type::new</code></td><td><code>ArrayList::new</code></td><td><code>() -&gt; new ArrayList&lt;&gt;()</code></td></tr>
+  </tbody>
+</table>
+<div class="callout">
+<strong>The confusing pair, settled.</strong> <code>String::toUpperCase</code> and <code>myString::toUpperCase</code> look alike but
+differ in arity. In the first, the receiver <em>is</em> the parameter: it works as a <code>Function&lt;String,String&gt;</code>. In
+the second, the receiver is already fixed, so no parameter is needed: it works as a <code>Supplier&lt;String&gt;</code>.
+<br/>Rule of thumb: <strong>a <code>Type::method</code> reference silently uses the first argument as <code>this</code>.</strong>
+</div>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong><code>Predicate</code></strong> — any keep/drop or yes/no decision: <code>filter</code>, <code>anyMatch</code>,
+      <code>removeIf</code>, <code>Optional.filter</code>.</li>
+  <li><strong><code>Function</code></strong> — any "turn A into B": <code>map</code>, <code>computeIfAbsent</code>,
+      <code>Collectors.groupingBy</code>'s classifier, <code>Optional.map</code>.</li>
+  <li><strong><code>Consumer</code></strong> — "do this with each": <code>forEach</code>, <code>ifPresent</code>,
+      <code>peek</code>.</li>
+  <li><strong><code>Supplier</code></strong> — <em>delayed</em> work: <code>orElseGet</code>, <code>orElseThrow</code>,
+      <code>Stream.generate</code>, lazy logging, <code>toCollection(TreeSet::new)</code>.</li>
+  <li><strong><code>BinaryOperator</code></strong> — combining two values of the same type: <code>reduce(Integer::sum)</code>,
+      <code>toMap</code>'s merge function.</li>
+  <li><strong>Primitive variants</strong> — when you are inside an <code>IntStream</code> or in hot numeric code and boxing would
+      hurt.</li>
+  <li><strong>Method references</strong> — whenever the lambda body is exactly one existing call. Not a style rule: it is shorter
+      and it names the operation.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Think of a workshop with four kinds of helper, and you can hire any of them by writing a tiny instruction card:
+</p>
+<ul>
+  <li>A <strong>changer</strong> — give it something, it hands back something else. (Give it a lemon, get lemonade.) That is
+      <code>Function</code>.</li>
+  <li>A <strong>judge</strong> — give it something, it says only yes or no. (Is this lemon ripe?) That is <code>Predicate</code>.</li>
+  <li>A <strong>taker</strong> — give it something, it just does something with it and hands back nothing. (Throw this in the bin.)
+      That is <code>Consumer</code>.</li>
+  <li>A <strong>maker</strong> — give it nothing, it hands you something. (Fetch me a fresh lemon.) That is <code>Supplier</code>.</li>
+</ul>
+<p>
+And the naive question: <em>"why so many names for the same thing?"</em> Because the workshop has to know in advance what shape of
+helper a job needs. "Sort this" needs a judge, not a maker. The names are just the shapes written down so the compiler can check
+you hired the right one.
+</p>
+<p>
+A <strong>method reference</strong> is saying "you already know how to do this — just do that" instead of writing a new instruction
+card. <code>String::toUpperCase</code> means "use the shouting machine that already exists".
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson.html">part 1</a>:</strong> a lambda has no type of its own; these interfaces are the types it takes.</li>
+  <li><strong>← <a href="../05-type-system-and-oop/lesson-3-generics-and-erasure.html">generics</a>:</strong> this is why
+      <code>Stream.map</code> is declared <code>&lt;R&gt; Stream&lt;R&gt; map(Function&lt;? super T, ? extends R&gt; f)</code> —
+      PECS applied to a function parameter.</li>
+  <li><strong>← <a href="../08-collections-and-equality/lesson-3-equality-and-ordering.html">equality &amp; ordering</a>:</strong>
+      <code>Comparator</code> is a functional interface, which is why <code>comparing(...)</code> works.</li>
+  <li><strong>→ <a href="lesson-3-stream-pipeline.html">part 3</a>:</strong> every stream method signature is written in this
+      vocabulary — you can now read them all.</li>
+  <li><strong>→ <a href="../11-concurrency/lesson-3-thread-pools-and-futures.html">concurrency</a>:</strong>
+      <code>Runnable</code> and <code>Callable</code> are functional interfaces, so <code>submit(() -&gt; ...)</code> just works.</li>
+  <li><strong>Same idea elsewhere:</strong> TypeScript writes these inline as <code>(x: T) =&gt; R</code>; Kotlin writes
+      <code>(T) -&gt; R</code>. Java needs a named interface because it reused the existing type system.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — dissected</h2>
+<p>From <a href="../code/LambdaDemo.java">code/LambdaDemo.java</a>, the method-reference block:</p>
+<pre>Function&lt;String,Integer&gt; parse = Integer::parseInt;     <span class="c">// 1 static</span>
+Function&lt;String,String&gt;  upper = String::toUpperCase;   <span class="c">// 2 unbound instance</span>
+String prefix = <span class="s">"ID-"</span>;
+Function&lt;String,String&gt;  withPrefix = prefix::concat;   <span class="c">// 3 bound instance</span>
+Supplier&lt;ArrayList&lt;String&gt;&gt; maker = ArrayList::new;     <span class="c">// 4 constructor</span></pre>
+<div class="ann">
+<strong>1</strong> is the easy one — a static method takes the argument directly.<br/>
+<strong>2</strong> is the one people misread. <code>toUpperCase()</code> takes no argument, yet this is a
+<code>Function&lt;String,String&gt;</code> — because the incoming <code>String</code> becomes the <em>receiver</em>. Mentally rewrite
+<code>Type::method</code> as <code>(x, rest...) -&gt; x.method(rest...)</code>.<br/>
+<strong>3</strong> fixes the receiver up front, so <code>withPrefix.apply("77")</code> runs <code>"ID-".concat("77")</code>. The
+captured <code>prefix</code> must be effectively final, exactly as in part 1.<br/>
+<strong>4</strong> <code>ArrayList::new</code> as a <code>Supplier</code> means the no-arg constructor. Had the target been
+<code>IntFunction&lt;ArrayList&lt;String&gt;&gt;</code>, the compiler would have picked the <code>ArrayList(int)</code> constructor
+instead — the target type chooses the overload, just like with lambdas.
+</div>
+
+<h3>Composition, and why the order trips people up</h3>
+<pre>Predicate&lt;String&gt; notEmpty = s -&gt; !s.isEmpty();
+Predicate&lt;String&gt; isLong   = s -&gt; s.length() &gt; 3;
+notEmpty.and(isLong).test(<span class="s">"hello"</span>)   <span class="c">// true</span>
+isLong.negate().test(<span class="s">"hello"</span>)         <span class="c">// false</span></pre>
+<div class="ann">
+<code>and</code>/<code>or</code> short-circuit exactly like <code>&amp;&amp;</code>/<code>||</code>, so put the cheap test first.
+<code>negate()</code> returns a <em>new</em> predicate — these methods never mutate the original, because a functional interface
+instance is conceptually a value.
+</div>
+
+<h3>Real output <span class="sources">(JDK 1.8.0_411 — <a href="../code/LambdaDemo.java">code/LambdaDemo.java</a>)</span></h3>
+<pre>static      : 42
+unbound     : CAROL
+bound       : ID-77
+constructor : []
+and/negate  : true / false</pre>
+
+<div class="try"><strong>Derive, don't recall.</strong> Without looking anything up, write the full signature of each:
+<code>ToDoubleBiFunction&lt;T,U&gt;</code>, <code>IntUnaryOperator</code>, <code>ObjLongConsumer&lt;T&gt;</code>,
+<code>LongToIntFunction</code>, <code>BooleanSupplier</code>. Then name the abstract method of each.<br/>
+<em>(Answers: <code>(T,U)→double applyAsDouble</code>; <code>int→int applyAsInt</code>; <code>(T,long)→void accept</code>;
+<code>long→int applyAsInt</code>; <code>()→boolean getAsBoolean</code>.)</em>
+</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Reaching for the wrong shape.</strong> If you find yourself writing
+<code>Function&lt;T,Boolean&gt;</code>, you want <code>Predicate&lt;T&gt;</code> — same idea, but <code>Predicate</code> avoids boxing
+and composes with <code>and</code>/<code>or</code>/<code>negate</code>.</div>
+<div class="pitfall"><strong><code>Type::method</code> vs <code>object::method</code> arity confusion.</strong> The first consumes
+one extra argument (the receiver). If the compiler complains about "non-static method cannot be referenced from a static context",
+you meant the bound form.</div>
+<div class="pitfall"><strong>Method reference on a <code>null</code> receiver.</strong> <code>obj::method</code> evaluates
+<code>obj</code> <em>immediately</em>, at the point the reference is created — so a <code>null</code> blows up there, not when the
+function is later called. A lambda <code>x -&gt; obj.method(x)</code> defers it.</div>
+<div class="pitfall"><strong>Ambiguous overloads.</strong> If two overloads both accept functional interfaces of the same arity, a
+lambda can be ambiguous. Fix it with an explicit cast — <code>(Supplier&lt;String&gt;) () -&gt; "x"</code> — or explicit parameter
+types.</div>
+<div class="pitfall"><strong>Forgetting that <code>Consumer</code> returns nothing.</strong> <code>peek</code> and
+<code>forEach</code> take a <code>Consumer</code>, so <code>.forEach(s -&gt; s.toUpperCase())</code> does absolutely nothing —
+<code>String</code> is immutable and the result is thrown away. This is a popular trick question.</div>
+<div class="pitfall"><strong>Boxing in hot loops.</strong> <code>Function&lt;Integer,Integer&gt;</code> boxes on every call.
+Use <code>IntUnaryOperator</code> or an <code>IntStream</code> where it matters.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>A <strong>functional interface</strong> has exactly one abstract method; <code>default</code>, <code>static</code> and
+      <code>Object</code> methods do not count.</li>
+  <li>Four shapes generate everything: <code>Function</code> (T→R), <code>Predicate</code> (T→boolean),
+      <code>Consumer</code> (T→void), <code>Supplier</code> (()→T).</li>
+  <li>Modifiers: <strong>Bi</strong> = two inputs, <strong>Operator</strong> = same type in and out,
+      <strong>Int/Long/Double</strong> = primitive, <strong>To<em>X</em></strong> = primitive result.</li>
+  <li>Method names follow the verb: <code>apply</code>, <code>test</code>, <code>accept</code>, <code>get</code>
+      (+ <code>…AsInt</code> etc. for primitives).</li>
+  <li><code>Function.identity()</code> is <code>x -&gt; x</code>; you will need it in <code>Collectors.toMap</code>.</li>
+  <li>Four method-reference kinds: <code>Type::static</code>, <code>Type::instance</code>, <code>obj::instance</code>,
+      <code>Type::new</code>.</li>
+  <li><code>Type::instance</code> uses the first argument as the receiver — that is the whole trick.</li>
+</ul>
+
+<hr/>
+<h2>Reference — the derivation card</h2>
+<pre>SHAPE          INTERFACE            METHOD
+T  -&gt; R        Function&lt;T,R&gt;        apply
+T  -&gt; boolean  Predicate&lt;T&gt;         test
+T  -&gt; void     Consumer&lt;T&gt;          accept
+() -&gt; T        Supplier&lt;T&gt;          get
+T  -&gt; T        UnaryOperator&lt;T&gt;     apply
+(T,T) -&gt; T     BinaryOperator&lt;T&gt;    apply
+(T,U) -&gt; R     BiFunction&lt;T,U,R&gt;    apply
+(T,T) -&gt; int   Comparator&lt;T&gt;        compare
+
+PREFIX / SUFFIX RULES
+Bi<span class="c">…</span>        two inputs          BiConsumer&lt;T,U&gt;
+<span class="c">…</span>Operator  same type in &amp; out  IntUnaryOperator
+Int<span class="c">…</span>       primitive input     IntPredicate   : int -&gt; boolean
+To<span class="c">…</span>        primitive output    ToIntFunction&lt;T&gt;: T -&gt; int
+Obj<span class="c">…</span>       object + primitive  ObjIntConsumer&lt;T&gt;: (T,int) -&gt; void
+
+METHOD REFERENCES
+Integer::parseInt      static            s -&gt; Integer.parseInt(s)
+String::toUpperCase    unbound instance  s -&gt; s.toUpperCase()
+System.out::println    bound instance    x -&gt; System.out.println(x)
+ArrayList::new         constructor       () -&gt; new ArrayList&lt;&gt;()</pre>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Functional interface</dt><dd>An interface with exactly one abstract method.</dd>
+  <dt>SAM</dt><dd>"Single Abstract Method" — another name for the same thing.</dd>
+  <dt><code>@FunctionalInterface</code></dt><dd>A compile-time check that an interface still has exactly one abstract method.</dd>
+  <dt>Method reference</dt><dd><code>Type::method</code> — a lambda whose body is a single existing call.</dd>
+  <dt>Bound vs unbound reference</dt><dd>Bound fixes the receiver (<code>obj::m</code>); unbound takes it as the first argument (<code>Type::m</code>).</dd>
+  <dt><code>identity()</code></dt><dd><code>Function.identity()</code> = <code>x -&gt; x</code>.</dd>
+  <dt>Boxing</dt><dd>Wrapping a primitive in its object type; what the <code>Int</code>/<code>Long</code>/<code>Double</code> variants exist to avoid.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/8/docs/api/java/util/function/package-summary.html">Oracle — <code>java.util.function</code> package summary</a>
+(the opening paragraphs state the naming conventions exactly as taught above), and
+<a href="https://docs.oracle.com/javase/tutorial/java/javaOO/methodreferences.html">Oracle — Method References</a> for the four kinds.</p>
+
+<p class="nav" style="margin-top:2rem">← <a href="lesson.html">Part 1 — Lambdas</a> ·
+Next: <a href="lesson-3-stream-pipeline.html">Part 3 — How a stream actually runs</a> →</p>
+<p class="sources">Sources: Oracle, <code>java.util.function</code> package summary; Oracle, <em>The Java Tutorials</em> — Method
+References; Oracle <code>java.util.Comparator</code> API docs. Code compiled and run on JDK 1.8.0_411. Authored per
+Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

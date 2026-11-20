@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lesson 15: Observability &amp; Production — Spring</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#6db33f}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.6rem;margin-bottom:1.8rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{text-decoration:none;font-weight:600} .nav a:hover{text-decoration:underline}
+  h1{font-size:2.2rem;line-height:1.12;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .6rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.12rem;margin:1.5rem 0 .35rem}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.48}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f5f1e6;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner h3{margin:0 0 .4rem;color:var(--accent2);font-size:1.05rem}
+  .flow{background:#fff;border:1px solid var(--rule);border-left:4px solid var(--spring);padding:.8rem 1.1rem;border-radius:6px;margin:1rem 0;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.83rem;line-height:1.6}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .conv{background:#eefaf4;border-left:4px solid var(--spring);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.85rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.35rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  @media print{body{padding:1rem;max-width:100%} pre,table,figure{break-inside:avoid}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span><a href="../14-testing-spring-applications/lesson.html">← Lesson 14: Testing Spring Apps</a></span>
+  <span><a href="../overview.html">Spring 18-Lesson Map</a> · Lesson 15 of 18</span>
+  <span><a href="../16-async-events-and-messaging/lesson.html">Lesson 16: Async, Events &amp; Messaging →</a></span>
+</nav>
+
+<h1>Observability &amp; Production</h1>
+<p class="crumb"><a href="../overview.html">Spring</a> › lesson 15 of 18 · <span style="color:#1f6b4d;font-weight:700">SKIM</span> — X-Raying the 6 Boxes Live + Phase 3 Shutdown + AOT</p>
+
+<div class="tldr">
+<strong>Summary —</strong> Spring Boot Actuator is simply an <strong>HTTP X-ray window into our 6 Boxes</strong> while the app is running in production, paired with Micrometer for <strong>Metrics, Structured Logs, and Traces</strong>. This lesson also completes our 3-Phase timeline: how <strong>Phase 3 (Graceful Shutdown)</strong> drains Box 5 &amp; Box 6 before closing Box 3, and how <strong>Spring Boot 3 AOT / GraalVM Native Image</strong> moves Box 2 (scanning) and Box 4 (proxy generation) from runtime startup to compile time.
+</div>
+
+<h2><span class="n">§1</span>Where it fits — You Are Here on the Map</h2>
+<p>
+Once your tested app (Lesson 14) is deployed inside a Kubernetes pod, you cannot attach a debugger or inspect Java Maps by hand. How do you see inside Boxes 1–6 while live traffic is flowing, and how do you shut the 6 Boxes down safely during a rolling deploy?
+</p>
+
+<div class="map-banner">
+  <h3>📍 You Are Here: X-Raying Boxes 1–6 Live (Actuator) + Phase 3 (Graceful Shutdown) + AOT Build Time</h3>
+  <p style="margin:.3rem 0">
+    <strong>What happened before:</strong> Phase 1 booted Boxes 1–5, Phase 2 served requests through Boxes 5–6, and Lesson 14 verified them with tests.<br>
+    <strong>What this lesson zooms into:</strong>
+    (1) How every <code>/actuator/*</code> endpoint reads the exact internal Map of one of our 6 Boxes,
+    (2) How <strong>Phase 3 (Graceful Shutdown)</strong> drains Box 5 &amp; 6 in reverse order when <code>SIGTERM</code> arrives, and
+    (3) How <strong>AOT / Native Image</strong> shifts Box 2 &amp; Box 4 work to Maven/Gradle build time.<br>
+    <strong>What happens right after:</strong> Lesson 16 steps off the main request thread using Box 3 Events, Box 4 <code>@Async</code> proxies, and message brokers.
+  </p>
+</div>
+
+<figure>
+<svg viewBox="0 0 800 350" width="100%" role="img" aria-label="Actuator X-Ray into the 6 Boxes plus Phase 3 Graceful Shutdown">
+  <style>
+    .b{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.5}
+    .act{fill:#eefaf4;stroke:#1f6b4d;stroke-width:1.6}
+    .p3{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.6}
+    .aot{fill:#f5f1e6;stroke:#6b675e;stroke-width:1.4}
+    .h{font:bold 12px Georgia,serif;fill:#2b2b28}
+    .t{font:11px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .s{font:10.5px Georgia,serif;fill:#3f3b34}
+    .arr{stroke:#1f6b4d;stroke-width:1.4;marker-end:url(#ga);fill:none}
+  </style>
+  <defs><marker id="ga" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#1f6b4d"/></marker></defs>
+
+  <!-- Top Row: The 6 Boxes -->
+  <rect class="b" x="12" y="12" width="120" height="58" rx="5"/>
+  <text class="h" x="20" y="30">Box 1: Env</text>
+  <text class="t" x="20" y="46">PropertySources</text>
+
+  <rect class="b" x="142" y="12" width="120" height="58" rx="5"/>
+  <text class="h" x="150" y="30">Box 2: Recipes</text>
+  <text class="t" x="150" y="46">BeanDefinitions</text>
+
+  <rect class="b" x="272" y="12" width="120" height="58" rx="5"/>
+  <text class="h" x="280" y="30">Box 3: Beans</text>
+  <text class="t" x="280" y="46">singletonObjects</text>
+
+  <rect class="b" x="402" y="12" width="120" height="58" rx="5"/>
+  <text class="h" x="410" y="30">Box 4: Proxies</text>
+  <text class="t" x="410" y="46">@Observed/AOP</text>
+
+  <rect class="b" x="532" y="12" width="120" height="58" rx="5"/>
+  <text class="h" x="540" y="30">Box 5: Tomcat</text>
+  <text class="t" x="540" y="46">Threads/Sockets</text>
+
+  <rect class="b" x="662" y="12" width="126" height="58" rx="5"/>
+  <text class="h" x="670" y="30">Box 6: MVC</text>
+  <text class="t" x="670" y="46">HandlerMapping</text>
+
+  <!-- Arrows down to Actuator endpoints -->
+  <path class="arr" d="M72,70 L72,102"/><path class="arr" d="M202,70 L202,102"/><path class="arr" d="M332,70 L332,102"/>
+  <path class="arr" d="M462,70 L462,102"/><path class="arr" d="M592,70 L592,102"/><path class="arr" d="M725,70 L725,102"/>
+
+  <!-- Middle Row: Actuator X-Ray Windows -->
+  <rect class="act" x="12" y="106" width="776" height="68" rx="6"/>
+  <text class="h" x="24" y="125" style="fill:#1f6b4d">Spring Boot Actuator — Every Endpoint Is a Direct Read of One Box's Internal Data Structure:</text>
+  <text class="t" x="24" y="145">/actuator/env     /actuator/conditions  /actuator/beans     /actuator/metrics  /actuator/threaddump  /actuator/mappings</text>
+  <text class="s" x="24" y="163">Reads Box 1 Map   Reads Box 2 Report    Reads Box 3 Map     Box 4 Micrometer   Box 5 Thread Pool     Reads Box 6 Route Map</text>
+
+  <!-- Bottom Left: Phase 3 Graceful Shutdown -->
+  <rect class="p3" x="12" y="188" width="440" height="148" rx="6"/>
+  <text class="h" x="24" y="208" style="fill:#7a1f1f">Phase 3: Graceful Shutdown (SIGTERM arrives)</text>
+  <text class="t" x="24" y="228">Step 1 (Box 5): Tomcat stops accepting NEW TCP connections</text>
+  <text class="t" x="24" y="246">Step 2 (Box 6): Waits up to 30s for in-flight requests to finish</text>
+  <text class="t" x="24" y="264">Step 3 (Box 3): Context.close() runs @PreDestroy on singletons</text>
+  <text class="t" x="24" y="282">Step 4 (Box 3): HikariCP closes DB pool → JVM exits cleanly (0)</text>
+  <text class="s" x="24" y="304">Notice Rule 1 in reverse: Drain Box 5 &amp; 6 BEFORE destroying Box 3!</text>
+  <text class="s" x="24" y="322">(Otherwise in-flight requests hit a closed DB pool mid-transaction!)</text>
+
+  <!-- Bottom Right: AOT & GraalVM Native Image -->
+  <rect class="aot" x="466" y="188" width="322" height="148" rx="6"/>
+  <text class="h" x="478" y="208">Spring Boot 3 AOT / Native Image</text>
+  <text class="s" x="478" y="228">Why does normal Phase 1 take ~2–4 seconds?</text>
+  <text class="s" x="478" y="245">Because Box 2 (scanning + @Conditional checks)</text>
+  <text class="s" x="478" y="262">and Box 4 (proxy generation) run at startup.</text>
+  <text class="t" x="478" y="284" style="fill:#1f4d7a">AOT moves Box 2 &amp; Box 4 to BUILD TIME!</text>
+  <text class="s" x="478" y="304">Maven generates pre-wired Java code + GraalVM</text>
+  <text class="s" x="478" y="322">compiles a binary → Phase 1 boots in ~50 ms!</text>
+</svg>
+<figcaption>Actuator X-rays Boxes 1–6 at runtime; Phase 3 shuts them down from right to left (Box 5 → Box 6 → Box 3); AOT shifts Box 2 &amp; Box 4 to compile time.</figcaption>
+</figure>
+
+<h2><span class="n">§2</span>Why it exists — What Plain Java Code Would You Write Without This?</h2>
+<p>
+When your app runs inside 20 Docker containers on Kubernetes, you cannot SSH in to check why requests are slow, and if Kubernetes kills a pod during a deploy, raw <code>System.exit(0)</code> slices open transactions in half:
+</p>
+
+<pre><span class="c">// ❌ WITHOUT ACTUATOR / MICROMETER / GRACEFUL SHUTDOWN:</span>
+<span class="c">// 1. Manual timing code polluting every single business method:</span>
+<span class="k">public</span> Loan borrow(<span class="k">long</span> bookId, <span class="k">long</span> memberId) {
+    <span class="k">long</span> start = System.nanoTime();
+    <span class="k">try</span> {
+        Loan loan = doBorrow(bookId, memberId);
+        MetricsMap.increment(<span class="s">"loans_ok"</span>);
+        System.out.println(<span class="s">"Borrowed loan "</span> + loan.id()); <span class="c">// Unsearchable text log, no traceId!</span>
+        <span class="k">return</span> loan;
+    } <span class="k">finally</span> {
+        MetricsMap.recordLatency(<span class="s">"borrow_ns"</span>, System.nanoTime() - start);
+    }
+}
+<span class="c">// 2. On deploy, SIGTERM kills the JVM while a user's payment is halfway through Box 6!</span></pre>
+
+<div class="callout">
+<strong>The Contrast Anchor:</strong> Spring Boot Actuator + Micrometer + <code>server.shutdown=graceful</code> replaces all of that manual plumbing with Box 4 AOP interceptors (<code>@Observed</code>), Box 6 <code>ThreadLocal</code> correlation IDs (<code>traceId</code>/<code>spanId</code>), and a coordinated Phase 3 shutdown sequence.
+</div>
+
+<h2><span class="n">§3</span>How it works — Plain Java Data Structures First (Level 1 → Level 2 Zoom)</h2>
+
+<h3>1. Plain Java Data Structures Behind Micrometer, Tracing &amp; Probes</h3>
+<ul>
+  <li><strong><code>MeterRegistry</code> (The Metrics Map):</strong> Under the hood, Micrometer is a thread-safe <code>ConcurrentHashMap&lt;MeterId, Meter&gt;</code> living in Box 3, where <code>record MeterId(String name, Map&lt;String, String&gt; tags)</code> is the key!
+    <ul>
+      <li><code>Counter</code> = a <code>LongAdder</code> that only goes up (e.g., total loans created).</li>
+      <li><code>Gauge</code> = a callback function reading the current size of something right now (e.g., <code>hikariPool::getActiveConnections</code>).</li>
+      <li><code>Timer</code> = count + total time + a histogram array for p95/p99 latency.</li>
+    </ul>
+  </li>
+  <li><strong>Why High Cardinality Explodes the Map:</strong> Because the key in <code>ConcurrentHashMap&lt;MeterId, Meter&gt;</code> includes every tag value, doing <code>tag("userId", user.id())</code> for 1,000,000 users inserts <strong>1,000,000 separate keys</strong> into the Map and crashes Prometheus with an <code>OutOfMemoryError</code>!</li>
+  <li><strong>Tracing &amp; MDC (<code>ThreadLocal&lt;Map&lt;String, String&gt;&gt;</code> in Box 6):</strong> When a request enters Box 5, a filter reads the HTTP <code>traceparent</code> header (or generates a new 128-bit <code>traceId</code> and 64-bit <code>spanId</code>) and stores them in SLF4J's <code>MDC</code> (which is literally a <code>ThreadLocal&lt;Map&lt;String, String&gt;&gt;</code>). Every log line printed on that thread automatically includes <code>traceId</code>, and outbound <code>RestClient</code> calls copy it into the next service's HTTP header!</li>
+</ul>
+
+<h3>2. Every Actuator Endpoint Mapped to Its Box</h3>
+<table>
+<thead>
+  <tr><th>Actuator Endpoint</th><th>Which Box It X-Rays</th><th>Exact Internal Data Structure Returned</th></tr>
+</thead>
+<tbody>
+  <tr><td><code>/actuator/env</code> &amp; <code>/configprops</code></td><td><strong>Box 1 (<code>Environment</code>)</strong></td><td>Iterates <code>List&lt;PropertySource&gt;</code> and shows which property file/env var won.</td></tr>
+  <tr><td><code>/actuator/conditions</code></td><td><strong>Box 2 (Auto-Config)</strong></td><td>The positive/negative match table of every <code>@ConditionalOn*</code> recipe.</td></tr>
+  <tr><td><code>/actuator/beans</code></td><td><strong>Box 3 (<code>BeanFactory</code>)</strong></td><td>Dumps the keys, types, scopes, and dependencies in <code>singletonObjects</code>.</td></tr>
+  <tr><td><code>/actuator/metrics</code> &amp; <code>/prometheus</code></td><td><strong>Box 3 &amp; Box 4</strong></td><td>Reads Micrometer's <code>ConcurrentHashMap&lt;MeterId, Meter&gt;</code>.</td></tr>
+  <tr><td><code>/actuator/threaddump</code> &amp; <code>/health</code></td><td><strong>Box 5 (Tomcat &amp; Pools)</strong></td><td>Inspects Box 5 worker threads + Liveness/Readiness state.</td></tr>
+  <tr><td><code>/actuator/mappings</code></td><td><strong>Box 6 (<code>DispatcherServlet</code>)</strong></td><td>Dumps <code>RequestMappingHandlerMapping</code>'s route table (URL → Controller method).</td></tr>
+</tbody>
+</table>
+
+<h3>3. Liveness vs Readiness Probes (And the Fleet-Restart Trap)</h3>
+<div class="flow">
+<strong>Kubernetes Probe Flow: Two Different Questions for Two Different Actions</strong><br>
+• <strong>Liveness Probe (<code>/actuator/health/liveness</code>)</strong> asks: <em>"Is my internal JVM deadlocked or corrupted?"</em><br>
+&nbsp;&nbsp;→ If DOWN: Kubernetes <strong>kills the container and restarts Phase 1 from scratch</strong>.<br>
+• <strong>Readiness Probe (<code>/actuator/health/readiness</code>)</strong> asks: <em>"Am I ready to handle HTTP requests right now (is the DB/Redis reachable)?"</em><br>
+&nbsp;&nbsp;→ If DOWN: Kubernetes <strong>stops sending traffic to Box 5</strong> (removes pod IP from load balancer) WITHOUT restarting the pod!
+</div>
+
+<div class="pitfall">
+<strong>The Classic Production Outage: Putting Database Checks in Liveness!</strong><br>
+If your database has a 10-second network hiccup and your DB check is inside <code>liveness</code>, Kubernetes sees all 20 pods fail liveness at the same instant and <strong>restarts all 20 pods simultaneously</strong>—triggering 20 concurrent Phase 1 startups and a connection storm that knocks the database down for an hour. Keep external dependencies (<code>db</code>, <code>redis</code>, external APIs) strictly in <strong>readiness</strong>!
+</div>
+
+<h3>4. Phase 3 (Graceful Shutdown) &amp; Spring Boot 3 AOT</h3>
+<div class="flow">
+<strong>Phase 3 Step-by-Step: What Happens When Kubernetes Sends <code>SIGTERM</code></strong><br>
+Step 1 → Kubernetes sends <code>SIGTERM</code> to the JVM (and removes the pod from the Service load balancer — use a 5s <code>preStop</code> sleep so load-balancer rules finish updating first!).<br>
+Step 2 → <strong>Box 5 (Tomcat)</strong> pauses its acceptor socket: <strong>zero new HTTP requests</strong> are accepted.<br>
+Step 3 → <strong>Box 6 (In-Flight Requests)</strong> gets up to <code>spring.lifecycle.timeout-per-shutdown-phase=30s</code> to finish active controller methods and commit their <code>ThreadLocal</code> DB transactions.<br>
+Step 4 → <strong>Box 3 (<code>ApplicationContext.close()</code>)</strong> calls <code>SmartLifecycle.stop()</code> and <code>@PreDestroy</code> on singleton beans, then closes the HikariCP database connection pool cleanly.
+</div>
+
+<div class="idiom">
+<strong>Spring Boot 3 AOT &amp; GraalVM Native Image in One Sentence:</strong><br>
+Normal Spring Boot runs <strong>Box 2</strong> (classpath scanning + evaluating 150 <code>@Conditional</code> annotations) and <strong>Box 4</strong> (generating dynamic proxy classes) during <em>Phase 1 Runtime Startup</em> (~2–4 seconds); <strong>Spring AOT (Ahead-of-Time)</strong> executes Box 2 and Box 4 during <em><code>mvn package</code> Compile Time</em> and writes pre-wired Java source code + reflection hints so a GraalVM native binary boots Box 3 in <strong>~50 milliseconds</strong> using 1/5th the RAM!
+</div>
+
+<h2><span class="n">§4</span>When to use — Practical Decision Table</h2>
+<table>
+<thead>
+  <tr><th>Tool / Feature</th><th>When to Use It</th><th>Production Trade-off / Rule</th></tr>
+</thead>
+<tbody>
+  <tr>
+    <td><strong>Metrics (Micrometer + Prometheus)</strong></td>
+    <td>Always on for 100% of requests ("how many errors? what is p99 latency?").</td>
+    <td>Very cheap (just incrementing a number in a Map), as long as tag <strong>cardinality is bounded</strong>.</td>
+  </tr>
+  <tr>
+    <td><strong>Structured JSON Logs (ECS/Logstash)</strong></td>
+    <td>Discrete business events and errors ("what failed on order #8492?").</td>
+    <td>Expensive at high volume; never log inside tight loops, and never log secrets/PII.</td>
+  </tr>
+  <tr>
+    <td><strong>Distributed Tracing (Micrometer Tracing / OTel)</strong></td>
+    <td>Whenever a request crosses &gt;1 service or async boundary ("where did the 2 seconds go?").</td>
+    <td>Sample <strong>1%–10%</strong> of traffic in production so tracing overhead stays tiny.</td>
+  </tr>
+  <tr>
+    <td><strong><code>/actuator/loggers</code></strong></td>
+    <td>Live incident debugging in production.</td>
+    <td>Lets you flip <code>com.bookvault</code> to <code>DEBUG</code> for 5 minutes via HTTP POST with zero restart! Secure it on port 9090.</td>
+  </tr>
+  <tr>
+    <td><strong>GraalVM Native Image (AOT)</strong></td>
+    <td>Serverless (AWS Lambda), scale-to-zero containers, or CLI apps.</td>
+    <td>50 ms startup &amp; tiny RAM, but slow 5-minute compile times, no runtime profile switching, and lower peak throughput than the JIT compiler on long-running servers.</td>
+  </tr>
+</tbody>
+</table>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine your Spring Boot app is a busy restaurant kitchen locked inside a windowless building. How do you know if everything is okay inside?
+</p>
+<p>
+First, you cut small <strong>glass peepholes</strong> into each room of the kitchen—one looking at the recipe book, one looking at the pantry, and one looking at the waiters. Those peepholes are <strong>Spring Boot Actuator</strong>.
+</p>
+<p>
+Second, you put two lights on the front door for the street traffic officer (Kubernetes): a <strong>Green "We're Open" light (Readiness)</strong> and a <strong>Red "Building on Fire" alarm (Liveness)</strong>. If the kitchen temporarily runs out of burger buns (the database blips), you switch off the "We're Open" light for a minute until the delivery truck arrives—you do <em>not</em> pull the fire alarm and bulldoze the restaurant!
+</p>
+<p>
+Third, at closing time (<strong>Phase 3 Graceful Shutdown</strong>), you don't switch off the lights and kick customers out while they're chewing. You <strong>lock the front door to new customers first (Box 5)</strong>, let the people already at tables finish eating and pay their bill (<strong>Box 6</strong>), and only then turn off the stoves (<strong>Box 3</strong>).
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← Lesson 04 (Bean Lifecycle):</strong> Phase 3 Graceful Shutdown is what triggers <code>SmartLifecycle.stop()</code> and <code>@PreDestroy</code> on Box 3 beans after Box 5 drains.</li>
+  <li><strong>← Lesson 05, 06 &amp; 07 (Scanning, Proxies &amp; Auto-Config):</strong> AOT / GraalVM Native Image works by freezing Box 2 (scanning/conditions) and Box 4 (proxies) at build time—which is why <code>@Profile</code> changes at runtime don't add new beans in a native image!</li>
+  <li><strong>← Lesson 08 (Externalized Config):</strong> <code>/actuator/env</code> inspects Box 1's <code>List&lt;PropertySource&gt;</code>, and <code>/actuator/loggers</code> mutates logging config live in memory.</li>
+  <li><strong>← Lesson 13 (Spring Security):</strong> Actuator endpoints expose sensitive Box 1–6 internals and must be locked down via a dedicated <code>SecurityFilterChain</code> or isolated on <code>management.server.port=9090</code>.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — Code Dissection &amp; Derive, Don't Memorize</h2>
+
+<pre><span class="c"># ═══ application.yml: Production-Ready Actuator, Probes &amp; Phase 3 Shutdown ═══</span>
+management:
+  server.port: 9090                                     <span class="c"># ① Isolate Actuator on internal-only port</span>
+  endpoints.web.exposure.include: health,info,prometheus,loggers
+  endpoint.health:
+    probes.enabled: true
+    group:
+      liveness.include: livenessState                   <span class="c"># ② NEVER put 'db' or external APIs in liveness!</span>
+      readiness.include: readinessState,db,catalogApi   <span class="c"># ③ External dependencies belong in readiness</span>
+  tracing.sampling.probability: 0.1                     <span class="c"># ④ Sample 10% of traces in production</span>
+
+server:
+  shutdown: graceful                                    <span class="c"># ⑤ Enable Phase 3 Graceful Shutdown</span>
+spring:
+  lifecycle.timeout-per-shutdown-phase: 30s             <span class="c"># ⑥ Give Box 6 in-flight requests 30s to finish</span>
+logging:
+  structured.format.console: ecs                        <span class="c"># ⑦ Boot 3.4+ built-in JSON logs with traceId</span></pre>
+
+<pre><span class="c">// ═══ Java Code: Readiness HealthIndicator + @Observed Metric &amp; Span ═════════</span>
+<span class="an">@Component</span>(<span class="s">"catalogApi"</span>)                                <span class="c">// ⑧ Bean name matches readiness.include above</span>
+<span class="k">class</span> CatalogHealthIndicator <span class="k">implements</span> HealthIndicator {
+    <span class="k">private final</span> RestClient client;
+    CatalogHealthIndicator(RestClient client) { <span class="k">this</span>.client = client; }
+
+    <span class="an">@Override</span> <span class="k">public</span> Health health() {
+        <span class="k">try</span> {
+            client.get().uri(<span class="s">"/ping"</span>).retrieve().toBodilessEntity();
+            <span class="k">return</span> Health.up().build();
+        } <span class="k">catch</span> (Exception ex) {
+            <span class="k">return</span> Health.down().withDetail(<span class="s">"error"</span>, ex.getClass().getSimpleName()).build();
+        }
+    }
+}
+
+<span class="an">@Service</span>
+<span class="k">public class</span> LoanService {
+    <span class="k">private static final</span> Logger log = LoggerFactory.getLogger(LoanService.class);
+    <span class="k">private final</span> Counter loansCreated;
+
+    <span class="k">public</span> LoanService(MeterRegistry registry) {
+        <span class="k">this</span>.loansCreated = Counter.builder(<span class="s">"bookvault.loans.created"</span>)
+            .tag(<span class="s">"type"</span>, <span class="s">"standard"</span>)                    <span class="c">// ⑨ Low-cardinality tag (only 2–3 possible values!)</span>
+            .register(registry);
+    }
+
+    <span class="an">@Observed</span>(name = <span class="s">"loan.borrow"</span>)                     <span class="c">// ⑩ Box 4 AOP Proxy: records Timer + Trace Span!</span>
+    <span class="an">@Transactional</span>
+    <span class="k">public</span> Loan borrow(<span class="k">long</span> bookId, <span class="k">long</span> memberId) {
+        Loan loan = saveLoan(bookId, memberId);
+        loansCreated.increment();
+        log.atInfo().setMessage(<span class="s">"loan.created"</span>)         <span class="c">// ⑪ JSON log auto-stamped with Box 6 MDC traceId</span>
+           .addKeyValue(<span class="s">"loanId"</span>, loan.id()).log();
+        <span class="k">return</span> loan;
+    }
+}</pre>
+
+<div class="ann">
+<strong>Code Dissection:</strong><br>
+<strong>① Separate Management Port:</strong> Binding Actuator to port <code>9090</code> ensures public users hitting your ingress on port <code>8080</code> can never reach <code>/actuator/env</code> or <code>/actuator/loggers</code>.<br>
+<strong>② &amp; ③ Liveness vs Readiness Split:</strong> If <code>catalogApi</code> or <code>db</code> goes down, <code>/actuator/health/readiness</code> returns HTTP 503 (so Kubernetes stops routing traffic to this pod), while <code>/actuator/health/liveness</code> stays HTTP 200 UP.<br>
+<strong>⑨ &amp; ⑩ Box 4 <code>@Observed</code> Proxy:</strong> Because <code>@Observed</code> uses a Box 4 AOP proxy (Rule 2), calling <code>loanService.borrow()</code> from a Controller automatically starts a Micrometer <code>Timer</code> and a distributed trace <code>Span</code>, and puts the <code>spanId</code> into Box 6's <code>ThreadLocal</code> MDC for ⑪ structured logging!
+</div>
+
+<h3>How to Think in Interviews — Derive, Don't Memorize</h3>
+<table>
+<thead>
+  <tr><th>Classic Interview Question</th><th>Derive the Answer in 10 Seconds from the 6-Box Map &amp; 3 Rules</th></tr>
+</thead>
+<tbody>
+  <tr>
+    <td><em>"What happens during a rolling deployment if you don't configure Graceful Shutdown?"</em></td>
+    <td><strong>Apply Rule 1 (Order of Steps) to Phase 3:</strong> Default shutdown kills Box 5 and Box 3 immediately while threads are still inside Box 6 executing SQL queries. Users get HTTP 502/Connection Reset and transactions abort mid-flight. Graceful shutdown stops Box 5 first, drains Box 6 for up to 30s, then closes Box 3.</td>
+  </tr>
+  <tr>
+    <td><em>"Why shouldn't you put a database or external microservice check inside a Kubernetes Liveness probe?"</em></td>
+    <td><strong>Trace the Probe Action:</strong> Liveness failure means "restart Phase 1 (Boxes 1–6)". A 5-second database blip would cause Kubernetes to kill and reboot every pod in your cluster simultaneously, causing a total outage and startup stampede. Put DB checks in <strong>Readiness</strong> ("pause Box 5 traffic").</td>
+  </tr>
+  <tr>
+    <td><em>"Why did our Prometheus server run out of memory after we added a <code>userId</code> tag to a Micrometer counter?"</em></td>
+    <td><strong>Look at the Plain Java Data Structure:</strong> <code>MeterRegistry</code> is a <code>ConcurrentHashMap&lt;MeterId, Meter&gt;</code> where <code>MeterId</code> includes every tag combination. 2 million unique <code>userId</code> values = 2 million entries in the Map! Keep high-cardinality IDs in Logs/Traces, never in Metric tags.</td>
+  </tr>
+  <tr>
+    <td><em>"How does Spring Boot 3 AOT / GraalVM Native Image start in 50 ms, and what are its limitations?"</em></td>
+    <td><strong>Look at Phase 1 (Box 2 &amp; Box 4):</strong> AOT moves Box 2 (classpath scanning + <code>@Conditional</code> evaluation) and Box 4 (proxy generation) from runtime startup to Maven build time. Because Box 2 is frozen at compile time, you cannot dynamically create new beans via <code>@Profile</code> or reflection at runtime without AOT hints!</td>
+  </tr>
+</tbody>
+</table>
+
+<div class="try">
+<strong>Try This / Predict the Output:</strong><br>
+1. You put <code>@Observed(name = "book.check")</code> on a helper method <code>checkStock()</code> inside <code>LoanService</code>, and call <code>this.checkStock()</code> from <code>LoanService.borrow()</code>. Does Micrometer record the <code>book.check</code> timer and trace span?<br>
+<em>Answer:</em> <strong>No!</strong> Apply <strong>Rule 2 (Who You Call)</strong>: <code>@Observed</code> is a Box 4 AOP proxy advisor. Calling <code>this.checkStock()</code> bypasses the proxy wrapper!<br>
+2. You jump from a Controller thread to a raw <code>new Thread(() -&gt; log.info("background work")).start()</code>. Will that log line have the request's <code>traceId</code>?<br>
+<em>Answer:</em> <strong>No!</strong> Apply <strong>Rule 3 (Where State Lives)</strong>: MDC (<code>traceId</code>) lives in a per-thread <code>ThreadLocal&lt;Map&gt;</code> in Box 6. A raw new thread has an empty <code>ThreadLocal</code> unless you use Micrometer <code>ContextPropagation</code>!
+</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Pitfall 1: Exposing <code>/actuator/*</code> on the public port without Security.</strong><br>
+<em>Mechanical cause:</em> <code>/actuator/env</code> reads Box 1 (`Environment`), and <code>/actuator/heapdump</code> dumps the entire JVM heap (including DB passwords and JWT secrets in Box 3). Always restrict exposure and use <code>management.server.port=9090</code>.</div>
+
+<div class="pitfall"><strong>Pitfall 2: High-cardinality tags in Micrometer Metrics.</strong><br>
+<em>Mechanical cause:</em> Every unique tag value creates a permanent entry in <code>MeterRegistry</code>'s <code>ConcurrentHashMap&lt;MeterId, Meter&gt;</code>. Never tag metrics with <code>userId</code>, <code>orderId</code>, email, or raw un-templated URL paths.</div>
+
+<div class="pitfall"><strong>Pitfall 3: Putting DB/Redis/API health indicators in Liveness instead of Readiness.</strong><br>
+<em>Mechanical cause:</em> Liveness failure triggers container termination and Phase 1 restart. Transient downstream slowness cascades into a cluster-wide reboot loop.</div>
+
+<div class="pitfall"><strong>Pitfall 4: Enabling <code>server.shutdown=graceful</code> without a Kubernetes <code>preStop</code> hook.</strong><br>
+<em>Mechanical cause:</em> Kubernetes sends <code>SIGTERM</code> to your pod and updates kube-proxy iptables rules <em>in parallel</em>. For 1–3 seconds after <code>SIGTERM</code>, new packets still arrive at Box 5 after Tomcat has closed its socket. A `preStop: exec: ["sleep", "5"]` lets load-balancer removal finish before Tomcat stops listening.</div>
+
+<h2><span class="n">§9</span>Recap &amp; Glossary / Reference</h2>
+<ul class="recap">
+  <li><strong>Actuator X-rays the 6 Boxes:</strong> <code>/env</code> (Box 1), <code>/conditions</code> (Box 2), <code>/beans</code> (Box 3), <code>/metrics</code> (Box 4), <code>/threaddump</code> &amp; <code>/health</code> (Box 5), <code>/mappings</code> (Box 6).</li>
+  <li><strong>Three Pillars of Observability:</strong> Metrics (cheap aggregates in a Map—watch tag cardinality!), Structured JSON Logs (detailed discrete events), and Traces (sampled request paths across services, glued to logs via Box 6 <code>ThreadLocal</code> MDC <code>traceId</code>).</li>
+  <li><strong>Liveness vs Readiness:</strong> Liveness = "restart my JVM" (in-process only); Readiness = "stop routing traffic to Box 5" (put DB &amp; downstream checks here).</li>
+  <li><strong>Phase 3 Graceful Shutdown</strong> drains in reverse order: stop Box 5 new connections → wait up to timeout for Box 6 active requests → close Box 3 singletons &amp; DB pool.</li>
+  <li><strong>Spring Boot 3 AOT / Native Image</strong> moves Box 2 (scanning/conditions) and Box 4 (proxies) to compile time for ~50 ms startup.</li>
+</ul>
+
+<h3>Quick Reference Cheat-Sheet</h3>
+<table>
+<thead><tr><th>Operational Goal</th><th>Property / Annotation</th><th>Box Involved</th></tr></thead>
+<tbody>
+<tr><td>Inspect resolved properties &amp; winning source</td><td><code>GET /actuator/env</code></td><td>Box 1 (<code>Environment</code>)</td></tr>
+<tr><td>Inspect auto-configuration condition report</td><td><code>GET /actuator/conditions</code></td><td>Box 2 (<code>BeanDefinition</code>s)</td></tr>
+<tr><td>Inspect all live singleton beans</td><td><code>GET /actuator/beans</code></td><td>Box 3 (<code>singletonObjects</code>)</td></tr>
+<tr><td>Record Timer metric + Trace Span declaratively</td><td><code>@Observed(name = "...")</code></td><td>Box 4 (AOP Proxy)</td></tr>
+<tr><td>Separate Liveness &amp; Readiness probes</td><td><code>management.endpoint.health.probes.enabled=true</code></td><td>Box 5 (Traffic routing)</td></tr>
+<tr><td>Inspect all URL → Controller routes</td><td><code>GET /actuator/mappings</code></td><td>Box 6 (<code>HandlerMapping</code>)</td></tr>
+<tr><td>Change log level live without restart</td><td><code>POST /actuator/loggers/com.pkg {"configuredLevel":"DEBUG"}</code></td><td>Box 1 / Logging system</td></tr>
+<tr><td>Drain active requests on <code>SIGTERM</code></td><td><code>server.shutdown=graceful</code></td><td>Phase 3 (Box 5 → 6 → 3)</td></tr>
+</tbody>
+</table>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>Spring Boot Actuator</dt><dd>Module that exposes HTTP/JMX endpoints inspecting the live internal state of Boxes 1–6.</dd>
+  <dt>Micrometer</dt><dd>Vendor-neutral observability facade ("SLF4J for metrics and traces") backed by an in-memory <code>MeterRegistry</code> Map.</dd>
+  <dt>Cardinality</dt><dd>The number of unique tag-value combinations for a metric; high cardinality (like <code>userId</code>) causes memory exhaustion.</dd>
+  <dt>Liveness vs Readiness Probe</dt><dd>Kubernetes health checks: Liveness restarts a broken JVM; Readiness removes a busy/disconnected pod from the load balancer without restarting it.</dd>
+  <dt>MDC (Mapped Diagnostic Context)</dt><dd>A <code>ThreadLocal&lt;Map&lt;String, String&gt;&gt;</code> in Box 6 that attaches <code>traceId</code> and <code>spanId</code> to every log statement on that request thread.</dd>
+  <dt>Graceful Shutdown (Phase 3)</dt><dd>Shutdown mode where Box 5 rejects new connections while allowing in-flight Box 6 requests to finish before Box 3 closes beans and DB connections.</dd>
+  <dt>AOT (Ahead-of-Time) &amp; Native Image</dt><dd>Build-time execution of Box 2 scanning and Box 4 proxy generation, enabling GraalVM to compile a standalone binary with ~50 ms startup.</dd>
+</dl>
+
+<p class="sources" style="margin-top:2rem">
+<strong>Official Documentation Citations:</strong>
+<a href="https://docs.spring.io/spring-boot/reference/actuator/index.html">Spring Boot Reference — Production-ready Features (Actuator, Endpoints, Kubernetes Probes, Metrics, Tracing)</a>;
+<a href="https://docs.spring.io/spring-boot/reference/web/graceful-shutdown.html">Spring Boot Reference — Graceful Shutdown</a>;
+<a href="https://docs.spring.io/spring-boot/reference/packaging/aot.html">Spring Boot Reference — Ahead-of-Time Processing &amp; GraalVM Native Images</a>.
+</p>
+
+</body>
+</html>

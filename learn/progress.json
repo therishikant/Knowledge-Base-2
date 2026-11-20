@@ -1,0 +1,81 @@
+{
+  "currentTopic": "spring",
+  "currentSubtopic": "01-problem-and-philosophy",
+  "topics": {
+    "java": {
+      "status": "in-progress",
+      "mission": "Architect/tech-lead role + senior-staff interviews + deep mastery. Weighted toward application/code architecture with JVM internals underneath. Reinforce Java 8, then climb to Java 21 (LTS).",
+      "note": "The JVM subtopic was split into a 4-lesson cluster (bytecode-pipeline, class-loader, runtime-data-areas, execution-engine) for depth on JVM architecture. Subtopic 05-type-system-and-oop was rewritten in simpler English and split into a 3-part cluster inside its folder: lesson.html (what a type is: primitives vs references, class vs object, static/final, encapsulation, constructors), lesson-2-inheritance-and-polymorphism.html (extends vs implements, override vs overload vs hide, abstract vs interface, composition, casting, Liskov), lesson-3-generics-and-erasure.html (generics, erasure, invariance, wildcards/PECS, raw types, enums). Subtopic 06-memory-model-and-gc was likewise rewritten and split into 3 parts: lesson.html (where data lives: stack/heap/references/pass-by-value/copying), lesson-2-garbage-collection.html (reachability, mark-sweep-compact, generations, safepoints), lesson-3-collectors-leaks-and-tuning.html (collectors, reference strengths, leaks, escape analysis, flags, diagnosis). Subtopic 08-collections-and-equality was likewise rewritten in simpler English and split into 3 parts: lesson.html (lists, sets, queues: interface vs implementation, ArrayList vs LinkedList, ArrayDeque, iteration/CME), lesson-2-maps-and-hashing.html (Map hierarchy, hashCode->spread->mask->bucket->equals, collisions, load factor/resize, treeify, LinkedHashMap/LRU, TreeMap ranges, ConcurrentHashMap, Java 8 map methods), lesson-3-equality-and-ordering.html (== vs equals, the equals/hashCode contracts, mutable-key trap, Comparable vs Comparator, compareTo-vs-equals consistency). Subtopic 11-concurrency was likewise rewritten in simpler English and split into 4 parts: lesson.html (what a thread is, stack-vs-heap sharing, start vs run, lifecycle states, scheduler, join/sleep/interrupt, daemons, thread cost), lesson-2-sharing-data-safely.html (the three problems - atomicity/visibility/ordering, happens-before, synchronized, volatile, atomics & CAS, ReentrantLock, deadlock, immutability & confinement), lesson-3-thread-pools-and-futures.html (ThreadPoolExecutor anatomy, pool sizing, Runnable/Callable/Future, shutdown, CompletableFuture, fork-join, concurrent collections, latches/semaphores), lesson-4-virtual-threads.html (Little's Law, M:N scheduling, carriers, mount/unmount, pinning + JEP 491 in JDK 24, structured concurrency, scoped values). All 14 subtopic lessons (01-14) are now authored; none cleared yet (clearing is via interview). Demos run on JDK 1.8 in learn/learning/java/code (TypeDemo, TypeDemo2, TypeDemo3, MemoryDemo, MemoryDemo2, GcDemo, CollectionsDemo, CollectionsDemo2, CollectionsDemo3, ConcurrencyDemo, ConcurrencyDemo2, ConcurrencyDemo3, ConcurrencyDemo4); lesson 12 (modern Java) and concurrency part 4 (virtual threads) code is illustrative and needs JDK 17+/21. Subtopic 07-java8-functional was rewritten in much simpler English and split into a 9-part cluster, with extra depth on streams because that is the weakest area for interviews: lesson.html (lambdas: why behaviour-passing exists, target typing, capture/effectively-final, lambda vs anonymous class), lesson-2-functional-interfaces.html (the 4 shapes + the Bi/Operator/Int/To naming rules so names can be derived not recalled, the 4 method-reference kinds), lesson-3-stream-pipeline.html (execution model proved with real output: laziness, fusion, short-circuiting, one-shot, sources, stateful ops, primitive bridge), lesson-4-intermediate-operations.html (every intermediate op, flatMap deep dive, ordering experiment), lesson-5-terminal-operations.html (4 families, reduce from first principles, empty-stream traps, forEach vs forEachOrdered), lesson-6-collectors-and-groupingby.html (the 5 collector families, toMap duplicate-key trap, groupingBy all 3 overloads + nesting + mapping + collectingAndThen, partitioningBy, 7 classic recipes), lesson-7-optional.html (create/transform/unwrap, map vs flatMap, orElse-vs-orElseGet eager-evaluation proof), lesson-8-default-methods-and-java-time.html (interface evolution, diamond resolution, java.time type selection), lesson-9-stream-recall-playbook.html (a 4-question decision procedure, one-page cheat sheet, 25 solved interview problems, 14 predict-the-output drills, 16 theory Q&A, spaced-repetition plan). New verified demo files in learn/learning/java/code: LambdaDemo, StreamOpsDemo, StreamTerminalDemo, CollectorsDemo, OptionalDemo, Java8MiscDemo (all compiled and run on JDK 1.8.0_411; Java 9+ APIs such as takeWhile/dropWhile/teeing/Optional.stream are described but not executed). Subtopic 09-strings was likewise rewritten in simpler English and split into 3 parts: lesson.html (what a String really is: inside the object, immutability, the pool/interning, == vs equals, constant folding, cached hash), lesson-2-building-text.html (why + in a loop is O(n^2), what javac does with +, StringBuilder internals - capacity 16 and growth old*2+2, StringBuffer, the method toolbox, split/replaceAll regex traps, injection safety), lesson-3-characters-and-encoding.html (ASCII to Unicode, code point vs code unit, UTF-16 surrogate pairs, length vs codePointCount, charsets/mojibake, platform default trap, locale-sensitive case / Turkish-i, secrets in char[], Java 9/11/15/18 additions). Verified demos: StringDemo (extended with constant folding), StringDemo2, StringDemo3 in learn/learning/java/code, all compiled and run on JDK 1.8.0_411 (platform default charset windows-1252).",
+      "clearedSubtopics": [],
+      "pendingSubtopics": [
+        "01-jvm-bytecode-pipeline",
+        "02-jvm-class-loader",
+        "03-jvm-runtime-data-areas",
+        "04-jvm-execution-engine",
+        "05-type-system-and-oop",
+        "06-memory-model-and-gc",
+        "07-java8-functional",
+        "08-collections-and-equality",
+        "09-strings",
+        "10-exceptions-and-error-design",
+        "11-concurrency",
+        "12-modern-java-9-to-21",
+        "13-application-architecture",
+        "14-tooling-and-ecosystem"
+      ]
+    },
+    "react": {
+      "status": "paused",
+      "mission": "Round out full-stack skills (backend/Java dev) + clear frontend/full-stack interviews + build real projects + deep first-principles mastery. New to React and rusty on modern JS, so weave JS/DOM foundations in as we go.",
+      "clearedSubtopics": [],
+      "pendingSubtopics": [
+        "js-foundations-for-react",
+        "problem-and-philosophy",
+        "setup-and-tooling",
+        "components-and-jsx",
+        "props-and-data-flow",
+        "rendering-lists-and-conditionals",
+        "state-and-usestate",
+        "events-and-interactivity",
+        "render-commit-and-virtual-dom",
+        "managing-and-lifting-state",
+        "effects-and-synchronization",
+        "refs-and-escape-hatches",
+        "hooks-in-depth-and-custom-hooks",
+        "context-and-data-flow",
+        "forms-and-controlled-components",
+        "composition-and-patterns",
+        "performance-and-optimization",
+        "testing",
+        "ecosystem-and-real-world"
+      ]
+    },
+    "spring": {
+      "status": "in-progress",
+      "mission": "Deep, first-principles knowledge of Spring/Spring Boot (not memorized annotations) + clear senior/staff interviews + move toward architect/tech-lead. Starting as a beginner on Spring but strong on Java, so lessons lean on JVM/reflection/proxy knowledge and go deep on the framework's machinery.",
+      "note": "Spring and Spring Boot are taught as one 18-lesson topic, completely rewritten in simple English around a 3-Level Zoom Map (Level 0: Startup -> Request -> Shutdown across 6 Core Boxes; Level 1: plain-Java data structures inside each box — Environment's List<PropertySource>, BeanDefinition Registry's Map<String, BeanDefinition>, ApplicationContext's Map<String, Object> singletonObjects, BeanPostProcessor & AOP Proxy wrappers, Embedded Tomcat + FilterChain, and DispatcherServlet + ThreadLocal backpack; Level 2: each of the 18 lessons opens with a 'You Are Here on the 6-Box Map' visual banner, plain-Java mental model before Spring terminology, step-by-step arrow flows, and a 'How to Think in Interviews — Derive, Don't Memorize' table using the 3 Universal Rules: Order of Steps, Proxy vs this, and Singleton Map vs ThreadLocal). Running example is BookVault. All 18 lessons authored; none cleared yet (clearing is via interview). Targets Spring Framework 6.x / Boot 3.x on Java 17+. Only JDK 1.8 is installed locally, so Spring snippets are illustrative; the two pure-Java demos in learn/learning/spring/code are Java-8 compatible and their output was verified by running them.",
+      "clearedSubtopics": [],
+      "pendingSubtopics": [
+        "01-problem-and-philosophy",
+        "02-ioc-container-and-beans",
+        "03-dependency-injection",
+        "04-bean-lifecycle-and-extension-points",
+        "05-configuration-and-component-model",
+        "06-aop-and-proxies",
+        "07-spring-boot-and-autoconfiguration",
+        "08-externalized-configuration-and-profiles",
+        "09-web-mvc-request-lifecycle",
+        "10-building-rest-apis",
+        "11-data-access-and-spring-data-jpa",
+        "12-transactions",
+        "13-spring-security",
+        "14-testing-spring-applications",
+        "15-observability-and-production",
+        "16-async-events-and-messaging",
+        "17-reactive-and-webflux",
+        "18-architecture-and-microservices"
+      ]
+    }
+  },
+  "updatedAt": "2026-10-09"
+}

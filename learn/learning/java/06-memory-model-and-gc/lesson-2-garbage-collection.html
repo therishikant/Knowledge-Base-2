@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>How Garbage Collection Works — Memory, Part 2 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>How Garbage Collection Works</h1>
+<p class="crumb">Java › memory cluster · lesson 6, <strong>part 2 of 3</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — reachability, marking, and generations</p>
+
+<p class="nav"><strong>Memory cluster:</strong>
+  <a href="lesson.html">1. Where your data lives</a> ·
+  <strong>2. How garbage collection works</strong> ·
+  <a href="lesson-3-collectors-leaks-and-tuning.html">3. Collectors, leaks &amp; tuning</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> You never delete objects in Java. Instead, the JVM regularly starts from a few known
+<strong>roots</strong> (the live local variables of every thread, plus <code>static</code> fields) and follows every arrow it can.
+Whatever it can reach is <strong>alive</strong>; everything else is garbage and its memory is reused. Because most objects die
+very young, the heap is split into a small <strong>young</strong> area that is cleaned often and cheaply, and an <strong>old</strong>
+area that is cleaned rarely.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+<a href="lesson.html">Part 1</a> showed you the two areas and the arrows between them. One question was left open: the stack
+cleans itself by popping frames — <strong>but who cleans the heap?</strong>
+</p>
+<p>
+That is this lesson. We will build the garbage collector from first principles: the question it has to answer, the two honest ways
+to answer it, the one Java picked, and the single trick (generations) that makes it fast enough to use everywhere.
+<a href="lesson-3-collectors-leaks-and-tuning.html">Part 3</a> then covers the actual collectors you choose between, and what
+still goes wrong.
+</p>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+
+<h3>2.1 Life without a collector</h3>
+<p>In C you ask for memory and you give it back yourself:</p>
+<pre><span class="c">/* C */</span>
+Node *n = malloc(<span class="k">sizeof</span>(Node));
+use(n);
+free(n);   <span class="c">/* your job — and only yours */</span></pre>
+<p>Three bugs are now permanently available to you, and they are famous for a reason:</p>
+<table>
+  <thead><tr><th>Mistake</th><th>What happens</th></tr></thead>
+  <tbody>
+    <tr><td>You forget <code>free</code></td><td><strong>Memory leak.</strong> Memory is never returned; the process grows until it dies.</td></tr>
+    <tr><td>You <code>free</code> twice</td><td><strong>Double free.</strong> The allocator's own bookkeeping is corrupted — usually a crash, sometimes a security hole.</td></tr>
+    <tr><td>You <code>free</code>, then use the pointer</td><td><strong>Dangling pointer / use-after-free.</strong> You read or write memory that now belongs to something else. This is one of the most exploited bug classes in software.</td></tr>
+  </tbody>
+</table>
+<p>
+The deeper problem is not that these mistakes are easy. It is that <strong>"who frees this?" is not a local question</strong>.
+If you hand an object to three other modules, somebody must know when the last one is finished with it. That knowledge is
+scattered across the program, so manual freeing stops being a coding detail and becomes an architecture-wide contract.
+</p>
+<p>
+Java's answer is blunt: take the decision away from the programmer entirely. The JVM decides when memory is free, which
+"completely eliminates some classes of errors related to memory management at the cost of some additional runtime overhead"
+<span class="sources">(<a href="https://docs.oracle.com/en/java/javase/21/gctuning/introduction-garbage-collection-tuning.html">Oracle — HotSpot GC Tuning Guide, §1</a>)</span>.
+</p>
+
+<h3>2.2 Two honest ways to automate it</h3>
+<p>If the machine must decide when an object is dead, it needs a definition of "dead". There are two classic ones.</p>
+
+<p><strong>(a) Reference counting.</strong> Every object keeps a counter of how many arrows point at it. The counter goes up when an
+arrow is created and down when one is removed. At zero, delete immediately.</p>
+<ul>
+  <li><em>Good:</em> memory is freed the instant it becomes garbage; cost is spread smoothly instead of coming in pauses.</li>
+  <li><em>Bad:</em> every single assignment has to update counters, which is slow and awkward with many threads.</li>
+  <li><em>Fatal:</em> <strong>cycles</strong>. If <code>a</code> points to <code>b</code> and <code>b</code> points to <code>a</code>,
+  both counters stay at 1 forever even when nothing else can reach them. The pair leaks. Doubly-linked lists, parent/child trees,
+  and listener registrations are full of cycles.</li>
+</ul>
+
+<p><strong>(b) Tracing.</strong> Forget counting. Start from the places the program can definitely reach right now, and walk the
+arrows. Anything you never arrive at is garbage — including cycles, because walking never arrives at an isolated island.</p>
+<p>Java (like Go, C#, Python's cycle detector, and JavaScript) uses <strong>tracing</strong>.</p>
+
+<div class="callout">
+<strong>And a third way:</strong> do neither, and make the <em>compiler</em> prove when memory dies. That is Rust's ownership model.
+It costs you nothing at run time, but you must satisfy the borrow checker while writing the code. Java chose runtime cost over
+programmer cost; Rust chose the reverse. Neither is "correct" — it is a trade-off, and it is a good one to be able to explain.
+</div>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>3.1 The whole idea in one sentence</h3>
+<p>
+<strong>An object is alive if the program can still reach it by following arrows from a root; otherwise it is garbage.</strong>
+In Oracle's words, an object "is considered garbage and its memory can be reused by the VM when it can no longer be reached from
+any reference of any other live object in the running program"
+<span class="sources">(<a href="https://docs.oracle.com/en/java/javase/21/gctuning/garbage-collector-implementation1.html">Oracle — GC Tuning Guide, §3 Generational Garbage Collection</a>)</span>.
+</p>
+<p>Notice what this definition does <em>not</em> say. It does not say "an object you are still using". The JVM has no idea what you
+intend to use. It only knows what you can still <em>reach</em>. Hold that thought — in part 3 it turns out to be the exact
+definition of a Java memory leak.</p>
+
+<h3>3.2 What counts as a root</h3>
+<p>Roots are the starting points: the handful of places the JVM knows are live without having to prove anything.</p>
+<table>
+  <thead><tr><th>Root</th><th>Why it is obviously live</th></tr></thead>
+  <tbody>
+    <tr><td>Local variables in every active frame, on every thread</td><td>Some method is running right now and can use them at any moment.</td></tr>
+    <tr><td><code>static</code> fields of loaded classes</td><td>Any code can read them at any time, for as long as the class stays loaded.</td></tr>
+    <tr><td>Active <code>Thread</code> objects</td><td>They are running.</td></tr>
+    <tr><td>JNI references held by native code</td><td>C code outside the JVM is holding them.</td></tr>
+    <tr><td>Objects used as monitors (locks held by a thread)</td><td>A thread is inside a <code>synchronized</code> block on them.</td></tr>
+  </tbody>
+</table>
+
+<figure>
+<svg viewBox="0 0 760 300" width="100%" role="img" aria-label="Reachable object graph from roots, and an unreachable island including a cycle">
+  <style>
+    .r{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.5}
+    .live{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .dead{fill:#f3f1ec;stroke:#a9a399;stroke-width:1.4;stroke-dasharray:5 3}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#1f4d7a;stroke-width:1.5;marker-end:url(#g1);fill:none}
+    .d{stroke:#a9a399;stroke-width:1.5;marker-end:url(#g2);fill:none}
+  </style>
+  <defs>
+    <marker id="g1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1f4d7a"/></marker>
+    <marker id="g2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#a9a399"/></marker>
+  </defs>
+
+  <rect class="r" x="20" y="40" width="150" height="40" rx="5"/><text class="t" x="34" y="65">ROOT: local var</text>
+  <rect class="r" x="20" y="150" width="150" height="40" rx="5"/><text class="t" x="34" y="175">ROOT: static field</text>
+  <text class="c" x="20" y="214">roots are always live</text>
+
+  <rect class="live" x="240" y="40" width="120" height="40" rx="5"/><text class="t" x="262" y="65">Order</text>
+  <rect class="live" x="240" y="150" width="120" height="40" rx="5"/><text class="t" x="262" y="175">Cache</text>
+  <rect class="live" x="420" y="92" width="120" height="40" rx="5"/><text class="t" x="442" y="117">Customer</text>
+  <line class="a" x1="170" y1="60" x2="236" y2="60"/>
+  <line class="a" x1="170" y1="170" x2="236" y2="170"/>
+  <line class="a" x1="360" y1="62" x2="416" y2="100"/>
+  <line class="a" x1="360" y1="168" x2="416" y2="128"/>
+  <text class="c" x="400" y="150">reachable = LIVE, keep</text>
+
+  <rect class="dead" x="580" y="190" width="100" height="36" rx="5"/><text class="t" x="600" y="213">NodeA</text>
+  <rect class="dead" x="580" y="250" width="100" height="36" rx="5"/><text class="t" x="600" y="273">NodeB</text>
+  <line class="d" x1="630" y1="226" x2="630" y2="246"/>
+  <path class="d" d="M680,268 C720,268 720,208 684,208"/>
+  <text class="c" x="330" y="236">no root can reach this island —</text>
+  <text class="c" x="330" y="252">they point at each other, but</text>
+  <text class="c" x="330" y="268">nobody points at them: GARBAGE</text>
+</svg>
+<figcaption>Tracing from roots. The island on the right is a reference <em>cycle</em>: reference counting would keep it forever,
+tracing collects it, because tracing asks "can I get there?" not "how many arrows point here?"</figcaption>
+</figure>
+
+<h3>3.3 Step one: mark</h3>
+<p>
+The collector walks the graph from the roots and marks everything it visits. This is a plain breadth-first or depth-first search.
+The cost of marking is proportional to the number of <strong>live</strong> objects — not to the size of the heap and not to the
+amount of garbage. <em>Dead objects cost nothing to find.</em> Remember that sentence; it is the reason the next trick works.
+</p>
+
+<h3>3.4 Step two: get the space back</h3>
+<p>There are three ways to reclaim the unmarked space, and real collectors mix them.</p>
+<table>
+  <thead><tr><th>Strategy</th><th>How</th><th>Trade-off</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Sweep</strong></td><td>Walk the heap and add every unmarked block to a free list.</td><td>Cheap, but leaves holes — the heap gets <em>fragmented</em>, and allocation becomes a search for a big-enough hole.</td></tr>
+    <tr><td><strong>Compact</strong></td><td>Slide the live objects together, leaving one big empty area.</td><td>Fixes fragmentation and makes allocating trivial, but moving objects means fixing up every arrow pointing at them.</td></tr>
+    <tr><td><strong>Copy (evacuate)</strong></td><td>Copy the live objects into a fresh empty area and declare the old area empty.</td><td>Cost depends only on the <em>survivors</em>, so it is almost free when nearly everything is dead. Needs spare space to copy into.</td></tr>
+  </tbody>
+</table>
+
+<figure>
+<svg viewBox="0 0 760 210" width="100%" role="img" aria-label="Fragmented heap after sweeping versus compacted heap">
+  <style>
+    .live{fill:#1f4d7a;stroke:#1f4d7a}
+    .hole{fill:#ffffff;stroke:#bdb7aa;stroke-dasharray:3 2}
+    .box{fill:none;stroke:#6b675e;stroke-width:1.2}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+  </style>
+  <text class="t" x="20" y="24">after MARK + SWEEP — live blocks stay put</text>
+  <rect class="box" x="20" y="34" width="720" height="40"/>
+  <rect class="live" x="24" y="38" width="60" height="32"/><rect class="hole" x="84" y="38" width="90" height="32"/>
+  <rect class="live" x="174" y="38" width="40" height="32"/><rect class="hole" x="214" y="38" width="130" height="32"/>
+  <rect class="live" x="344" y="38" width="70" height="32"/><rect class="hole" x="414" y="38" width="60" height="32"/>
+  <rect class="live" x="474" y="38" width="50" height="32"/><rect class="hole" x="524" y="38" width="212" height="32"/>
+  <text class="c" x="20" y="92">free space exists, but it is in pieces — a big object may not fit anywhere (fragmentation)</text>
+
+  <text class="t" x="20" y="134">after COMPACT / COPY — live blocks moved together</text>
+  <rect class="box" x="20" y="144" width="720" height="40"/>
+  <rect class="live" x="24" y="148" width="60" height="32"/><rect class="live" x="84" y="148" width="40" height="32"/>
+  <rect class="live" x="124" y="148" width="70" height="32"/><rect class="live" x="194" y="148" width="50" height="32"/>
+  <rect class="hole" x="244" y="148" width="492" height="32"/>
+  <text class="c" x="20" y="202">one contiguous free area — the next allocation is just "move the pointer forward"</text>
+</svg>
+<figcaption>Why collectors bother to move objects: compaction turns allocation into a pointer bump. HotSpot collectors
+"try to recover larger contiguous free memory by compacting live objects"
+<span class="sources">(Oracle — GC Tuning Guide §1)</span>.</figcaption>
+</figure>
+
+<h3>3.5 Why allocating in Java is so cheap</h3>
+<p>
+Because the young area is kept compact, creating an object is usually just: <em>take the current "next free" pointer, add the
+object's size, done.</em> That is a handful of machine instructions — often faster than C's <code>malloc</code>, which has to search
+a free list.
+</p>
+<p>
+On top of that, each thread gets its own private slice of the young area, a <strong>TLAB</strong> (thread-local allocation buffer),
+so threads do not even have to coordinate with each other while allocating. This is why the advice "don't create objects, reuse
+them" is usually wrong in modern Java — you will measure this yourself in §7.
+</p>
+
+<h3>3.6 The big trick: generations</h3>
+<p>
+Marking costs money proportional to live objects, so the collector wants to look at regions where <em>almost everything is dead</em>.
+Luckily, programs cooperate. The <strong>weak generational hypothesis</strong> says: <strong>most objects die very young</strong>
+<span class="sources">(<a href="https://docs.oracle.com/en/java/javase/21/gctuning/garbage-collector-implementation1.html">Oracle — GC Tuning Guide §3</a>)</span>.
+Think of the temporary objects in a loop, an iterator, a parsed request, a <code>StringBuilder</code> — all dead within microseconds.
+A few things (your cache, your connection pool, your configuration) live for the whole run. Very little sits in between.
+</p>
+<p>So the heap is divided by <em>age</em>:</p>
+<ul>
+  <li><strong>Young generation</strong> — where new objects are born. It is small, and it is collected often. Because nearly
+  everything in it is already dead, a collection copies out the few survivors and wipes the rest. This is a <strong>minor
+  collection</strong>.</li>
+  <li><strong>Old generation (tenured)</strong> — where objects that have survived several young collections are
+  <strong>promoted</strong>. It is big, and it is collected rarely. A collection here is a <strong>major</strong> (or full)
+  collection and is much more expensive.</li>
+</ul>
+<p>
+The young generation is itself split into <strong>eden</strong> plus <strong>two survivor spaces</strong>. Most objects are
+allocated in eden. One survivor space is always empty and serves as the destination for the live objects found in eden and in the
+other survivor space; after the collection, eden and the source survivor space are empty. Objects bounce between the survivor
+spaces, their age counter rising each time, until they have been copied enough times (or there is no room) — then they are copied
+into the old generation. Oracle calls this process <strong>aging</strong>
+<span class="sources">(<a href="https://docs.oracle.com/en/java/javase/21/gctuning/garbage-collector-implementation1.html">Oracle — GC Tuning Guide §3, "Generations"</a>)</span>.
+</p>
+
+<figure>
+<svg viewBox="0 0 760 320" width="100%" role="img" aria-label="Young generation with eden and two survivor spaces promoting into the old generation">
+  <style>
+    .y{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .s{fill:#f6fbf8;stroke:#1f6b4d;stroke-width:1.2}
+    .o{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#1f6b4d;stroke-width:1.5;marker-end:url(#p1);fill:none}
+    .b{stroke:#7a1f1f;stroke-width:1.5;marker-end:url(#p2);fill:none}
+  </style>
+  <defs>
+    <marker id="p1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1f6b4d"/></marker>
+    <marker id="p2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker>
+  </defs>
+
+  <text class="t" x="20" y="24" style="font-weight:bold">YOUNG GENERATION — small, collected often, very cheap</text>
+  <rect class="y" x="20" y="36" width="440" height="120" rx="6"/>
+  <rect class="y" x="34" y="56" width="200" height="80" rx="5"/>
+  <text class="t" x="100" y="86">EDEN</text>
+  <text class="c" x="46" y="110">every new object</text>
+  <text class="c" x="46" y="128">starts here</text>
+  <rect class="s" x="250" y="56" width="95" height="80" rx="5"/><text class="t" x="276" y="86">S0</text><text class="c" x="262" y="112">survivor</text>
+  <rect class="s" x="355" y="56" width="95" height="80" rx="5"/><text class="t" x="381" y="86">S1</text><text class="c" x="364" y="112">(one is</text><text class="c" x="364" y="128">always empty)</text>
+
+  <text class="t" x="540" y="24" style="font-weight:bold">OLD GENERATION</text>
+  <rect class="o" x="540" y="36" width="200" height="120" rx="6"/>
+  <text class="t" x="566" y="76">long-lived objects</text>
+  <text class="c" x="566" y="100">caches, pools, config,</text>
+  <text class="c" x="566" y="118">your Spring beans</text>
+  <text class="c" x="566" y="142">collected rarely (major GC)</text>
+
+  <line class="a" x1="234" y1="96" x2="246" y2="96"/>
+  <line class="a" x1="345" y1="96" x2="353" y2="96"/>
+  <line class="b" x1="450" y1="96" x2="536" y2="96"/>
+  <text class="c" x="452" y="86">promote</text>
+
+  <text class="t" x="20" y="196" style="font-weight:bold">one minor collection, step by step</text>
+  <text class="c" x="20" y="220">1. eden fills up  →  2. mark what is still reachable  →  3. copy those few survivors into the empty survivor space,</text>
+  <text class="c" x="20" y="240">bumping each one's age  →  4. declare eden and the old survivor space empty (free, no per-object work)</text>
+  <text class="c" x="20" y="264">5. anything that has survived enough rounds, or does not fit, is promoted to the old generation</text>
+  <text class="c" x="20" y="294" style="font-style:normal">Cost is proportional to the SURVIVORS only. A young generation full of dead objects is collected almost instantly.</text>
+</svg>
+<figcaption>Generational collection: eden + two survivor spaces, with aging and promotion. "A young generation full of dead objects
+is collected very quickly" <span class="sources">(Oracle — GC Tuning Guide §3)</span>.</figcaption>
+</figure>
+
+<div class="callout">
+<strong>Why two survivor spaces and not one?</strong> Because the collector copies survivors instead of sweeping them. Copying needs
+an empty destination. Keeping one survivor space empty at all times guarantees there is always somewhere to copy to, and the
+"from" space can then be wiped in one go. The two swap roles at every collection.
+</div>
+
+<h3>3.7 Stop-the-world pauses and safepoints</h3>
+<p>
+There is a problem with walking a graph that is being edited: if application threads keep moving arrows around while the collector
+traces, the collector's answer is wrong. The simplest fix is to <strong>stop all application threads</strong> while the critical
+work happens. That is a <strong>stop-the-world pause</strong>.
+</p>
+<p>
+Threads do not stop instantly. The JVM waits for each thread to reach a <strong>safepoint</strong> — a spot in the compiled code
+(method returns, loop back-edges) where the JVM knows exactly what is in every register and frame, so the stack can be scanned
+accurately. Then everyone waits, the GC works, and everyone resumes.
+</p>
+<p>
+Pauses are the real cost of garbage collection, and they are the thing modern collectors fight over. The two numbers people care
+about are <strong>throughput</strong> ("what percentage of total time is <em>not</em> spent collecting") and <strong>latency</strong>
+("how long is the longest pause")
+<span class="sources">(<a href="https://docs.oracle.com/en/java/javase/21/gctuning/garbage-collector-implementation1.html">Oracle — GC Tuning Guide §3, Performance Considerations</a>)</span>.
+Modern collectors shrink pauses by doing most of the marking <em>concurrently</em>, while your code keeps running, and stopping the
+world only for short bookkeeping phases. That is part 3.
+</p>
+
+<h3>3.8 The life of an object</h3>
+<figure>
+<svg viewBox="0 0 760 170" width="100%" role="img" aria-label="Object lifecycle from creation through unreachable to reclaimed">
+  <style>
+    .n{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .n2{fill:#f3f1ec;stroke:#a9a399;stroke-width:1.4}
+    .t{font:11.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:10.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#l1);fill:none}
+  </style>
+  <defs><marker id="l1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+  <rect class="n" x="10" y="40" width="130" height="46" rx="5"/><text class="t" x="26" y="60">created</text><text class="c" x="26" y="78">new -&gt; eden</text>
+  <rect class="n" x="180" y="40" width="130" height="46" rx="5"/><text class="t" x="196" y="60">reachable</text><text class="c" x="196" y="78">in use, maybe aged</text>
+  <rect class="n2" x="350" y="40" width="140" height="46" rx="5"/><text class="t" x="366" y="60">unreachable</text><text class="c" x="366" y="78">last arrow dropped</text>
+  <rect class="n2" x="530" y="40" width="130" height="46" rx="5"/><text class="t" x="546" y="60">collected</text><text class="c" x="546" y="78">space reused</text>
+  <line class="a" x1="140" y1="63" x2="176" y2="63"/>
+  <line class="a" x1="310" y1="63" x2="346" y2="63"/>
+  <line class="a" x1="490" y1="63" x2="526" y2="63"/>
+  <text class="c" x="350" y="116">the gap between these two is unpredictable —</text>
+  <text class="c" x="350" y="132">it happens at the JVM's convenience, not yours</text>
+  <text class="c" x="10" y="116">your code controls this arrow</text>
+  <text class="c" x="10" y="132">(by dropping references)</text>
+</svg>
+<figcaption>You control only one transition: reachable → unreachable. Everything after that belongs to the JVM, which is why you
+must never use GC to manage anything but memory.</figcaption>
+</figure>
+
+<h3>3.9 What the collector does <em>not</em> clean</h3>
+<ul>
+  <li><strong>Files, sockets, database connections.</strong> These are operating-system handles, not heap memory. GC will never close
+  them for you. Use <code>try</code>-with-resources.</li>
+  <li><strong>Native memory</strong> held by direct <code>ByteBuffer</code>s or JNI libraries — only loosely tied to GC.</li>
+  <li><strong>Metaspace.</strong> Class metadata lives in native memory and is only freed when the whole class loader becomes
+  unreachable. This is why redeploying an app repeatedly on an old server could throw
+  <code>OutOfMemoryError: Metaspace</code>.</li>
+  <li><strong>Thread stacks.</strong> Freed when the thread ends, not by GC.</li>
+</ul>
+<div class="idiom"><strong>The rule:</strong> GC manages <em>memory</em>. You manage <em>resources</em>. Anything with a
+<code>close()</code> method is your job.</div>
+
+<h2><span class="n">§4</span>When to use this knowledge</h2>
+<ul>
+  <li><strong>Explaining why a cycle is not a leak in Java</strong> — a very common interview question, and the cleanest way to show
+  you understand tracing versus counting.</li>
+  <li><strong>Deciding whether to "optimize" allocations.</strong> Knowing that young-gen allocation is a pointer bump stops you from
+  writing object pools that make the code worse and slower.</li>
+  <li><strong>Reading a GC log.</strong> <code>-verbose:gc</code> prints lines like
+  <code>239M-&gt;57M(307M)</code>: used before → used after (total heap)
+  <span class="sources">(<a href="https://docs.oracle.com/en/java/javase/21/gctuning/garbage-collector-implementation1.html">Oracle — GC Tuning Guide §3</a>)</span>.
+  If "after" keeps creeping up over hours, you have a leak.</li>
+  <li><strong>Diagnosing latency spikes.</strong> A request that is usually 5 ms and sometimes 400 ms is often sitting in a
+  stop-the-world pause.</li>
+  <li><strong>Choosing where to hold data.</strong> Anything that survives the young generation is now your long-term cost; that is
+  what caches really charge you.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Back to the warehouse from part 1. Boxes pile up all day. Nobody is allowed to throw a box out themselves, because someone else
+might still need it — and if two people both throw out the same box, chaos.
+</p>
+<p>
+So once in a while the warehouse manager does a sweep. She starts at the front desk, where all the notes people are <em>currently</em>
+holding are kept. Every note points to a box. She walks to that box, and if that box contains more notes, she follows those too, and
+so on. Every box she reaches gets a sticker.
+</p>
+<p>
+When she has followed every note she can, she looks around. <strong>Any box without a sticker is garbage</strong> — nobody could
+possibly reach it. Even if two unstickered boxes contain notes pointing at each other, it does not help them: she never walked in,
+so they both go.
+</p>
+<p>
+Here is her clever shortcut. She has noticed that most new boxes are rubbish within minutes, while boxes that have survived a month
+usually survive forever. So she keeps new boxes in a small room near the door and checks that room constantly — it is quick, because
+almost everything in it is rubbish and she only has to carry out the few keepers. Boxes that keep surviving get moved to the big back
+room, which she only cleans out occasionally.
+</p>
+<p>And the naive question — <em>why not just tidy up after yourself?</em> — is answered by the C column in §2.1: because people forget,
+people throw out things others still need, and nobody can see the whole warehouse at once.</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="lesson.html">part 1</a>:</strong> arrows and the heap. GC is just graph-walking over those arrows.</li>
+  <li><strong>← lesson 4 (execution engine):</strong> <em>escape analysis</em> lets the JIT skip the heap entirely for objects that never
+  leave a method — the cheapest GC is the one that has nothing to collect.</li>
+  <li><strong>→ <a href="lesson-3-collectors-leaks-and-tuning.html">part 3</a>:</strong> which collector implements all this, and the leaks that survive it.</li>
+  <li><strong>→ lesson 10 (exceptions):</strong> <code>try</code>-with-resources exists precisely because GC does not close resources.</li>
+  <li><strong>→ lesson 11 (concurrency):</strong> safepoints and stop-the-world pauses are a thread-coordination problem.</li>
+  <li><strong>Same idea elsewhere:</strong> Go, C#/.NET and JavaScript engines all use tracing collectors; CPython uses reference
+  counting <em>plus</em> a cycle detector bolted on, which is a nice illustration of why counting alone is not enough.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — proving it, line by line</h2>
+<p>Full source: <a href="../code/GcDemo.java">code/GcDemo.java</a>. Compiled and run on JDK 1.8.0_411.</p>
+
+<h3>Chunk 1 — unreachable really does mean collectable</h3>
+<pre>WeakReference&lt;Node&gt; watch = <span class="k">new</span> WeakReference&lt;Node&gt;(<span class="k">new</span> Node(1));
+System.out.println(<span class="s">"before gc: still there = "</span> + (watch.get() != <span class="k">null</span>));
+System.gc();
+Thread.sleep(100);
+System.out.println(<span class="s">"after  gc: still there = "</span> + (watch.get() != <span class="k">null</span>));</pre>
+<div class="ann">A <code>WeakReference</code> lets you look at an object without <em>holding</em> it — it is deliberately not counted as a
+root (part 3 explains the family). So the <code>Node(1)</code> has no strong arrow at all, and the collector takes it.
+<strong>Note the honesty:</strong> <code>System.gc()</code> is only a request. It happens to be honoured here, which is why this is a
+teaching demo and not production code.</div>
+
+<h3>Chunk 2 — a cycle is still garbage</h3>
+<pre>Node x = <span class="k">new</span> Node(2), y = <span class="k">new</span> Node(3);
+x.friend = y;   <span class="c">// x -&gt; y</span>
+y.friend = x;   <span class="c">// y -&gt; x : each has an incoming arrow</span>
+WeakReference&lt;Node&gt; watchCycle = <span class="k">new</span> WeakReference&lt;Node&gt;(x);
+x = <span class="k">null</span>;       <span class="c">// drop the only arrows from a root</span>
+y = <span class="k">null</span>;
+System.gc();</pre>
+<div class="ann">Under reference counting both objects would have a count of 1 and would leak forever. Under tracing, no root can
+reach the island, so both die. This five-line demo is the whole counting-vs-tracing argument.</div>
+
+<h3>Chunk 3 — short-lived objects are nearly free</h3>
+<pre><span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; 2_000_000; i++) {
+    Node temp = <span class="k">new</span> Node(i);   <span class="c">// ~1 KB each, dies immediately</span>
+    <span class="k">if</span> (temp.id == -1) System.out.println(<span class="s">"never"</span>);
+}</pre>
+<div class="ann">Two million objects, roughly two gigabytes of total allocation, in about half a second — and the heap is no bigger at
+the end than at the start. Every one of them was born in eden and wiped by a minor collection that only had to copy out zero
+survivors. The <code>if</code> is there on purpose, so the JIT cannot simply delete the loop.</div>
+
+<h3>Real output <span class="sources">(JDK 1.8.0_411, default heap)</span></h3>
+<pre>--- 1. unreachable means collectable ---
+before gc: still there = true
+after  gc: still there = false
+
+--- 2. a cycle is still garbage ---
+cycle survived gc? false
+
+--- 3. short-lived objects are cheap ---
+allocated 2,000,000 short-lived objects in 533 ms
+used before = 10 MB, used after gc = 10 MB</pre>
+<div class="ann">Read the last line twice. Two million allocations later, memory use is <em>unchanged</em>. That is the weak generational
+hypothesis paying for itself — and the reason "reuse objects to help the GC" is usually bad advice.</div>
+
+<div class="try"><strong>See it live.</strong> Run <code>java -verbose:gc GcDemo</code> and watch the minor collections scroll past
+during chunk 3. Then (1) raise the loop to 20 million and see whether memory use still stays flat; (2) change <code>Node temp</code>
+to <code>LEAK.add(new Node(i))</code> and watch it stop being flat; (3) run with <code>-Xmx64m</code> and predict which chunk fails
+first. <em>Predict before running.</em></div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Calling <code>System.gc()</code> in real code.</strong> It is a <em>hint</em>, and it typically triggers an
+expensive full collection at exactly the wrong moment. Use it in demos, never in production.</div>
+<div class="pitfall"><strong>Setting variables to <code>null</code> everywhere "to help GC".</strong> A local variable dies when its frame pops.
+Nulling only matters for long-lived <em>fields</em> — for example clearing a slot in a cache or an array you still hold.</div>
+<div class="pitfall"><strong>Relying on <code>finalize()</code>.</strong> It is deprecated for removal, runs at an unpredictable time, may
+never run at all, and can even resurrect objects. Use <code>try</code>-with-resources, or <code>java.lang.ref.Cleaner</code>.</div>
+<div class="pitfall"><strong>Expecting memory to return to the OS.</strong> Freed heap usually stays owned by the JVM for reuse. A flat
+"used" number inside the JVM is the thing to watch, not the process size.</div>
+<div class="pitfall"><strong>Thinking GC is instant.</strong> An object becomes unreachable at a precise moment, but it is collected
+whenever the JVM feels like it. Never tie correctness to collection timing.</div>
+<div class="pitfall"><strong>Assuming GC means "no memory bugs".</strong> It removes double-free and use-after-free. It does
+<em>not</em> remove leaks — see part 3.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>Manual <code>malloc</code>/<code>free</code> buys three bug classes: leaks, double frees, use-after-free. Java removes two of
+  them outright by taking the decision away from you.</li>
+  <li><strong>Reference counting</strong> frees promptly but cannot handle cycles; <strong>tracing</strong> handles cycles because it asks
+  "can I reach it?" Java traces.</li>
+  <li>An object is <strong>alive if reachable from a GC root</strong>: live locals on any thread, <code>static</code> fields, active
+  threads, JNI references, held monitors.</li>
+  <li>Marking costs time proportional to <strong>live</strong> objects — garbage is free to ignore.</li>
+  <li>Space is reclaimed by <strong>sweep</strong> (fast, fragments), <strong>compact</strong> (tidy, must move), or <strong>copy</strong>
+  (cost scales with survivors only).</li>
+  <li><strong>Weak generational hypothesis</strong>: most objects die young. Hence a small <strong>young gen</strong> (eden + two survivor
+  spaces, aging, minor GC) and a big <strong>old gen</strong> (promotion, rare major GC).</li>
+  <li>Allocation is a <strong>pointer bump</strong> in a per-thread TLAB, so creating short-lived objects is extremely cheap — measured
+  above as 2,000,000 objects with zero net heap growth.</li>
+  <li>Correct tracing needs <strong>stop-the-world</strong> pauses at <strong>safepoints</strong>; the two metrics that matter are
+  throughput and latency.</li>
+  <li>GC manages heap memory only — <strong>not</strong> files, sockets, native memory, or thread stacks.</li>
+</ul>
+
+<hr/>
+<h2>Reference — vocabulary you will see in GC logs</h2>
+<table>
+  <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td>Minor / young GC</td><td>Collects the young generation only. Frequent, short.</td></tr>
+    <tr><td>Major / full GC</td><td>Collects the old generation (full = whole heap). Rare, long.</td></tr>
+    <tr><td>Promotion / tenuring</td><td>Moving a survivor from young to old.</td></tr>
+    <tr><td>Evacuation</td><td>Copying live objects out of a region so the whole region can be freed.</td></tr>
+    <tr><td>Stop-the-world (STW)</td><td>All application threads paused while the GC works.</td></tr>
+    <tr><td>Safepoint</td><td>A point in the code where a thread can be stopped and its stack read accurately.</td></tr>
+    <tr><td>TLAB</td><td>Thread-local allocation buffer: a thread's private slice of eden.</td></tr>
+    <tr><td><code>239M-&gt;57M(307M)</code></td><td>Used before GC → used after GC (total heap size).</td></tr>
+    <tr><td><code>-verbose:gc</code> / <code>-Xlog:gc*</code></td><td>Print one line per collection / detailed phase logging (Java 9+).</td></tr>
+  </tbody>
+</table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Garbage</dt><dd>An object that can no longer be reached from any GC root.</dd>
+  <dt>GC root</dt><dd>A starting point for tracing: live locals, static fields, active threads, JNI refs, held monitors.</dd>
+  <dt>Reachability</dt><dd>Whether a path of references exists from some root to an object.</dd>
+  <dt>Tracing collector</dt><dd>A collector that finds live objects by walking the graph from the roots.</dd>
+  <dt>Reference counting</dt><dd>The alternative scheme that counts incoming references; defeated by cycles.</dd>
+  <dt>Mark–sweep–compact</dt><dd>Mark the live set, reclaim the rest, then slide survivors together.</dd>
+  <dt>Young / old generation</dt><dd>Heap regions for newly created vs long-surviving objects.</dd>
+  <dt>Eden / survivor space</dt><dd>The allocation area and the two copy-destination areas inside the young generation.</dd>
+  <dt>Aging</dt><dd>Counting how many collections an object has survived, to decide when to promote it.</dd>
+  <dt>Throughput</dt><dd>The share of total time <em>not</em> spent collecting.</dd>
+  <dt>Latency / pause time</dt><dd>How long the application is stopped for a single collection.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/en/java/javase/21/gctuning/garbage-collector-implementation1.html">Oracle — HotSpot VM Garbage Collection Tuning Guide, Chapter 3: Garbage Collector Implementation</a>
+— generational collection, eden and survivor spaces, aging, and how to read <code>-verbose:gc</code> output.</p>
+
+<p class="nav" style="margin-top:2rem">← <a href="lesson.html">Part 1 — Where your data lives</a> ·
+Next: <a href="lesson-3-collectors-leaks-and-tuning.html">Part 3 — Collectors, leaks &amp; tuning</a> →</p>
+
+<p class="sources">Sources: Oracle, <em>HotSpot VM GC Tuning Guide (SE 21)</em> §1 and §3; Oracle, <em>JVM Specification SE 21</em> §2.5.3.
+Code compiled and run on JDK 1.8.0_411; the output in §7 is real program output. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

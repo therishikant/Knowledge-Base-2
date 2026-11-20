@@ -1,0 +1,69 @@
+{
+  "topic": "java",
+  "subtopic": "02-jvm-class-loader",
+  "questions": [
+    {
+      "number": 1,
+      "question": "Name the three class-loading phases and state each one's job in a sentence.",
+      "level": "easy",
+      "areas": ["theory", "diagram"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 2,
+      "question": "Explain parent-first delegation (bootstrap/platform/application). Why does it exist and what attack does it prevent?",
+      "level": "medium",
+      "areas": ["theory", "trade-offs"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 3,
+      "question": "Distinguish the three linking sub-steps. At which step are static fields set to defaults vs to your assigned values, and why does that ordering bite?",
+      "level": "medium",
+      "areas": ["theory"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 4,
+      "question": "What makes two classes with the same fully-qualified name distinct types? How do app servers exploit this for isolation?",
+      "level": "hard",
+      "areas": ["theory", "trade-offs"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 5,
+      "question": "ClassNotFoundException vs NoClassDefFoundError vs VerifyError — cause of each and the phase it comes from.",
+      "level": "medium",
+      "areas": ["theory", "practical"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 6,
+      "question": "A class has a static initializer that prints. It's only referenced in a dead `if(false)` branch. Does it initialize? Explain lazy loading/init.",
+      "level": "medium",
+      "areas": ["practical", "theory"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    },
+    {
+      "number": 7,
+      "question": "How does the JVM guarantee <clinit> runs exactly once even under concurrent access? Tie this to the initialization-on-demand holder idiom.",
+      "level": "hard",
+      "areas": ["theory", "trade-offs"],
+      "intervalDays": null, "lastAsked": null, "nextAsk": null,
+      "performance": { "lastResult": null, "lastScore": null, "streak": 0 },
+      "history": []
+    }
+  ]
+}

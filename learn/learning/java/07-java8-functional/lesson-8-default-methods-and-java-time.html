@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>default Methods &amp; java.time — Java 8 &amp; Functional, Part 8 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  h4{font-size:1rem;margin:1.1rem 0 .2rem;color:#4a4639}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem;line-height:1.9}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1><code>default</code> Methods &amp; <code>java.time</code></h1>
+<p class="crumb">Java › Java 8 &amp; functional cluster · lesson 7, <strong>part 8 of 9</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — the feature that made streams possible, and the API that fixed dates</p>
+
+<p class="nav"><strong>Java 8 &amp; functional cluster:</strong>
+  <a href="lesson.html">1. Lambdas</a> ·
+  <a href="lesson-2-functional-interfaces.html">2. Functional interfaces &amp; method refs</a> ·
+  <a href="lesson-3-stream-pipeline.html">3. How a stream actually runs</a> ·
+  <a href="lesson-4-intermediate-operations.html">4. Intermediate operations</a> ·
+  <a href="lesson-5-terminal-operations.html">5. Terminal operations &amp; reduce</a> ·
+  <a href="lesson-6-collectors-and-groupingby.html">6. Collectors &amp; groupingBy</a> ·
+  <a href="lesson-7-optional.html">7. Optional</a> ·
+  <strong>8. default methods &amp; java.time</strong> ·
+  <a href="lesson-9-stream-recall-playbook.html">9. Recall &amp; interview playbook</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> Two more Java 8 features, for two different reasons. <strong><code>default</code> methods</strong> let
+an interface ship a method body, which is the only reason <code>Collection.stream()</code> could be added without breaking every
+class in the world. <strong><code>java.time</code></strong> replaced the mutable, confusing <code>Date</code>/<code>Calendar</code>
+with an immutable API whose type names say exactly what they mean.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+<p>
+Parts 1–7 were one connected story about functions and data. This part closes the Java 8 feature set with the two remaining pieces
+you are expected to know. They are smaller, but <code>default</code> methods in particular explain <em>how the whole streams
+feature was delivered at all</em> — a question interviewers like because it tests whether you understand library evolution, not
+just syntax.
+</p>
+
+<h2><span class="n">§2</span>Why they exist</h2>
+
+<h3>The interface evolution problem</h3>
+<p>
+Java 8 wanted to add <code>stream()</code> to <code>Collection</code>. But <code>Collection</code> is an interface, and before
+Java 8 every method on an interface was abstract. Adding one abstract method would have meant that <strong>every single class
+implementing <code>Collection</code>, anywhere in the world, stopped compiling</strong> — including thousands of classes in
+libraries the JDK team had never seen.
+</p>
+<p>The options were:</p>
+<table>
+  <thead><tr><th>Option</th><th>Why it fails</th></tr></thead>
+  <tbody>
+  <tr><td>Add an abstract method</td><td>Breaks every implementer. Non-starter.</td></tr>
+  <tr><td>Make a new <code>Collection2</code> interface</td><td>Splits the ecosystem forever; nothing old gets streams.</td></tr>
+  <tr><td>Put <code>stream()</code> in a static helper class</td><td><code>Streams.of(collection)</code> — works, but reads badly and cannot be overridden by implementations that could do it better.</td></tr>
+  <tr><td><strong>Let the interface supply a body</strong></td><td>Old classes inherit it and keep compiling; new classes may override it. <strong>This is <code>default</code>.</strong></td></tr>
+  </tbody>
+</table>
+<div class="callout">
+<strong>The sentence for an interview:</strong> <em>"<code>default</code> methods exist for interface evolution — they let a
+published interface grow new methods without breaking existing implementations. That is the only reason
+<code>Collection.stream()</code> and <code>Comparator.thenComparing()</code> could be added in Java 8."</em>
+</div>
+
+<h3>The <code>Date</code> problem</h3>
+<p>The old API was a well-known catalogue of bad decisions:</p>
+<ul>
+  <li><code>Date</code> is <strong>mutable</strong>, so any method you pass it to can change it under you, and it can never be
+      safely shared between threads.</li>
+  <li><code>Date.getYear()</code> returns the year <strong>minus 1900</strong>.</li>
+  <li><code>Calendar</code> months are <strong>zero-based</strong> — January is 0, a perennial off-by-one bug.</li>
+  <li><code>java.sql.Date</code> extends <code>java.util.Date</code> but throws on half its methods.</li>
+  <li><code>SimpleDateFormat</code> is <strong>not thread-safe</strong>, which has caused countless production incidents.</li>
+  <li>There is no type for "a date with no time" or "a time with no date" — concepts people need constantly.</li>
+</ul>
+<h4>Verified, on JDK 1.8</h4>
+<pre>Date year : 70  &lt;- 70, because years count from 1900
+Calendar  : month 0 means January - a classic off-by-one bug source</pre>
+
+<h2><span class="n">§3</span>How it works — <code>default</code> and <code>static</code> interface methods</h2>
+
+<figure>
+<svg viewBox="0 0 800 300" width="100%" role="img" aria-label="How a default method is inherited, overridden, and how the diamond conflict is resolved">
+  <style>
+    .i{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.5}
+    .cls{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.5}
+    .bad{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.5}
+    .t{font:12px "SF Mono",Menlo,monospace;fill:#2b2b28}.tb{font:bold 12px Georgia,serif;fill:#2b2b28}
+    .c{font:11.5px Georgia,serif;fill:#6b675e;font-style:italic}
+    .a{stroke:#6b675e;stroke-width:1.4;marker-end:url(#dm);fill:none}
+  </style>
+  <defs><marker id="dm" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="i" x="40" y="25" width="230" height="78" rx="6"/>
+  <text class="tb" x="58" y="47">interface Vehicle</text>
+  <text class="t" x="58" y="69">String name();        abstract</text>
+  <text class="t" x="58" y="89">int wheels() { 4 }    default</text>
+
+  <rect class="cls" x="20" y="160" width="130" height="70" rx="6"/>
+  <text class="tb" x="38" y="182">class Car</text>
+  <text class="c" x="38" y="202">inherits wheels()</text>
+  <text class="c" x="38" y="220">-&gt; 4</text>
+
+  <rect class="cls" x="175" y="160" width="130" height="70" rx="6"/>
+  <text class="tb" x="193" y="182">class Bike</text>
+  <text class="c" x="193" y="202">overrides wheels()</text>
+  <text class="c" x="193" y="220">-&gt; 2</text>
+
+  <line class="a" x1="110" y1="105" x2="85" y2="158"/>
+  <line class="a" x1="200" y1="105" x2="230" y2="158"/>
+
+  <rect class="i" x="420" y="25" width="150" height="58" rx="6"/>
+  <text class="tb" x="438" y="47">interface A</text>
+  <text class="t" x="438" y="67">hello() { "A" }</text>
+  <rect class="i" x="600" y="25" width="150" height="58" rx="6"/>
+  <text class="tb" x="618" y="47">interface B</text>
+  <text class="t" x="618" y="67">hello() { "B" }</text>
+
+  <rect class="bad" x="480" y="150" width="210" height="90" rx="6"/>
+  <text class="tb" x="498" y="172">class C implements A, B</text>
+  <text class="c" x="498" y="192">COMPILE ERROR unless C</text>
+  <text class="c" x="498" y="210">overrides hello() itself</text>
+  <text class="t" x="498" y="232">A.super.hello() + B.super.hello()</text>
+
+  <line class="a" x1="495" y1="85" x2="545" y2="148"/>
+  <line class="a" x1="675" y1="85" x2="625" y2="148"/>
+
+  <text class="c" x="20" y="268">Left: a default is simply inherited, and may be overridden.  Right: two defaults with the same signature are a "diamond" —</text>
+  <text class="c" x="20" y="288">Java refuses to guess, so the class must resolve it explicitly with X.super.method().</text>
+</svg>
+<figcaption>Inherit, override, or resolve. Java never silently picks a winner between two <code>default</code> methods.</figcaption>
+</figure>
+
+<pre><span class="k">interface</span> Vehicle {
+    String name();                                  <span class="c">// abstract</span>
+    <span class="k">default</span> String describe() {                      <span class="c">// a body on an interface</span>
+        <span class="k">return</span> <span class="s">"a "</span> + name() + <span class="s">" with "</span> + wheels() + <span class="s">" wheels"</span>;
+    }
+    <span class="k">default</span> <span class="k">int</span> wheels() { <span class="k">return</span> 4; }
+    <span class="k">static</span> Vehicle of(String n) { <span class="k">return</span> () -&gt; n; }   <span class="c">// static factory on the interface</span>
+}</pre>
+<h4>Verified output</h4>
+<pre>inherited : a car with 4 wheels
+overridden: a bike with 2 wheels
+diamond   : AB</pre>
+<div class="ann">
+Three things to take away. <strong>(1)</strong> <code>describe()</code> calls <code>name()</code>, an abstract method — a
+<code>default</code> method may use the rest of the interface, which is how <code>Comparator.thenComparing</code> is built.
+<strong>(2)</strong> <code>Vehicle</code> still has exactly one abstract method, so <code>() -&gt; n</code> is a legal lambda for it;
+<code>default</code> and <code>static</code> methods do not break functional-interface status.
+<strong>(3)</strong> The diamond printed <code>AB</code> because class <code>C</code> explicitly called
+<code>A.super.hello() + B.super.hello()</code>. Without that override it would not compile.
+</div>
+
+<h3>The resolution rules, in order</h3>
+<ol>
+  <li><strong>Class wins over interface.</strong> A method inherited from a superclass always beats a <code>default</code>.</li>
+  <li><strong>More specific interface wins.</strong> If <code>B extends A</code> and both define it, <code>B</code>'s wins.</li>
+  <li><strong>Otherwise you must choose.</strong> Unrelated interfaces with the same signature → compile error until the class
+      overrides it, optionally delegating with <code>A.super.hello()</code>.</li>
+</ol>
+<div class="pitfall"><strong>"Does this make Java multiple-inheritance?"</strong> The standard interview question. Answer: it adds
+multiple inheritance of <strong>behaviour</strong>, but <em>not</em> of <strong>state</strong> — interfaces still cannot have
+instance fields. That is precisely why the C++ diamond problem does not recur: there is no duplicated data, only a method-name
+clash, which the compiler makes you resolve.</div>
+<div class="callout"><strong><code>static</code> interface methods</strong> also arrived in Java 8 and are <em>not</em> inherited —
+you call them on the interface name. They exist so a type's factory methods can live with the type:
+<code>Stream.of</code>, <code>Comparator.comparing</code>, <code>Function.identity</code>, <code>Predicate.isEqual</code>.
+(Java 9 later added <code>private</code> interface methods for sharing code between defaults.)</div>
+
+<h3>Where you already rely on <code>default</code> methods</h3>
+<table>
+  <thead><tr><th>Interface</th><th>Default methods added in Java 8</th></tr></thead>
+  <tbody>
+  <tr><td><code>Collection</code></td><td><code>stream()</code>, <code>parallelStream()</code>, <code>removeIf()</code>, <code>spliterator()</code></td></tr>
+  <tr><td><code>Iterable</code></td><td><code>forEach()</code></td></tr>
+  <tr><td><code>List</code></td><td><code>sort()</code>, <code>replaceAll()</code></td></tr>
+  <tr><td><code>Map</code></td><td><code>getOrDefault</code>, <code>putIfAbsent</code>, <code>computeIfAbsent</code>, <code>computeIfPresent</code>, <code>merge</code>, <code>forEach</code>, <code>replaceAll</code></td></tr>
+  <tr><td><code>Comparator</code></td><td><code>thenComparing</code>, <code>reversed</code> (plus statics <code>comparing</code>, <code>naturalOrder</code>, <code>nullsFirst</code>)</td></tr>
+  <tr><td><code>Function</code>, <code>Predicate</code>, <code>Consumer</code></td><td><code>andThen</code>, <code>compose</code>, <code>and</code>, <code>or</code>, <code>negate</code></td></tr>
+  </tbody>
+</table>
+<div class="idiom"><strong>Idiom worth stealing.</strong> The <code>Map</code> defaults remove a lot of boilerplate:
+<pre>map.computeIfAbsent(key, k -&gt; <span class="k">new</span> ArrayList&lt;&gt;()).add(value);   <span class="c">// multi-map in one line</span>
+counts.merge(word, 1, Integer::sum);                            <span class="c">// word counting without streams</span>
+<span class="k">int</span> n = map.getOrDefault(key, 0);</pre></div>
+
+<h2><span class="n">§3b</span>How it works — <code>java.time</code></h2>
+
+<h3>Pick the type by asking what you actually mean</h3>
+<table>
+  <thead><tr><th>You mean</th><th>Type</th><th>Example value</th></tr></thead>
+  <tbody>
+  <tr><td>a date, no time, no zone (a birthday)</td><td><code>LocalDate</code></td><td><code>2024-03-15</code></td></tr>
+  <tr><td>a time of day, no date (a shop opening)</td><td><code>LocalTime</code></td><td><code>09:30</code></td></tr>
+  <tr><td>both, still no zone</td><td><code>LocalDateTime</code></td><td><code>2024-03-15T09:30</code></td></tr>
+  <tr><td>a real instant somewhere in the world</td><td><code>ZonedDateTime</code></td><td><code>2024-03-15T09:30+05:30[Asia/Kolkata]</code></td></tr>
+  <tr><td>a machine timestamp (UTC, for logs/DBs)</td><td><code>Instant</code></td><td><code>1970-01-01T00:00:00Z</code></td></tr>
+  <tr><td>an amount of time (hours/minutes)</td><td><code>Duration</code></td><td><code>PT1H30M</code></td></tr>
+  <tr><td>an amount of date (years/months/days)</td><td><code>Period</code></td><td><code>P9M10D</code></td></tr>
+  </tbody>
+</table>
+<div class="callout">
+<strong>The split that matters:</strong> <code>Duration</code> is <em>machine</em> time — exact seconds. <code>Period</code> is
+<em>human</em> time — "one month" is 28–31 days depending on where you start. Adding <code>Period.ofMonths(1)</code> to 31 January
+gives 29 February, not 31 February. Using the wrong one is a classic production bug.
+</div>
+
+<h3>Every object is immutable</h3>
+<pre>LocalDate d = LocalDate.of(2024, Month.MARCH, 15);
+d.plusDays(20)   <span class="c">// returns a NEW date 2024-04-04</span>
+d                <span class="c">// still 2024-03-15</span></pre>
+<pre>LocalDate : 2024-03-15
+plusDays  : 2024-04-04   (original still 2024-03-15 - immutable)</pre>
+<div class="ann">Every method starting with <code>plus</code>, <code>minus</code> or <code>with</code> returns a new object. That makes
+these types thread-safe and safe to share — the opposite of <code>Date</code>. The flip side: <strong>ignoring the return value is
+a silent no-op</strong>, exactly like <code>String.trim()</code>.</div>
+
+<h3>The operations you will actually use</h3>
+<pre>LocalDate.now()  ·  LocalDate.of(2024, 3, 15)  ·  LocalDate.parse(<span class="s">"2024-03-15"</span>)
+d.plusDays(1) · d.minusWeeks(2) · d.withDayOfMonth(1) · d.getDayOfWeek()
+d.isBefore(other) · d.isAfter(other) · d.isEqual(other)
+ChronoUnit.DAYS.between(a, b)        <span class="c">// 285 — a plain count</span>
+Period.between(a, b)                 <span class="c">// P9M10D — human-readable</span>
+d.format(DateTimeFormatter.ofPattern(<span class="s">"dd MMM yyyy"</span>, Locale.ENGLISH))   <span class="c">// 15 Mar 2024</span></pre>
+<div class="idiom"><strong>Idiom.</strong> <code>DateTimeFormatter</code> is <strong>immutable and thread-safe</strong>, so unlike
+<code>SimpleDateFormat</code> you can and should keep one in a <code>static final</code> field. That single difference removes an
+entire class of concurrency bug.</div>
+<div class="pitfall"><strong>Always pass a <code>Locale</code> to <code>ofPattern</code></strong> when the pattern contains text
+(<code>MMM</code>, <code>EEE</code>). Otherwise output depends on the machine's default locale and your tests will pass locally and
+fail on the build server.</div>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong><code>default</code> — yes:</strong> adding a method to an interface that already has implementers; providing a
+      convenience method expressible in terms of the abstract ones (<code>describe()</code> from <code>name()</code>).</li>
+  <li><strong><code>default</code> — no:</strong> as a way to share state or build a "base class". Interfaces have no fields; if you
+      need state, use an abstract class.</li>
+  <li><strong><code>static</code> on an interface:</strong> factory and helper methods that belong with the type.</li>
+  <li><strong><code>LocalDate</code>:</strong> birthdays, invoice dates, anything a human writes on a form.</li>
+  <li><strong><code>Instant</code>:</strong> timestamps you store or log; always UTC, always unambiguous.</li>
+  <li><strong><code>ZonedDateTime</code>:</strong> only when a specific place and its daylight-saving rules genuinely matter
+      (scheduling a meeting).</li>
+  <li><strong>Never:</strong> new code with <code>Date</code>, <code>Calendar</code> or <code>SimpleDateFormat</code>. Convert at the
+      boundary with <code>date.toInstant()</code> and <code>Date.from(instant)</code>.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+<strong><code>default</code> methods.</strong> Imagine a club with a rulebook. The rule says "every member must bring snacks". One
+day the club wants to add "every member must bring a chair" — but there are already a thousand members, and none of them has a
+chair. Instead of throwing everyone out, the club writes: <em>"every member must bring a chair; if you do not have one, use the
+spare in the cupboard."</em> Now the old members are still fine, and new members can bring a fancier chair if they want. The spare
+in the cupboard is the <code>default</code> method.
+</p>
+<p>
+And if you somehow belong to <em>two</em> clubs with different spare chairs, nobody can decide for you — you must say which one you
+are taking. That is the diamond rule.
+</p>
+<p>
+<strong><code>java.time</code>.</strong> The old date class was one messy box with everything in it, and anybody could reach in and
+change your date. The new one has separate labelled boxes: one for "just a day on the calendar", one for "just a time on a clock",
+one for "an exact moment anywhere on Earth". And none of them can be changed — asking for "twenty days later" gives you a brand-new
+box and leaves yours alone.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>→ <a href="lesson-3-stream-pipeline.html">part 3</a>:</strong> <code>Collection.stream()</code> is itself a
+      <code>default</code> method. No <code>default</code>, no streams.</li>
+  <li><strong>← <a href="lesson-2-functional-interfaces.html">part 2</a>:</strong> <code>default</code>/<code>static</code> methods
+      do not count toward the one-abstract-method rule, which is why <code>Comparator</code> and <code>Function</code> can be
+      packed with helpers and still take lambdas.</li>
+  <li><strong>← <a href="../05-type-system-and-oop/lesson-2-inheritance-and-polymorphism.html">inheritance &amp;
+      polymorphism</a>:</strong> the class-wins and most-specific-interface rules are the same dispatch rules, extended to
+      interfaces.</li>
+  <li><strong>→ <a href="../09-strings/lesson.html">strings</a>:</strong> the "ignoring the return value is a no-op" trap is
+      identical for immutable dates and immutable strings.</li>
+  <li><strong>→ <a href="../11-concurrency/lesson-2-sharing-data-safely.html">sharing data safely</a>:</strong> immutability is why
+      <code>java.time</code> types and <code>DateTimeFormatter</code> are safe to share between threads, while
+      <code>SimpleDateFormat</code> never was.</li>
+  <li><strong>Same idea elsewhere:</strong> <code>java.time</code> is based on the Joda-Time library (JSR-310, by the same author);
+      Python's <code>datetime</code> and JavaScript's new <code>Temporal</code> API follow the same date/time/instant split.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — dissected</h2>
+<p>From <a href="../code/Java8MiscDemo.java">code/Java8MiscDemo.java</a>:</p>
+<pre><span class="k">interface</span> A { <span class="k">default</span> String hello() { <span class="k">return</span> <span class="s">"A"</span>; } }
+<span class="k">interface</span> B { <span class="k">default</span> String hello() { <span class="k">return</span> <span class="s">"B"</span>; } }
+<span class="k">static</span> <span class="k">class</span> C <span class="k">implements</span> A, B {
+    <span class="k">public</span> String hello() { <span class="k">return</span> A.<span class="k">super</span>.hello() + B.<span class="k">super</span>.hello(); }
+}</pre>
+<div class="ann">
+Remove that override and the file does not compile: <em>"class C inherits unrelated defaults for hello() from types A and B"</em>.
+The syntax <code>A.super.hello()</code> is unique to this situation — it means "the <code>default</code> implementation from
+interface <code>A</code>". Being able to write it from memory is a reliable interview win.
+</div>
+
+<pre>System.out.println(Period.between(d, LocalDate.of(2024, 12, 25)));
+System.out.println(ChronoUnit.DAYS.between(d, LocalDate.of(2024, 12, 25)));</pre>
+<pre>Period    : P9M10D
+daysUntil : 285</pre>
+<div class="ann">
+Two answers to "how far apart are these dates", and both are correct. <code>Period</code> gives the human breakdown ("9 months and
+10 days") in ISO-8601 notation — <code>P</code> for period, then the parts. <code>ChronoUnit.DAYS.between</code> gives the flat
+count. Pick by what the user needs to read; never try to convert a <code>Period</code> into days by multiplying.
+</div>
+
+<h3>Full verified output</h3>
+<pre>inherited : a car with 4 wheels
+overridden: a bike with 2 wheels
+diamond   : AB
+LocalDate : 2024-03-15
+plusDays  : 2024-04-04   (original still 2024-03-15 - immutable)
+LocalTime : 09:30
+LocalDT   : 2024-03-15T09:30
+ZonedDT   : 2024-03-15T09:30+05:30[Asia/Kolkata]
+Instant   : 1970-01-01T00:00:00Z
+Duration  : PT1H30M
+Period    : P9M10D
+daysUntil : 285
+format    : 15 Mar 2024
+parse     : 2024-03-15
+compare   : true</pre>
+
+<div class="try"><strong>Predict the output.</strong>
+<pre>LocalDate d = LocalDate.of(2024, 1, 31);
+System.out.println(d.plusMonths(1));
+LocalDate e = LocalDate.of(2024, 3, 10);
+e.plusDays(5);
+System.out.println(e);</pre>
+<em>(Answers: <code>2024-02-29</code> — "one month after 31 January" is clamped to the last valid day, and 2024 is a leap year; then
+<code>2024-03-10</code> — the second result was discarded because the object is immutable.)</em>
+</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Treating <code>default</code> as a base class.</strong> Interfaces hold no state. If you want shared
+fields, you want an abstract class.</div>
+<div class="pitfall"><strong>Unresolved diamond.</strong> Two unrelated interfaces with the same <code>default</code> signature →
+compile error. Override and delegate with <code>X.super.method()</code>.</div>
+<div class="pitfall"><strong>Forgetting that a <code>default</code> cannot override <code>Object</code> methods.</strong> You cannot
+write a <code>default toString()</code>, <code>equals()</code> or <code>hashCode()</code> — the class always wins, so the language
+forbids it outright.</div>
+<div class="pitfall"><strong>Discarding an immutable result.</strong> <code>date.plusDays(1);</code> on its own does nothing.
+Assign it.</div>
+<div class="pitfall"><strong>Using <code>LocalDateTime</code> for a timestamp.</strong> It has no zone, so it does not identify a
+real moment. Store <code>Instant</code> (or UTC) and convert for display.</div>
+<div class="pitfall"><strong>Mixing <code>Period</code> and <code>Duration</code>.</strong> <code>Duration.ofDays(1)</code> is exactly
+24 hours and is wrong across a daylight-saving change; <code>Period.ofDays(1)</code> means "the next calendar day".</div>
+<div class="pitfall"><strong>Reusing <code>SimpleDateFormat</code> across threads.</strong> It is mutable and not thread-safe — the
+classic intermittent bug. <code>DateTimeFormatter</code> is safe.</div>
+<div class="pitfall"><strong><code>ofPattern</code> without a <code>Locale</code>.</strong> Text months and day names change with
+the machine's default locale.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li><code>default</code> methods exist for <strong>interface evolution</strong> — adding methods without breaking implementers.</li>
+  <li>They gave us <code>Collection.stream()</code>, <code>Iterable.forEach()</code>, <code>Comparator.thenComparing()</code> and
+      the <code>Map</code> helpers.</li>
+  <li>They do <strong>not</strong> count toward the one-abstract-method rule, so functional interfaces can still be rich.</li>
+  <li>Conflict resolution: <strong>class wins → most specific interface wins → otherwise you must override</strong>, delegating
+      with <code>A.super.m()</code>.</li>
+  <li>Multiple inheritance of <strong>behaviour</strong>, never of <strong>state</strong>.</li>
+  <li><code>static</code> interface methods hold factories (<code>Stream.of</code>, <code>Comparator.comparing</code>) and are not
+      inherited.</li>
+  <li><code>java.time</code> types are <strong>immutable and thread-safe</strong>; every <code>plus</code>/<code>minus</code>/
+      <code>with</code> returns a new object.</li>
+  <li>Pick by meaning: <code>LocalDate</code> / <code>LocalTime</code> / <code>LocalDateTime</code> /
+      <code>ZonedDateTime</code> / <code>Instant</code>.</li>
+  <li><code>Duration</code> = machine time (seconds); <code>Period</code> = human time (years/months/days).</li>
+  <li><code>DateTimeFormatter</code> is thread-safe; <code>SimpleDateFormat</code> never was.</li>
+</ul>
+
+<hr/>
+<h2>Reference — card</h2>
+<pre>DEFAULT / STATIC INTERFACE METHODS
+default T m() { ... }     inherited; overridable; no state allowed
+static  T f() { ... }     NOT inherited; call on the interface name
+private T h() { ... }     Java 9+, shared helper for defaults
+
+CONFLICT RULES
+1. a class method always wins over any interface default
+2. the most specific interface wins (B extends A -> B)
+3. unrelated interfaces -> compile error; override and use A.super.m()
+
+JAVA.TIME — PICK BY MEANING
+LocalDate       2024-03-15                         a calendar day
+LocalTime       09:30                              a clock time
+LocalDateTime   2024-03-15T09:30                   both, no zone
+ZonedDateTime   ...+05:30[Asia/Kolkata]            a real moment in a place
+Instant         1970-01-01T00:00:00Z               a machine timestamp (UTC)
+Duration        PT1H30M                            exact seconds   (machine)
+Period          P9M10D                             years/months/days (human)
+
+COMMON CALLS
+now() · of(...) · parse("2024-03-15")
+plusDays/minusWeeks/withDayOfMonth      -> always returns a NEW object
+isBefore/isAfter/isEqual
+ChronoUnit.DAYS.between(a, b)           -> long
+Period.between(a, b)                    -> P9M10D
+format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH))
+Date.from(instant) / date.toInstant()   -> bridge to the old API</pre>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt><code>default</code> method</dt><dd>An interface method with a body, inherited by implementers.</dd>
+  <dt>Interface evolution</dt><dd>Adding methods to a published interface without breaking existing code.</dd>
+  <dt>Diamond problem</dt><dd>Two unrelated interfaces supplying the same <code>default</code>; must be resolved explicitly.</dd>
+  <dt><code>A.super.m()</code></dt><dd>Syntax for invoking a specific interface's <code>default</code> implementation.</dd>
+  <dt><code>LocalDate</code></dt><dd>A date with no time and no time zone.</dd>
+  <dt><code>Instant</code></dt><dd>A point on the UTC timeline; the machine timestamp type.</dd>
+  <dt><code>Duration</code> vs <code>Period</code></dt><dd>Exact time-based amount vs calendar-based amount.</dd>
+  <dt>ISO-8601</dt><dd>The standard text format <code>java.time</code> uses by default (<code>2024-03-15</code>, <code>PT1H30M</code>).</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/tutorial/java/IandI/defaultmethods.html">Oracle — Default Methods (Java Tutorials)</a>,
+which states the conflict-resolution rules verbatim, and the
+<a href="https://docs.oracle.com/javase/8/docs/api/java/time/package-summary.html">Oracle <code>java.time</code> package summary</a>,
+whose opening section explains the design principles (immutability, domain-driven types, ISO-8601).</p>
+
+<p class="nav" style="margin-top:2rem">← <a href="lesson-7-optional.html">Part 7 — Optional</a> ·
+Next: <a href="lesson-9-stream-recall-playbook.html">Part 9 — Recall &amp; interview playbook</a> →</p>
+<p class="sources">Sources: Oracle, <em>The Java Tutorials</em> — Default Methods; Oracle <code>java.time</code> package summary and
+<code>LocalDate</code>/<code>Period</code>/<code>Duration</code> javadocs (SE 8). All outputs produced by running
+<code>Java8MiscDemo.java</code> on JDK 1.8.0_411. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

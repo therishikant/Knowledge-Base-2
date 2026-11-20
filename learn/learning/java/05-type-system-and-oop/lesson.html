@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>What a Type Really Is — Types &amp; OOP, Part 1 — Java</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:860px;padding:3.5rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.1;margin:0 0 .2rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+  h2{font-size:1.4rem;margin:2.4rem 0 .5rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem}
+  h3{font-size:1.1rem;margin:1.4rem 0 .3rem}
+  p{margin:.6rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.82rem;line-height:1.45}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--rule);padding:.45rem .6rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.7rem 1.1rem;border-radius:0 6px 6px 0;margin:.8rem 0}
+  .try{background:#fff6e0;border:1px dashed #d0a94a;padding:.8rem 1.1rem;border-radius:6px;margin:1.2rem 0}
+  .glossary dt{font-weight:700;margin-top:.5rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.35rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.3rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  .nav{font-size:.88rem;background:#f1ece0;border:1px solid var(--rule);border-radius:6px;padding:.55rem .9rem;margin:0 0 1.8rem}
+  .nav strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>What a Type Really Is</h1>
+<p class="crumb">Java › type system &amp; OOP cluster · lesson 5, <strong>part 1 of 3</strong> · <span style="color:#7a1f1f;font-weight:700">DEEP</span> — classes, objects, and the small door</p>
+
+<p class="nav"><strong>Type &amp; OOP cluster:</strong>
+  <strong>1. What a type really is</strong> ·
+  <a href="lesson-2-inheritance-and-polymorphism.html">2. Inheritance &amp; polymorphism</a> ·
+  <a href="lesson-3-generics-and-erasure.html">3. Generics &amp; erasure</a>
+</p>
+
+<div class="tldr">
+<strong>In one line —</strong> A <strong>type</strong> is a promise about what a piece of data can do, and the compiler checks that
+promise <em>before</em> your program ever runs. A <strong>class</strong> is how you write a new promise down. An
+<strong>object</strong> is one real thing built from that class. And <strong>encapsulation</strong> — keeping fields
+<code>private</code> and letting callers in only through methods — is how you make sure a broken object can never exist in the
+first place.
+</div>
+
+<h2><span class="n">§1</span>Where it fits</h2>
+
+<p>
+Lessons 1–4 were about how Java <em>runs</em> code: source becomes bytecode, the class loader brings it in, memory areas hold it,
+and the execution engine runs it. Those lessons answered <em>"what happens to my code?"</em>
+</p>
+<p>
+This lesson is the first one that answers a different question: <em>"how do I shape my code in the first place?"</em> It is the
+start of the design half of Java. Everything after it — memory, collections, strings, concurrency, application architecture —
+assumes you are comfortable here.
+</p>
+<p>
+You already write Java 8 every day, so you have used all of this. The goal is not new syntax. The goal is to make the
+<strong>why</strong> underneath it so clear that you can defend every design choice, in an interview and in a code review.
+</p>
+
+<p>Because this area is large, lesson 5 is split into three parts, the same way the JVM and memory lessons were:</p>
+<table>
+  <thead><tr><th>Part</th><th>Question it answers</th></tr></thead>
+  <tbody>
+    <tr><td><strong>1 — What a type really is</strong> (this one)</td>
+        <td>What is a type? What is a class vs an object? Why keep fields private? What do <code>static</code> and <code>final</code> actually mean?</td></tr>
+    <tr><td><a href="lesson-2-inheritance-and-polymorphism.html">2 — Inheritance &amp; polymorphism</a></td>
+        <td>How do types relate to each other? When do I use <code>extends</code>, an <code>interface</code>, or neither?</td></tr>
+    <tr><td><a href="lesson-3-generics-and-erasure.html">3 — Generics &amp; erasure</a></td>
+        <td>What does <code>List&lt;String&gt;</code> mean, why does it vanish at run time, and what is PECS?</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="n">§2</span>Why it exists</h2>
+
+<h3>2.1 The problem: a computer only sees bytes</h3>
+<p>
+Deep down, memory holds nothing but numbers. A number sitting in memory could be an integer, part of a price, a pixel colour, or
+the first half of a date. The bytes do not say.
+</p>
+<p>
+So somebody has to remember what each chunk of memory <em>means</em>, and what you are allowed to do with it. There are only two
+candidates for that job:
+</p>
+<ul>
+  <li><strong>You, the programmer, remember it.</strong> This is how the earliest languages worked. It is fine for 50 lines and collapses at 50,000.</li>
+  <li><strong>The language remembers it, and checks you.</strong> That is a <em>type system</em>.</li>
+</ul>
+<p>
+A <strong>type</strong> is simply a label attached to data that says two things: <em>what shape the data has</em>, and
+<em>which operations are legal on it</em>. <code>String</code> means "text, and you may call <code>length()</code> on it".
+<code>int</code> means "a whole number, and you may add it".
+</p>
+
+<h3>2.2 Why Java checks types <em>before</em> running</h3>
+<p>
+Java is <strong>statically typed</strong>: every variable has a type written in the source, and the compiler checks all the
+promises before producing a single byte of bytecode
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-4.html">JLS SE 21, §4 — Types, Values, and Variables</a>)</span>.
+</p>
+<p>If you write this:</p>
+<pre>String name = <span class="s">"Asha"</span>;
+name.lenght();        <span class="c">// typo</span></pre>
+<p>
+the compiler stops you immediately. A dynamically typed language would happily start your program and blow up weeks later, at
+2 a.m., in production, on the one code path nobody tested. That difference — <strong>failure at build time instead of failure at
+run time</strong> — is the entire pitch for static typing.
+</p>
+<div class="callout">
+<strong>The cost, honestly stated.</strong> Static typing makes you write more. You must declare types, and occasionally you must
+fight the compiler to express something it cannot see. The trade is deliberate: more typing up front, far fewer surprises later.
+Dynamic languages (Python, JavaScript) take the opposite trade — which is why both ecosystems eventually bolted on type checkers
+(mypy, TypeScript). Large codebases keep rediscovering that they want types.
+</div>
+
+<h3>2.3 The second problem: big programs tangle</h3>
+<p>
+Types alone are not enough. Imagine a 200,000-line program where any function can read and change any piece of data. Change one
+field and you must re-check the whole program, because anything might be touching it. That is not a theoretical worry — it is the
+normal state of a large codebase without discipline.
+</p>
+<p><strong>Object-oriented programming</strong> is Java's answer, and it comes down to one move, repeated everywhere:</p>
+<div class="idiom">
+<strong>Put data and the code that guards that data in the same box, and let the outside world in only through a small,
+deliberate door.</strong>
+</div>
+<p>
+That is it. Everything else — inheritance, interfaces, polymorphism — is a refinement of that one idea. If you keep only one
+sentence from this cluster, keep that one.
+</p>
+
+<h3>2.4 The four pillars, in plain words</h3>
+<table>
+  <thead><tr><th>Pillar</th><th>Plain meaning</th><th>Where you meet it</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Encapsulation</strong></td><td>Hide the insides. Expose a small door.</td><td>This lesson (§3.4)</td></tr>
+    <tr><td><strong>Abstraction</strong></td><td>Describe <em>what</em> something does, hide <em>how</em>.</td><td>This lesson + part 2</td></tr>
+    <tr><td><strong>Inheritance</strong></td><td>Build a new type on top of an existing one.</td><td><a href="lesson-2-inheritance-and-polymorphism.html">Part 2</a></td></tr>
+    <tr><td><strong>Polymorphism</strong></td><td>One command, many behaviours, chosen by the real object.</td><td><a href="lesson-2-inheritance-and-polymorphism.html">Part 2</a></td></tr>
+  </tbody>
+</table>
+
+<h2><span class="n">§3</span>How it works</h2>
+
+<h3>3.1 Java has exactly two families of types</h3>
+<p>Every value in a Java program is one of two kinds. There is no third kind.</p>
+
+<table>
+  <thead><tr><th></th><th>Primitive type</th><th>Reference type</th></tr></thead>
+  <tbody>
+    <tr><td>Which ones</td>
+        <td>exactly eight: <code>byte</code>, <code>short</code>, <code>int</code>, <code>long</code>, <code>float</code>, <code>double</code>, <code>char</code>, <code>boolean</code></td>
+        <td>everything else: classes, interfaces, arrays, enums, <code>String</code></td></tr>
+    <tr><td>The variable holds</td><td>the value itself</td><td>an <em>arrow</em> (reference) to an object, or <code>null</code></td></tr>
+    <tr><td>Can it be <code>null</code>?</td><td>no</td><td>yes</td></tr>
+    <tr><td>Has methods?</td><td>no</td><td>yes</td></tr>
+    <tr><td>Default value</td><td><code>0</code> / <code>false</code> / <code>'\u0000'</code></td><td><code>null</code></td></tr>
+  </tbody>
+</table>
+
+<p>
+Primitives exist for speed. An <code>int</code> is four raw bytes the CPU adds in a single instruction, with no object header and
+no garbage collection. Reference types exist for everything that needs behaviour, identity, or the ability to be absent.
+</p>
+<p>
+Every reference type, without exception, sits under one root class: <code>java.lang.Object</code>. Even an array is an
+<code>Object</code>. That single family tree is what makes polymorphism possible in part 2
+<span class="sources">(<a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-4.html#jls-4.3.2">JLS SE 21, §4.3.2</a>)</span>.
+</p>
+
+<figure>
+<svg viewBox="0 0 760 270" width="100%" role="img" aria-label="Java types split into primitives and reference types, with Object as the root of all reference types">
+  <style>
+    .bx{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .bp{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .bg{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .ln{stroke:#6b675e;stroke-width:1.3;marker-end:url(#mk);fill:none}
+  </style>
+  <defs><marker id="mk" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker></defs>
+
+  <rect class="bx" x="300" y="12" width="170" height="40" rx="6"/>
+  <text class="t" x="326" y="37">every Java type</text>
+
+  <rect class="bp" x="40" y="100" width="280" height="56" rx="6"/>
+  <text class="t" x="56" y="122">PRIMITIVE (8 of them)</text>
+  <text class="c" x="56" y="142">int long double boolean char byte short float</text>
+
+  <rect class="bg" x="430" y="100" width="290" height="56" rx="6"/>
+  <text class="t" x="446" y="122">REFERENCE (unlimited)</text>
+  <text class="c" x="446" y="142">class · interface · array · enum</text>
+
+  <line class="ln" x1="340" y1="56" x2="210" y2="96"/>
+  <line class="ln" x1="430" y1="56" x2="560" y2="96"/>
+
+  <rect class="bp" x="40" y="200" width="280" height="50" rx="6"/>
+  <text class="c" x="56" y="221">the box holds the VALUE: 42</text>
+  <text class="c" x="56" y="240">no methods · never null</text>
+
+  <rect class="bg" x="430" y="200" width="290" height="50" rx="6"/>
+  <text class="c" x="446" y="221">the box holds an ARROW to a heap object</text>
+  <text class="c" x="446" y="240">all of them extend java.lang.Object</text>
+
+  <line class="ln" x1="180" y1="156" x2="180" y2="196"/>
+  <line class="ln" x1="575" y1="156" x2="575" y2="196"/>
+</svg>
+<figcaption>The one split that explains most Java surprises. Primitives carry values; reference types carry arrows, and every one
+of them inherits from <code>Object</code> (JLS SE 21, §4.1–§4.3).</figcaption>
+</figure>
+
+<h3>3.2 Class vs object — the difference people blur</h3>
+<p>
+A <strong>class</strong> is a description. It says: "a thing of this kind has these fields and can do these things." It is text.
+</p>
+<p>
+An <strong>object</strong> is one real thing built from that description with <code>new</code>. It lives on the heap and has its
+own copy of every instance field.
+</p>
+<p>
+The usual analogy is <em>blueprint vs house</em>, and it is a good one. One blueprint, many houses. Each house has its own address
+and its own furniture. Rearranging house A does not touch house B.
+</p>
+
+<pre><span class="k">class</span> Account {        <span class="c">// the blueprint — written once, exists as text</span>
+    <span class="k">private</span> <span class="k">long</span> balance;
+}
+
+Account a = <span class="k">new</span> Account();   <span class="c">// house #1 — its own balance</span>
+Account b = <span class="k">new</span> Account();   <span class="c">// house #2 — its own balance</span></pre>
+
+<div class="callout">
+<strong>The one place the blueprint <em>does</em> exist at run time.</strong> The class loader (lesson 2) builds a
+<code>Class</code> object for every class and keeps the field list, method bytecode and constants in Metaspace. So there is one
+run-time thing per class — it just is not where your object's data lives.
+</div>
+
+<h3>3.3 Instance vs <code>static</code> — "one each" vs "one total"</h3>
+<p>This is the whole meaning of <code>static</code>, and it is simpler than people make it:</p>
+<table>
+  <thead><tr><th></th><th>Instance member (no <code>static</code>)</th><th><code>static</code> member</th></tr></thead>
+  <tbody>
+    <tr><td>How many exist</td><td>one per object</td><td>one per class, for the whole program</td></tr>
+    <tr><td>Where it lives</td><td>inside the object, on the heap</td><td>with the class, in Metaspace</td></tr>
+    <tr><td>How you reach it</td><td><code>account.balancePaise()</code></td><td><code>Account.accountsOpened()</code></td></tr>
+    <tr><td>Can it use <code>this</code>?</td><td>yes</td><td><strong>no</strong> — there is no object to point at</td></tr>
+  </tbody>
+</table>
+<p>
+That last row explains the error every beginner hits: <em>"non-static variable cannot be referenced from a static context."</em>
+It is not a mysterious rule. A <code>static</code> method belongs to the class, so when it runs there may be no object at all —
+there is literally nothing for <code>this</code> to mean.
+</p>
+<div class="idiom">
+<strong>Use <code>static</code> for:</strong> constants (<code>public static final</code>), stateless helpers that depend on nothing
+but their arguments (<code>Math.max</code>), and factory methods (<code>Integer.valueOf</code>).
+<strong>Avoid <code>static</code> for:</strong> mutable shared state. A <code>static</code> mutable field is a global variable in a
+Java costume — shared by every thread, invisible in method signatures, and it leaks state between tests.
+</div>
+
+<h3>3.4 Encapsulation — the small door</h3>
+<p>Here is the most important design idea in the cluster, and the real reason <code>private</code> exists.</p>
+<p>
+An object usually has rules about its own data that must <em>always</em> be true. A balance must never be negative. An order must
+always have at least one line. A date range must end after it starts. These always-true rules are called
+<strong>invariants</strong>.
+</p>
+<p>
+If a field is <code>public</code>, you cannot protect an invariant, because any line of code anywhere can set it to anything. If
+the field is <code>private</code> and the only way in is a method, the method gets to refuse.
+</p>
+
+<figure>
+<svg viewBox="0 0 760 300" width="100%" role="img" aria-label="An object with a public field accepting bad data versus an encapsulated object rejecting it">
+  <style>
+    .ob{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.5}
+    .ok{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.5}
+    .fl{fill:#f4f0e6;stroke:#bdb7aa;stroke-width:1.2}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .bad{stroke:#7a1f1f;stroke-width:1.6;marker-end:url(#m1);fill:none}
+    .blk{stroke:#7a1f1f;stroke-width:2.4;fill:none}
+  </style>
+  <defs>
+    <marker id="m1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker>
+  </defs>
+
+  <text class="t" x="20" y="22" style="font-weight:bold">PUBLIC FIELD — no door, just a hole</text>
+  <text class="c" x="20" y="66">acct.balance = -999;</text>
+  <line class="bad" x1="20" y1="76" x2="235" y2="76"/>
+  <rect class="ob" x="250" y="42" width="230" height="86" rx="8"/>
+  <rect class="fl" x="266" y="60" width="198" height="30" rx="4"/>
+  <text class="t" x="280" y="81">balance = -999</text>
+  <text class="c" x="266" y="112">no rule can be enforced</text>
+  <text class="c" x="500" y="82">object is now corrupt,</text>
+  <text class="c" x="500" y="100">and nothing can stop it</text>
+
+  <text class="t" x="20" y="192" style="font-weight:bold">PRIVATE FIELD + METHOD — a small door</text>
+  <text class="c" x="20" y="236">acct.withdraw(100000);</text>
+  <line class="bad" x1="20" y1="246" x2="228" y2="246"/>
+  <path class="blk" d="M232,234 L248,258 M248,234 L232,258"/>
+  <rect class="ok" x="250" y="212" width="230" height="86" rx="8"/>
+  <rect class="fl" x="266" y="230" width="198" height="30" rx="4"/>
+  <text class="t" x="280" y="251">balance = 7500</text>
+  <text class="c" x="266" y="282">invariant: never negative</text>
+  <text class="c" x="500" y="252">returns false —</text>
+  <text class="c" x="500" y="270">state untouched</text>
+</svg>
+<figcaption>The same bad input, two designs. A <code>public</code> field cannot say no. A method can. That refusal <em>is</em>
+encapsulation — not the getter/setter ceremony people usually mean by the word.</figcaption>
+</figure>
+
+<h3>3.5 The four access levels</h3>
+<p>Java gives you exactly four visibility settings, from most open to most closed
+<span class="sources">(<a href="https://docs.oracle.com/javase/tutorial/java/javaOO/accesscontrol.html">Oracle Java Tutorials — Controlling Access to Members of a Class</a>)</span>:</p>
+<table>
+  <thead><tr><th>Modifier</th><th>Visible to</th><th>Use it for</th></tr></thead>
+  <tbody>
+    <tr><td><code>public</code></td><td>every class, everywhere</td><td>the API you promise to keep working</td></tr>
+    <tr><td><code>protected</code></td><td>same package <em>and</em> subclasses anywhere</td><td>deliberate hooks for subclasses</td></tr>
+    <tr><td><em>nothing written</em> ("package-private")</td><td>same package only</td><td>helpers one package shares internally</td></tr>
+    <tr><td><code>private</code></td><td>the same class only</td><td>state and helpers nobody outside should know about</td></tr>
+  </tbody>
+</table>
+<div class="idiom">
+<strong>Default to the most closed option that works, and open up only when you must.</strong> Widening access later is easy and
+harmless. Narrowing it later breaks every caller — so <code>public</code> is a promise you may never be able to take back
+<span class="sources">(Bloch, <em>Effective Java</em>, Item 15: "minimize the accessibility of classes and members")</span>.
+</div>
+
+<h3>3.6 Constructors — the gate every object must pass through</h3>
+<p>
+A constructor is code that runs once, during <code>new</code>, to put the object into a valid starting state. Its real job is not
+"assign the fields" — it is <strong>make it impossible to build a broken object</strong>.
+</p>
+<p>Five facts worth knowing precisely:</p>
+<ol>
+  <li><strong>If you write none, Java gives you a free no-argument one.</strong> Write any constructor yourself and that free one disappears.</li>
+  <li><strong>You can have several</strong> (constructor overloading) — different ways to build the same kind of thing.</li>
+  <li><strong>One constructor can call another</strong> in the same class with <code>this(...)</code>, so the rules are written once.</li>
+  <li><strong>A subclass constructor always runs its parent's constructor first</strong>, via an explicit or implicit <code>super(...)</code>, all the way up to <code>Object</code> <span class="sources">(<a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-8.html#jls-8.8">JLS SE 21, §8.8</a>)</span>.</li>
+  <li><strong><code>this(...)</code> or <code>super(...)</code> must be the very first statement</strong>, so a half-built parent is never observed.</li>
+</ol>
+
+<figure>
+<svg viewBox="0 0 760 240" width="100%" role="img" aria-label="Constructor chaining: a convenience constructor delegates to the main constructor, which validates before assigning">
+  <style>
+    .s1{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.4}
+    .s2{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.4}
+    .s3{fill:#eef7f1;stroke:#1f6b4d;stroke-width:1.4}
+    .t{font:12.5px "SF Mono",Menlo,monospace;fill:#2b2b28}
+    .c{font:11px Georgia,serif;fill:#6b675e;font-style:italic}
+    .ar{stroke:#6b675e;stroke-width:1.4;marker-end:url(#m3);fill:none}
+    .rd{stroke:#7a1f1f;stroke-width:1.4;marker-end:url(#m4);fill:none}
+  </style>
+  <defs>
+    <marker id="m3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b675e"/></marker>
+    <marker id="m4" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7a1f1f"/></marker>
+  </defs>
+
+  <rect class="s1" x="20" y="96" width="180" height="56" rx="6"/>
+  <text class="t" x="32" y="120">new Account("bala")</text>
+  <text class="c" x="32" y="140">the short form</text>
+
+  <rect class="s1" x="236" y="96" width="196" height="56" rx="6"/>
+  <text class="t" x="250" y="120">this(owner, 0L)</text>
+  <text class="c" x="250" y="140">delegates — no logic here</text>
+
+  <rect class="s2" x="470" y="76" width="266" height="96" rx="6"/>
+  <text class="t" x="486" y="100">the ONE real constructor</text>
+  <text class="c" x="486" y="122">1. check owner is not blank</text>
+  <text class="c" x="486" y="140">2. check balance &gt;= 0</text>
+  <text class="c" x="486" y="158">3. assign the final fields</text>
+
+  <line class="ar" x1="202" y1="124" x2="232" y2="124"/>
+  <line class="ar" x1="434" y1="124" x2="466" y2="124"/>
+
+  <rect class="s3" x="470" y="192" width="266" height="36" rx="6"/>
+  <text class="c" x="486" y="215">valid object handed back to the caller</text>
+  <line class="ar" x1="600" y1="174" x2="600" y2="188"/>
+
+  <path class="rd" d="M560,76 C520,24 300,20 236,46"/>
+  <text class="c" x="300" y="22">bad input? throw — the object never exists</text>
+</svg>
+<figcaption>Validation lives in exactly one constructor; every other constructor delegates to it with <code>this(...)</code>. If the
+input is bad, the constructor throws and no half-valid object is ever handed out.</figcaption>
+</figure>
+
+<h3>3.7 <code>final</code> — "cannot be re-pointed", not "cannot change"</h3>
+<p>
+<code>static</code> and <code>final</code> get mixed up constantly, so pin them down: <strong><code>static</code> answers "how many
+copies?"</strong>, <strong><code>final</code> answers "can this be assigned again?"</strong> They are unrelated ideas that simply
+appear together often, because a constant wants both.
+</p>
+<table>
+  <thead><tr><th><code>final</code> on a…</th><th>Means</th></tr></thead>
+  <tbody>
+    <tr><td>variable or field</td><td>assigned exactly once; any later assignment is a compile error</td></tr>
+    <tr><td>method</td><td>no subclass may override it</td></tr>
+    <tr><td>class</td><td>no class may extend it (e.g. <code>String</code>, <code>Integer</code>)</td></tr>
+  </tbody>
+</table>
+<div class="pitfall">
+<strong>The classic misreading.</strong> <code>final List&lt;String&gt; names = new ArrayList&lt;&gt;();</code> does <em>not</em> make the
+list unmodifiable. <code>names.add("x")</code> still works. <code>final</code> freezes the <em>arrow</em>, not the object the arrow
+points at. To freeze contents you need an immutable object or a wrapper such as <code>Collections.unmodifiableList</code>.
+</div>
+<div class="idiom">
+<strong>Make fields <code>final</code> by default.</strong> A class where every field is <code>private final</code> and set in the
+constructor is <em>immutable</em>: it cannot be corrupted, it is automatically thread-safe, and it is always a safe map key. Drop
+<code>final</code> only when you have a real reason for the field to change
+<span class="sources">(Bloch, <em>Effective Java</em>, Item 17)</span>.
+</div>
+
+<h3>3.8 What every object inherits for free</h3>
+<p>
+Because all reference types descend from <code>Object</code>, every object you create already has a handful of methods. Three
+matter constantly:
+</p>
+<table>
+  <thead><tr><th>Method</th><th>Default behaviour</th><th>Why you usually override it</th></tr></thead>
+  <tbody>
+    <tr><td><code>toString()</code></td><td>class name + <code>@</code> + a hex number — useless in a log</td><td>readable logs and debugging</td></tr>
+    <tr><td><code>equals(Object)</code></td><td>same as <code>==</code>: "is it literally the same object?"</td><td>you usually want "same contents"</td></tr>
+    <tr><td><code>hashCode()</code></td><td>derived from object identity</td><td>must agree with <code>equals</code>, or hash collections break</td></tr>
+  </tbody>
+</table>
+<p>
+That gives the rule you will be asked about in every interview: <strong><code>==</code> asks "same object?" and
+<code>equals</code> asks "same value?"</strong> For objects you almost always mean the second. The full contract — including why
+overriding <code>equals</code> without <code>hashCode</code> silently breaks <code>HashMap</code> — is lesson 8.
+</p>
+
+<h2><span class="n">§4</span>When to use</h2>
+<ul>
+  <li><strong>Make a class</strong> when you have data plus rules about that data. With no rules and no behaviour, a plain value or a small data holder is enough.</li>
+  <li><strong>Make every field <code>private</code></strong> as the starting point. Open it up only with a concrete reason.</li>
+  <li><strong>Write a getter</strong> when callers genuinely need the value. Do <em>not</em> auto-generate a getter and a setter for every field — a setter for every field is a <code>public</code> field with extra steps, and it throws away your invariants.</li>
+  <li><strong>Validate in the constructor</strong> whenever "an object of this type is always…" is a true sentence you can finish.</li>
+  <li><strong>Use <code>static</code></strong> for constants, stateless helpers and factory methods — never for mutable shared state.</li>
+  <li><strong>Use <code>final</code> fields</strong> by default, and reach for full immutability for value-like things: money, dates, IDs, configuration.</li>
+</ul>
+
+<h2><span class="n">§5</span>Explain it to a 12-year-old</h2>
+<p>
+Imagine a vending machine. On the outside there are only buttons and a coin slot. That is the <strong>small door</strong> — the
+only way you can interact with it. Inside there are shelves, a motor and a cash box, and you cannot reach any of them. That is
+<strong>encapsulation</strong>.
+</p>
+<p>
+Why bother? Because the machine has a rule it must never break: <em>never hand out a snack that wasn't paid for</em>. If the front
+of the machine were open, anyone could just take things and the rule would be meaningless. With only buttons and a coin slot, the
+machine gets to check first, every single time. The rule is safe <em>because</em> the inside is unreachable.
+</p>
+<p>
+The <strong>class</strong> is the factory's design document for that machine. The <strong>object</strong> is one actual machine in
+one actual hallway, with its own snacks and its own coins. A <strong>static</strong> thing would be something printed on every
+machine from that factory — like the helpline number. One helpline for all of them, however many machines exist.
+</p>
+<p>
+And <strong>final</strong>? That is the serial-number sticker. Put on once at the factory, never changed — though the snacks
+inside can still be refilled all day long. Freezing the label is not the same as freezing the contents.
+</p>
+
+<h2><span class="n">§6</span>Connections</h2>
+<ul>
+  <li><strong>← <a href="../02-jvm-class-loader/lesson.html">jvm-class-loader</a>:</strong> your class becomes a <code>Class</code> object in Metaspace before any instance can exist, and <code>static</code> fields are initialised exactly once during that class initialisation.</li>
+  <li><strong>← <a href="../03-jvm-runtime-data-areas/lesson.html">jvm-runtime-data-areas</a>:</strong> instance fields live inside the object on the heap; <code>static</code> fields live with the class.</li>
+  <li><strong>→ <a href="lesson-2-inheritance-and-polymorphism.html">part 2</a>:</strong> once a type exists, how does it relate to other types?</li>
+  <li><strong>→ <a href="../06-memory-model-and-gc/lesson.html">memory-model-and-gc</a>:</strong> why <code>final</code> freezes the arrow and not the object — and what pass-by-value really copies.</li>
+  <li><strong>→ <a href="../08-collections-and-equality/lesson.html">collections-and-equality</a>:</strong> the full <code>equals</code>/<code>hashCode</code> contract hinted at in §3.8.</li>
+  <li><strong>→ <a href="../12-modern-java-9-to-21/lesson.html">modern-java-9-to-21</a>:</strong> a <code>record</code> is this whole lesson's "immutable class with final fields, a validating constructor, <code>equals</code>, <code>hashCode</code> and <code>toString</code>" compressed into one line.</li>
+  <li><strong>Transfers everywhere:</strong> C#, Kotlin, TypeScript and Swift use this same model — classes, objects, access levels, constructors. Learn the idea once; the syntax is a detail.</li>
+</ul>
+
+<h2><span class="n">§7</span>In practice — one file, dissected</h2>
+<p>
+Full source: <a href="../code/TypeDemo.java">code/TypeDemo.java</a>. Compile with <code>javac TypeDemo.java</code>, run with
+<code>java TypeDemo</code>. The output at the end of this section is real output from JDK 1.8.0_411, not remembered behaviour.
+</p>
+
+<h3>Chunk 1 — the three kinds of field, side by side</h3>
+<pre><span class="k">static class</span> Account {
+    <span class="k">private static</span> <span class="k">int</span> accountsOpened = 0;   <span class="c">// ONE for the whole class</span>
+    <span class="k">private final</span> String id;                 <span class="c">// one per object, set once, frozen</span>
+    <span class="k">private</span> <span class="k">long</span> balancePaise;                <span class="c">// one per object, changes over time</span>
+}</pre>
+<div class="ann">Three fields, three completely different lifetimes. <code>accountsOpened</code> is shared by every
+<code>Account</code> ever created. <code>id</code> belongs to one object and never changes. <code>balancePaise</code> belongs to one
+object and <em>does</em> change — which is exactly why it is the one that needs guarding.
+<strong>Idiom:</strong> money is stored as a <code>long</code> of the smallest unit (paise/cents), never as <code>double</code>.
+Binary floating point cannot represent <code>0.1</code> exactly, so <code>double</code> money drifts.</div>
+
+<h3>Chunk 2 — the constructor as a gate</h3>
+<pre>Account(String owner, <span class="k">long</span> openingPaise) {
+    <span class="k">if</span> (owner == <span class="k">null</span> || owner.trim().isEmpty())
+        <span class="k">throw new</span> IllegalArgumentException(<span class="s">"owner required"</span>);
+    <span class="k">if</span> (openingPaise &lt; 0)
+        <span class="k">throw new</span> IllegalArgumentException(<span class="s">"opening balance cannot be negative"</span>);
+    accountsOpened++;
+    <span class="k">this</span>.id = owner.trim().toUpperCase() + <span class="s">"-"</span> + accountsOpened;
+    <span class="k">this</span>.balancePaise = openingPaise;
+}
+
+Account(String owner) {
+    <span class="k">this</span>(owner, 0L);     <span class="c">// delegate — the rules are written exactly once</span>
+}</pre>
+<div class="ann">Checks come <em>before</em> any assignment. If a check fails, the constructor throws and the caller never receives a
+reference — the broken object simply does not exist. The second constructor contains no logic at all; it hands over with
+<code>this(...)</code>. <strong>Gotcha:</strong> if you copy-paste the validation into both constructors instead, the day someone
+fixes a rule in one and forgets the other is the day you get a bug that appears on only one code path.</div>
+
+<h3>Chunk 3 — behaviour public, state private</h3>
+<pre><span class="k">boolean</span> withdraw(<span class="k">long</span> paise) {
+    <span class="k">if</span> (paise &lt;= 0) <span class="k">throw new</span> IllegalArgumentException(<span class="s">"withdrawal must be positive"</span>);
+    <span class="k">if</span> (paise &gt; balancePaise) <span class="k">return</span> <span class="k">false</span>;    <span class="c">// the invariant: never below zero</span>
+    balancePaise -= paise;
+    <span class="k">return</span> <span class="k">true</span>;
+}
+
+<span class="k">long</span> balancePaise() { <span class="k">return</span> balancePaise; }   <span class="c">// read-only window — no setter exists</span></pre>
+<div class="ann">There is a getter but deliberately no setter. The only way the balance moves is <code>deposit</code> and
+<code>withdraw</code>, and both enforce the rule. <strong>Note the two different failure styles:</strong> an illegal
+<em>argument</em> throws (the caller has a bug), while an insufficient <em>balance</em> returns <code>false</code> (a normal
+business outcome, not a bug). Choosing between those two is a real design decision — lesson 10 goes deep on it.</div>
+
+<h3>Chunk 4 — what a public field costs you</h3>
+<pre><span class="k">static class</span> LeakyAccount {
+    <span class="k">public</span> <span class="k">long</span> balancePaise;    <span class="c">// no door at all</span>
+}
+...
+leaky.balancePaise = -999;         <span class="c">// compiles, runs, corrupts</span></pre>
+<div class="ann">This is the control experiment: same data, no guard. The object is now in a state your business rules call
+impossible, and nothing in the language can stop it. Worse, you can never change how the value is stored without breaking every
+caller — the field name is part of your public API forever.</div>
+
+<h3>Chunk 5 — what <code>final</code> actually freezes</h3>
+<pre><span class="k">final</span> StringBuilder note = <span class="k">new</span> StringBuilder(<span class="s">"hello"</span>);
+note.append(<span class="s">" world"</span>);        <span class="c">// allowed! the OBJECT is not frozen</span>
+<span class="c">// note = new StringBuilder();  // NOT allowed — the arrow is frozen</span></pre>
+<div class="ann">One line compiles, the other does not. That is the whole <code>final</code> rule in two lines: the variable may not be
+re-pointed, but whatever it points at can still change inside. Immutability must come from the object's own design, not from the
+keyword on the variable.</div>
+
+<h3>Real output <span class="sources">(JDK 1.8.0_411)</span></h3>
+<pre>--- 1. blueprint vs object ---
+ASHA-1 = 50.0
+BALA-2 = 0.0
+a and b are different objects? true
+
+--- 2. static is shared, instance fields are not ---
+accountsOpened (class-level) = 2
+after a.deposit: a = 7500, b = 0
+
+--- 3. the constructor is the gate: invalid objects cannot exist ---
+rejected: owner required
+
+--- 4. encapsulation protects the invariant ---
+a.withdraw(100000 paise) allowed? false
+a balance still = 7500
+leaky balance = -999  (impossible state)
+
+--- 5. final means 'cannot be re-pointed' ---
+final variable, mutated object: hello world
+
+--- 6. == asks 'same object?', equals asks 'same contents?' ---
+s1 == s2      ? false
+s1.equals(s2) ? true</pre>
+<div class="ann">Read section 2 carefully: depositing into <code>a</code> moved <code>a</code> to 7500 and left <code>b</code> at 0 —
+instance fields are per-object — while <code>accountsOpened</code> counted both, because it belongs to the class. Section 6 is the
+<code>==</code> trap in two lines: two separate <code>String</code> objects holding identical text. Different objects, equal value.</div>
+
+<div class="try"><strong>Predict, then run.</strong>
+(1) Add a <code>setBalancePaise(long)</code> method to <code>Account</code>. Which invariant can now be broken, and how does that
+make the class as weak as <code>LeakyAccount</code>?
+(2) Make <code>accountsOpened</code> non-<code>static</code>. What does the counter print now, and why?
+(3) Delete the <code>Account(String owner)</code> constructor and try <code>new Account("x")</code> — what exactly does the
+compiler say, and why does the free no-arg constructor <em>not</em> rescue you?
+(4) Change <code>balancePaise</code> to <code>double</code> and deposit <code>0.1</code> ten times. Does it equal <code>1.0</code>?</div>
+
+<h2><span class="n">§8</span>Pitfalls</h2>
+<div class="pitfall"><strong>Getters and setters for everything.</strong> A setter for every field is not encapsulation — it is a
+<code>public</code> field with two extra lines. Expose <em>behaviour</em> (<code>withdraw</code>), not raw field access
+(<code>setBalance</code>).</div>
+<div class="pitfall"><strong>Returning your internal collection.</strong> <code>return this.items;</code> hands the caller a live arrow
+into your object, and they can add and remove behind your back. Return an unmodifiable view or a copy.</div>
+<div class="pitfall"><strong>Thinking <code>final</code> means immutable.</strong> It freezes the variable, not the object. A
+<code>final</code> field holding a mutable object is still mutable.</div>
+<div class="pitfall"><strong><code>static</code> mutable state.</strong> It is a global variable: shared across every thread, invisible
+in method signatures, and it leaks state between tests. Almost always a design smell.</div>
+<div class="pitfall"><strong>Doing real work in a constructor.</strong> Opening sockets, reading files or starting threads during
+<code>new</code> makes the class untestable and can publish a half-built object. Build the object; do the work in a method.</div>
+<div class="pitfall"><strong>Calling an overridable method from a constructor.</strong> The subclass's version runs <em>before</em> the
+subclass's own fields are initialised, so it sees <code>null</code>s. Make such methods <code>private</code> or <code>final</code>
+<span class="sources">(Bloch, <em>Effective Java</em>, Item 19)</span>.</div>
+<div class="pitfall"><strong>Using <code>==</code> on objects.</strong> It compares arrows, not contents. Correct for <code>enum</code>
+constants and <code>null</code> checks; wrong for <code>String</code>, <code>Integer</code> and your own classes.</div>
+
+<h2><span class="n">§9</span>Recap</h2>
+<ul class="recap">
+  <li>A <strong>type</strong> is a promise about shape and legal operations; Java checks it at <strong>compile time</strong>, so whole classes of bugs never reach production.</li>
+  <li>Every value is either one of <strong>8 primitives</strong> (the box holds the value) or a <strong>reference type</strong> (the box holds an arrow). All reference types descend from <code>Object</code>.</li>
+  <li><strong>Class = blueprint, object = one real thing.</strong> One class, many objects, each with its own instance fields.</li>
+  <li><strong><code>static</code> = one per class; instance = one per object.</strong> A <code>static</code> method has no <code>this</code> because there may be no object.</li>
+  <li><strong>Encapsulation exists to protect invariants</strong>, not to generate getters. A <code>private</code> field can refuse bad data; a <code>public</code> one cannot.</li>
+  <li><strong>Access levels:</strong> <code>private</code> → package-private → <code>protected</code> → <code>public</code>. Start closed; opening up later is cheap, closing down later breaks callers.</li>
+  <li><strong>The constructor is the gate.</strong> Validate first, assign second, let other constructors delegate with <code>this(...)</code>. Parent constructors always run first.</li>
+  <li><strong><code>final</code> freezes the arrow, not the object.</strong> Prefer <code>final</code> fields; real immutability comes from the class's own design.</li>
+  <li><strong><code>==</code> asks "same object?", <code>equals</code> asks "same contents?"</strong></li>
+</ul>
+
+<hr/>
+<h2>Reference — quick answers</h2>
+<table>
+  <thead><tr><th>Question</th><th>Answer</th></tr></thead>
+  <tbody>
+    <tr><td>How many primitive types are there?</td><td>Eight. Everything else is a reference type.</td></tr>
+    <tr><td>Does every class extend something?</td><td>Yes — <code>Object</code>, directly or through its parents.</td></tr>
+    <tr><td>Why can't a <code>static</code> method use <code>this</code>?</td><td>It belongs to the class; there may be no object at all.</td></tr>
+    <tr><td>What happens to the default constructor?</td><td>It exists only if you declare no constructor yourself.</td></tr>
+    <tr><td>Can a constructor call another constructor?</td><td>Yes — <code>this(...)</code> for the same class, <code>super(...)</code> for the parent. First statement only.</td></tr>
+    <tr><td>Does <code>final</code> make an object immutable?</td><td>No. It only stops the variable being reassigned.</td></tr>
+    <tr><td>Default access when you write no modifier?</td><td>Package-private — visible inside the same package only.</td></tr>
+    <tr><td>Can a subclass see <code>private</code> members?</td><td>No. Use <code>protected</code> for a deliberate subclass hook.</td></tr>
+    <tr><td>Where do <code>static</code> fields live?</td><td>With the class, in Metaspace — and they act as GC roots.</td></tr>
+  </tbody>
+</table>
+
+<h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Type</dt><dd>A label on data saying what shape it has and which operations are legal.</dd>
+  <dt>Static typing</dt><dd>Types are declared in source and checked by the compiler before the program runs.</dd>
+  <dt>Primitive type</dt><dd>One of the eight built-in value types; the variable holds the value itself.</dd>
+  <dt>Reference type</dt><dd>Class, interface, array or enum; the variable holds an arrow to a heap object, or <code>null</code>.</dd>
+  <dt>Class</dt><dd>The blueprint: the fields and methods a kind of object has.</dd>
+  <dt>Object / instance</dt><dd>One real thing built from a class with <code>new</code>, living on the heap.</dd>
+  <dt>Instance field</dt><dd>A field with one copy per object.</dd>
+  <dt>static</dt><dd>Belongs to the class — one copy shared by everything.</dd>
+  <dt>final</dt><dd>Assigned once (variable), not overridable (method), not extendable (class).</dd>
+  <dt>Encapsulation</dt><dd>Hiding internal state behind a deliberately small public surface.</dd>
+  <dt>Invariant</dt><dd>A rule about an object's state that must always hold true.</dd>
+  <dt>Access modifier</dt><dd>Who may see a member: <code>private</code>, package-private, <code>protected</code>, <code>public</code>.</dd>
+  <dt>Constructor</dt><dd>Code that runs during <code>new</code> to produce a valid starting state.</dd>
+  <dt>Constructor chaining</dt><dd>One constructor calling another via <code>this(...)</code> or its parent via <code>super(...)</code>.</dd>
+  <dt>Immutable</dt><dd>An object whose state cannot change after construction.</dd>
+</dl>
+
+<h2>Read one primary source</h2>
+<p><a href="https://docs.oracle.com/javase/tutorial/java/javaOO/index.html">Oracle Java Tutorials — Classes and Objects</a>
+(especially "Declaring Classes", "Providing Constructors for Your Classes", and "Controlling Access to Members of a Class"), with
+<a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-8.html">JLS SE 21, Chapter 8 — Classes</a> for the exact rules.</p>
+
+<p class="nav" style="margin-top:2rem">Next: <a href="lesson-2-inheritance-and-polymorphism.html">Part 2 — Inheritance &amp; polymorphism</a> →</p>
+
+<p class="sources">Sources: Oracle, <em>Java Tutorials</em> (Classes and Objects; Controlling Access to Members of a Class);
+Oracle, <em>Java Language Specification SE 21</em> §4.1–§4.3, §6.6, §8.8; Bloch, <em>Effective Java</em> (Items 15, 17, 19).
+Code compiled and run on JDK 1.8.0_411; the output in §7 is real program output. Authored per Knowledge-Base-2 rules §6.2–§6.3.</p>
+
+</body>
+</html>

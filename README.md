@@ -2,6 +2,7 @@
 
 A personal, AI-assisted learning system for mastering software engineering topics from first principles, writing personal notes, and proving understanding through spaced-repetition interviews.
 
+- Github Pages: https://therishikant.github.io/Knowledge-Base-2/
 ---
 
 ## Quick Navigation (Overviews & Indexes)

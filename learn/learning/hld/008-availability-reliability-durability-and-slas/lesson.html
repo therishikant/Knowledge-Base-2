@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>008 · Availability, Reliability, Durability, SLIs/SLOs/SLAs &amp; Error Budgets — HLD</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#2e7d32;--amber:#b85d00}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:900px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58;-webkit-font-smoothing:antialiased}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.65rem;margin-bottom:1.2rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  .status-hdr{background:#fff;border:1.5px solid var(--rule);border-left:5px solid var(--accent2);border-radius:6px;padding:.75rem 1rem;margin-bottom:1.5rem;font-size:.86rem;font-family:"SF Mono",Menlo,Consolas,monospace;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.14;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .55rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem;font-family:"SF Mono",Menlo,Consolas,monospace}
+  h3{font-size:1.13rem;margin:1.45rem 0 .35rem;color:var(--accent)}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.81rem;line-height:1.48;font-family:"SF Mono",Menlo,Consolas,monospace}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f} pre .h{color:#ffd166;font-weight:bold}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.98rem;margin:0 0 .45rem;text-transform:uppercase;letter-spacing:.03em}
+  .flow-steps{background:#fff8ee;border:1px solid var(--rule);border-radius:6px;padding:.85rem 1.1rem;margin:1rem 0;font-size:.94rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem}
+  .flow-steps li{margin:.35rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .gate{background:#fff8ee;border:2px dashed var(--accent);border-radius:8px;padding:1.15rem 1.3rem;margin:1.6rem 0}
+  .gate h3{margin-top:0;color:var(--accent)}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  @media print{body{padding:1rem;max-width:100%} pre{white-space:pre-wrap} .nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../007-latency-throughput-qps-concurrency-and-bandwidth/lesson.html">007: Latency, Throughput, QPS &amp; Little's Law</a></span>
+  <span><strong>Topic 008 of 140</strong> · Phase 1: Foundations</span>
+  <span><a href="../009-scalability-and-elasticity/lesson.html">009: Scalability and Elasticity</a> →</span>
+</nav>
+
+<div class="status-hdr">
+  <div><strong>Current Topic:</strong> #8 — Availability, Reliability, Durability, SLIs/SLOs/SLAs &amp; Error Budgets</div>
+  <div><strong>7-Box Map Location:</strong> Box 3 (Failover/Graceful Degradation), Box 6 (Replicated Durability), Box 7 (Multi-AZ/Region &amp; SLO Alerting) | <strong>Depth Tag:</strong> [DEEP]</div>
+  <div><strong>Prerequisites Completed:</strong> [Topics #1–#7] &rarr; <strong>Unlocks Next:</strong> [Topic #9 — Scalability and Elasticity]</div>
+  <div><strong>Progress:</strong> [0] Completed | [140] Remaining | [0] Needs Revision</div>
+</div>
+
+<h1>008 · Availability, Reliability, Durability, SLIs/SLOs/SLAs &amp; Error Budgets</h1>
+<p class="crumb"><a href="../overview.html">High-Level System Design (HLD)</a> › Phase 1: Foundations › Topic 8 of 140 · <span style="color:#7a1f1f;font-weight:700">DEEP</span></p>
+
+<div class="tldr">
+  <strong>0. TL;DR in Simple English —</strong> <strong>Availability</strong> asks: <em>"When a user knocks on the door right now, does the system answer?"</em> (`99.99%` = max `52.6 minutes` downtime/year). <strong>Durability</strong> asks: <em>"Once we saved the user's photo or bank transfer, will it survive disks catching fire?"</em> (`99.999999999%` = 11 Nines in S3 via replication/erasure coding across Availability Zones). And Google SRE's <strong>SLI &rarr; SLO &rarr; SLA + Error Budget</strong> framework turns "uptime" from a vague wish into strict mathematical engineering rules.
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§1</span>Where it fits — 🧭 You Are Here on the 7-Box Master Map</h2>
+
+<div class="map-banner">
+  <div class="map-title">🧭 You Are Here: Series vs Parallel Availability Across the 7 Boxes</div>
+<pre>┌───────────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">DANGER: COMPONENTS IN SERIES MULTIPLY FAILURE RISK!</span>                                │
+│                                                                                   │
+│  [API Gateway: 99.9%] ──► [Auth Svc: 99.9%] ──► [Order Svc: 99.9%] ──► [DB: 99.9%]│
+│  Combined Series Availability = 0.999^4 = <span class="h">99.6%</span> (35 hours downtime/year!)         │
+├───────────────────────────────────────────────────────────────────────────────────┤
+│ <span class="h">FIX: REDUNDANT REPLICAS IN PARALLEL + ASYNC DECOUPLING MULTIPLY SURVIVAL!</span>          │
+│                                                                                   │
+│           ┌──► [Spring Pod in AZ-1: 99%] ──┐                                      │
+│  [LB] ────┼──► [Spring Pod in AZ-2: 99%] ──┼──► Combined Parallel Availability:   │
+│           └──► [Spring Pod in AZ-3: 99%] ──┘    1 - (0.01)^3 = <span class="h">99.9999% (6 Nines!)</span> │
+└───────────────────────────────────────────────────────────────────────────────────┘</pre>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§2</span>Why it exists — Why "Our System is 100% Available!" Is Mathematically Impossible</h2>
+
+<p>
+Why can no real system ever promise `100%` availability, and what happens when you chain 10 microservices synchronously without redundancy?
+</p>
+<ul>
+  <li>Hardware fails constantly at scale: In a 10,000-server fleet, disks die daily, top-of-rack switches reboot, fiber optic cables get severed by backhoes, and human engineers deploy bad configs.</li>
+  <li><strong>The Series Chain Trap:</strong> If a synchronous checkout request must call <strong>5 services in series</strong> (Gateway &rarr; Fraud &rarr; Inventory &rarr; Payment &rarr; Shipping), and each service has `99.9%` ("Three Nines") availability, your checkout endpoint's availability is:
+  $$A_{\text{series}} = 0.999 \times 0.999 \times 0.999 \times 0.999 \times 0.999 = (0.999)^5 = \mathbf{99.5\%}$$
+  You promised customers Three Nines (`8.76 hours/year` max downtime), and your synchronous chain mathematically guarantees <strong>43.8 hours/year of downtime</strong>!</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§3</span>How it works — The "Nines" Table, Availability Math &amp; SRE Error Budgets</h2>
+
+<h3>3.1 The "Nines" of Availability Table (Memorize Three Nines, Four Nines, Five Nines)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Availability % ("Nines")</th>
+      <th>Max Downtime Per Year</th>
+      <th>Max Downtime Per Month</th>
+      <th>Max Downtime Per Day</th>
+      <th>What Architecture on the 7-Box Map Is Required to Achieve It?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>99% ("Two Nines")</strong></td>
+      <td><code>3.65 days</code></td>
+      <td><code>7.3 hours</code></td>
+      <td><code>14.4 min</code></td>
+      <td>Single server with automated process restart (`systemd` / K8s pod restart).</td>
+    </tr>
+    <tr>
+      <td><strong>99.9% ("Three Nines")</strong></td>
+      <td><code>8.77 hours</code></td>
+      <td><code>43.8 min</code></td>
+      <td><code>1.44 min</code></td>
+      <td>Multi-AZ stateless pods + Primary-Standby DB with automated failover (`~60s` RTO).</td>
+    </tr>
+    <tr>
+      <td><strong>99.95% ("Three-and-a-Half Nines")</strong></td>
+      <td><code>4.38 hours</code></td>
+      <td><code>21.9 min</code></td>
+      <td><code>43.2 sec</code></td>
+      <td>Multi-AZ active-active stateless tier + fast-failover Raft/Aurora DB cluster + Circuit Breakers.</td>
+    </tr>
+    <tr>
+      <td><strong>99.99% ("Four Nines")</strong></td>
+      <td><code>52.6 minutes</code></td>
+      <td><code>4.38 min</code></td>
+      <td><code>8.6 sec</code></td>
+      <td><strong>Zero human intervention during outages!</strong> Fully automated health checks, instant failover, canary rollbacks, Multi-AZ quorums.</td>
+    </tr>
+    <tr>
+      <td><strong>99.999% ("Five Nines")</strong></td>
+      <td><code>5.26 minutes</code></td>
+      <td><code>26.3 sec</code></td>
+      <td><code>0.86 sec</code></td>
+      <td><strong>Multi-Region Active-Active</strong> with global Anycast/DNS traffic shifting, hedged requests, and zero-downtime deployments.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.2 The 3 Fundamental Equations of Availability &amp; Reliability</h3>
+<pre><span class="c">// 1. TIME-BASED AVAILABILITY (MTBF vs MTTR):</span>
+<span class="c">//    MTBF = Mean Time Between Failures | MTTR = Mean Time To Recover</span>
+Availability = MTBF / (MTBF + MTTR)
+<span class="c">//    Insight: To hit 99.99%, it is much easier to shrink MTTR (automated 10-second</span>
+<span class="c">//    failover instead of 45-minute human pager response) than to make MTBF infinite!</span>
+
+<span class="c">// 2. REQUEST-BASED AVAILABILITY (Yield — Google SRE Standard):</span>
+Availability (Yield) = Successful_Requests (HTTP 2xx/3xx/valid 4xx) / Total_Valid_Requests
+
+<span class="c">// 3. SERIES vs PARALLEL COMPONENT COMBINATION:</span>
+A_series   = A_1 * A_2 * ... * A_n                 <span class="c">// Every sync dependency lowers availability!</span>
+A_parallel = 1 - ( (1 - A_1) * (1 - A_2) * ... )   <span class="c">// Independent replicas multiply survival!</span></pre>
+
+<h3>3.3 Availability vs Reliability vs Durability (Don't Confuse Them!)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>Plain-English Question</th>
+      <th>Concrete Example in <em>PulseStream</em></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Availability</strong></td>
+      <td><em>"Is the service responding to requests right now?"</em></td>
+      <td>`GET /v1/feed` returns HTTP 200 within `200 ms` `99.99%` of the time.</td>
+    </tr>
+    <tr>
+      <td><strong>Reliability</strong></td>
+      <td><em>"Does the system produce the <strong>correct, defect-free result</strong> over a continuous mission window?"</em></td>
+      <td>A server that returns HTTP 200 in `5 ms` with somebody else's private bank balance is `100% available` but <strong>0% reliable</strong>!</td>
+    </tr>
+    <tr>
+      <td><strong>Durability</strong></td>
+      <td><em>"Once committed, what is the probability the data is <strong>never permanently lost</strong> over a year?"</em></td>
+      <td>If our PostgreSQL Primary crashes for 2 minutes during failover, <strong>Availability</strong> dipped for 2 minutes, <strong>but Durability is still 100%</strong> because the data survived intact on the Synchronous Standby disk and S3 (`99.999999999%` — 11 Nines)!</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.4 SLI vs SLO vs SLA &amp; The Error Budget (Google SRE Framework)</h3>
+<p>
+How do Google, AWS, and Stripe govern reliability without halting feature velocity?
+<span class="sources">(<a href="https://sre.google/sre-book/service-level-objectives/">Google SRE Book — Chapter 4: Service Level Objectives</a>)</span>
+</p>
+<ul>
+  <li><strong>SLI (Service Level Indicator — <em>The Thermometer Measurement</em>):</strong> The exact quantitative metric measured from Box 7 telemetry, e.g., <em>"The percentage of `POST /v1/orders` requests returning non-5xx responses in `< 250 ms` over a 5-minute window."</em></li>
+  <li><strong>SLO (Service Level Objective — <em>Our Internal Engineering Target</em>):</strong> The target bound on the SLI, e.g., <em>"`99.95%` of `POST /v1/orders` requests per 30 days must meet the SLI."</em></li>
+  <li><strong>SLA (Service Level Agreement — <em>The External Legal Contract with Financial Penalties</em>):</strong> Always set <strong>looser</strong> than the internal SLO (e.g., internal `SLO = 99.95%`, external customer `SLA = 99.9%`) so internal alarms page engineers <em>before</em> you owe customers a 10% refund!</li>
+  <li><strong>Error Budget ($\mathbf{100\% - \text{SLO}}$):</strong> If your 30-day SLO is `99.9%`, your Error Budget is **`0.1%` (`43.8 minutes` of downtime or `1,000` failed requests per million)**.
+    <ul>
+      <li>While Error Budget remaining $> 0\%$: Product teams can deploy fast, run chaos tests, and launch risky features.</li>
+      <li>When Error Budget hits $0\%$: Feature launches freeze automatically; 100% of engineering time shifts to reliability/resilience fixes until the budget replenishes.</li>
+    </ul>
+  </li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§4</span>When to use — Cost of Each Additional "Nine"</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Target</th>
+      <th>Relative Infrastructure &amp; Engineering Cost</th>
+      <th>Which Systems Actually Need It?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>99.9% (3 Nines)</strong></td>
+      <td>$1\times$ (Baseline Multi-AZ Cloud Setup)</td>
+      <td>Internal employee tools, batch analytics, B2B reporting dashboards, comment sections.</td>
+    </tr>
+    <tr>
+      <td><strong>99.99% (4 Nines)</strong></td>
+      <td>$3\times–5\times$ (Automated failover, chaos testing, zero-downtime deploys, read-fallback caches)</td>
+      <td>Core e-commerce checkout, social feed read path, ride-Dispatch matching, SaaS APIs.</td>
+    </tr>
+    <tr>
+      <td><strong>99.999% (5 Nines)</strong></td>
+      <td>$10\times–25\times$ (Active-Active Multi-Region, custom consensus/global traffic routing, 24/7 SRE follow-the-sun)</td>
+      <td>Cloud DNS/IAM control planes, payment card networks (Visa/Stripe core), emergency 911 systems.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§5</span>Explain it to a 12-year-old (The Feynman Pass)</h2>
+
+<ul>
+  <li><strong>Availability vs Durability:</strong> Imagine the school library closes for 1 hour because the power went out. For that 1 hour, the library was <strong>Unavailable</strong> (you couldn't borrow a book). Did all the books inside burn to ashes? <strong>No!</strong> When the lights come back on, every single book is still safely on the shelf—that's <strong>100% Durability</strong>!</li>
+  <li><strong>SLI vs SLO vs SLA:</strong>
+    <ul>
+      <li><strong>SLI</strong> is the speedometer in your mom's car reading `62 mph`.</li>
+      <li><strong>SLO</strong> is your mom's personal rule: <em>"I always stay under `65 mph` to be safe."</em></li>
+      <li><strong>SLA</strong> is the police ticket limit at `70 mph`: you set your personal rule (`65 mph`) stricter than the police ticket (`70 mph`) so you have a `5 mph` buffer before you ever pay a fine!</li>
+    </ul>
+  </li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§6</span>Dependency Graph &amp; Connections</h2>
+
+<pre>[Topic 007: Latency, QPS &amp; Little's Law] ──► <span class="h">[Topic 008: Availability, Durability &amp; SLAs]</span> ──► [Topic 009: Scalability &amp; Elasticity]</pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§7</span>In practice — Architectural Technique: Breaking a Synchronous Series Chain to Boost Availability</h2>
+
+<pre><span class="c">// PROBLEM: Checkout calls 4 downstream services synchronously in series (each 99.9%):</span>
+<span class="c">//          A_total = 0.999^4 = 99.60% (Fails our 99.95% SLO!)</span>
+
+<span class="c">// STAFF ARCHITECT FIX (3-Part Decoupling across Boxes 3, 4, and 5):</span>
+<span class="c">// 1. Replace synchronous Recommendation/Loyalty calls with Circuit Breaker + Local Cache Fallback (Box 3/4)</span>
+<span class="c">//    -&gt; If Loyalty Service is down, degrade gracefully ("Points will appear in 5 mins").</span>
+<span class="c">// 2. Move Email Receipt + Warehouse Notification off the sync path into Outbox + Kafka (Box 5)</span>
+<span class="c">//    -&gt; An email provider outage can NEVER take down Checkout!</span>
+<span class="c">// 3. Run Checkout Pods + DB across 3 Availability Zones in parallel (Box 6/7).</span></pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§8</span>Pitfalls &amp; Traps</h2>
+
+<div class="pitfall"><strong>⚠️ Pitfall 1 — Assuming "Two Replicas in the Same Rack/AZ" Gives Independent Parallel Availability ($1 - p^2$):</strong> The parallel availability equation $A = 1 - (1 - A_1)(1 - A_2)$ ONLY holds if failures are statistically independent! If both servers share the same power supply, top-of-rack switch, Availability Zone, or buggy configuration push, a single event kills both simultaneously (<strong>Common-Mode Failure</strong>). Place replicas across distinct Failure Domains (separate AZs/Regions) and stagger deployments via Canaries!</div>
+
+<div class="pitfall"><strong>⚠️ Pitfall 2 — Defining an Availability SLI Only by Server-Side HTTP 5xx Count:</strong> If your load balancer or DNS breaks and drops 100% of customer packets before they reach your Spring Boot pods, your pods log `0` HTTP 500 errors (`100% success`!) while your users experience a `100% outage`. Always combine edge/load-balancer metrics with synthetic client probes from outside the VPC!</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§9</span>Recap &amp; Glossary</h2>
+
+<ul class="recap">
+  <li><strong>The Nines:</strong> `99.9%` = `8.77 hr/yr`; `99.99%` = `52.6 min/yr`; `99.999%` = `5.26 min/yr`.</li>
+  <li><strong>Series vs Parallel Math:</strong> Synchronous dependencies multiply availability downward ($A_1 \times A_2$); independent parallel replicas multiply failure probability downward ($1 - F_1 \times F_2$).</li>
+  <li><strong>Shrink MTTR First:</strong> Since $A = \frac{\text{MTBF}}{\text{MTBF} + \text{MTTR}}$, automating detection and failover (cutting MTTR from 30 minutes to 5 seconds) is the fastest way to gain another Nine.</li>
+</ul>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>Error Budget</dt><dd>$1 - \text{SLO}$, representing the maximum allowable unreliability over a window (e.g., 43.8 minutes/month at 99.9%) that balances feature velocity against stability.</dd>
+  <dt>Graceful Degradation</dt><dd>Maintaining core functionality when non-critical dependencies fail (e.g., serving slightly stale cached feeds or hiding "Who's Online" badges instead of returning HTTP 500).</dd>
+</dl>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§10</span>Interactive Socratic Gate &amp; Sources</h2>
+
+<div class="gate">
+  <h3>🎯 Socratic Verification Gate — Topic 008 (Score &ge; 4/5 Required)</h3>
+  <ol>
+    <li><strong><code>[theory]</code>:</strong> Explain the difference between <strong>Availability</strong> (`99.99%`) and <strong>Durability</strong> (`99.999999999%`). Give a concrete failure scenario in <em>PulseStream</em> where Availability drops to `0%` for 3 minutes while Durability remains `100%`.</li>
+    <li><strong><code>[practical]</code>:</strong> An API flow calls 3 microservices synchronously in series: Service A (`99.9%`), Service B (`99.9%`), and Service C (`99.0%`). (a) What is the combined availability of the flow? (b) If we deploy <strong>2 independent instances of Service C in parallel across two Availability Zones</strong> (each `99.0%`), what does Service C's availability become, and what is the new combined availability of the whole flow?</li>
+    <li><strong><code>[diagram]</code>:</strong> Explain the hierarchy of <strong>SLI &rarr; SLO &rarr; SLA</strong> and why an engineering team whose customer SLA is `99.9%` sets their internal paging SLO at `99.95%`.</li>
+    <li><strong><code>[trade-offs]</code>:</strong> A startup founder says: <em>"Every microservice in our company must be built for Five Nines (`99.999%` — active-active multi-region) from Day 1!"</em> Using the cost/complexity table and Error Budget philosophy, explain why that is a terrible engineering decision for most services.</li>
+  </ol>
+</div>
+
+<h3>Sources &amp; Further Reading</h3>
+<ul class="sources">
+  <li><a href="https://sre.google/sre-book/service-level-objectives/">Google SRE Book — Chapter 4: Service Level Objectives (SLIs, SLOs, SLAs)</a></li>
+  <li><a href="https://sre.google/sre-book/embracing-risk/">Google SRE Book — Chapter 3: Embracing Risk &amp; Error Budgets</a></li>
+</ul>
+
+</body>
+</html>

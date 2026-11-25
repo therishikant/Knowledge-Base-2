@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>High-Level System Design (HLD) — The Master Map (140 Topics)</title>
+<style>
+  :root{
+    --ink:#2b2b28; --muted:#6b675e; --rule:#d9d3c7; --bg:#fdfbf6;
+    --accent:#7a1f1f; --accent2:#1f4d7a; --deep:#7a1f1f; --skim:#1f6b4d;
+    --code-bg:#f4f0e6; --spring:#2e7d32; --amber:#b85d00; --purple:#4a2b7a;
+  }
+  *{box-sizing:border-box}
+  html{font-size:17px}
+  body{
+    margin:0 auto; max-width:960px; padding:4rem 1.5rem 6rem;
+    background:var(--bg); color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    line-height:1.58; -webkit-font-smoothing:antialiased;
+  }
+  h1{font-size:2.45rem; line-height:1.12; margin:0 0 .35rem; letter-spacing:-.01em}
+  .subtitle{color:var(--muted); font-style:italic; font-size:1.15rem; margin:0 0 2rem}
+  h2{font-size:1.52rem; margin:2.8rem 0 .65rem; border-bottom:2px solid var(--rule); padding-bottom:.28rem}
+  h3{font-size:1.16rem; margin:1.5rem 0 .4rem}
+  p{margin:.6rem 0}
+  a{color:var(--accent2); text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{background:var(--code-bg); padding:.08em .35em; border-radius:3px; font-family:"SF Mono",Menlo,Consolas,monospace; font-size:.84em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.81rem;line-height:1.46;font-family:"SF Mono",Menlo,Consolas,monospace}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .a{color:#6db33f} pre .h{color:#ffd166;font-weight:bold}
+  .mission{
+    background:#fff8ee; border:1px solid var(--rule); border-left:5px solid var(--accent);
+    padding:1.15rem 1.35rem; border-radius:6px; margin:1.5rem 0 2rem;
+  }
+  .mission h2{border:0; margin:0 0 .45rem; font-size:1.18rem; color:var(--accent); padding:0}
+  .mission ul{margin:.35rem 0 0; padding-left:1.25rem}
+  .mission li{margin:.28rem 0}
+  figure{margin:1.6rem 0; text-align:center}
+  figcaption{color:var(--muted); font-size:.9rem; font-style:italic; margin-top:.5rem}
+  table{border-collapse:collapse; width:100%; margin:1rem 0 1.8rem; font-size:.9rem}
+  th,td{border:1px solid var(--rule); padding:.48rem .6rem; text-align:left; vertical-align:top}
+  th{background:#f1ece0; font-weight:700}
+  tr.phase-row td{background:#ece5d5; font-weight:bold; font-size:.95rem; color:var(--accent); padding:.6rem .7rem}
+  .tag{font-size:.7rem; font-weight:700; padding:.12em .52em; border-radius:10px; color:#fff; white-space:nowrap; display:inline-block; font-family:"SF Mono",Menlo,Consolas,monospace}
+  .tag.deep{background:var(--deep)}
+  .tag.skim{background:var(--skim)}
+  .tag.box{background:var(--accent2)}
+  .tag.phase{background:#4e8c2b}
+  .tag.law{background:var(--purple)}
+  .tag.curr{background:#d97706}
+  .tag.pend{background:#6b675e}
+  .tag.done{background:#2e7d32}
+  .glossary dt{font-weight:700; margin-top:.65rem}
+  .glossary dd{margin:0 0 .25rem; color:#3f3b34}
+  .refs{background:var(--code-bg); border-radius:6px; padding:1rem 1.3rem}
+  .refs li{margin:.3rem 0}
+  .sources{font-size:.85rem; color:var(--muted)}
+  .callout{background:#eef3f7; border-left:4px solid var(--accent2); padding:.85rem 1.15rem; border-radius:0 6px 6px 0; margin:1.2rem 0}
+  .app{background:#eefaf4; border-left:4px solid var(--spring); padding:.9rem 1.2rem; border-radius:0 6px 6px 0; margin:1.2rem 0}
+  .lvl{background:var(--accent); color:#fff; font-size:.78rem; padding:.18rem .55rem; border-radius:4px; vertical-align:middle; margin-right:.5rem; letter-spacing:.03em; font-family:"SF Mono",Menlo,Consolas,monospace}
+  .box-card{background:#fff; border:1.5px solid var(--rule); border-left:5px solid var(--accent2); border-radius:8px; padding:1rem 1.25rem; margin:1.2rem 0}
+  .box-card h3{margin:0 0 .35rem; color:var(--accent)}
+  .box-meta{font-size:.84rem; color:var(--muted); margin-bottom:.55rem; font-family:"SF Mono",Menlo,Consolas,monospace}
+  .rule-grid{display:grid; grid-template-columns:1fr; gap:1rem; margin:1.2rem 0}
+  .rule-card{background:#fff8ee; border:1.5px solid #e2cfa9; border-left:5px solid var(--amber); border-radius:7px; padding:.95rem 1.25rem}
+  .rule-card h3{margin:0 0 .35rem; color:#7a1f1f; font-size:1.08rem}
+  .tracker-bar{display:flex; flex-wrap:wrap; gap:.8rem; background:#fff; border:1.5px solid var(--rule); border-radius:8px; padding:.85rem 1.1rem; margin:1rem 0; font-family:"SF Mono",Menlo,Consolas,monospace; font-size:.85rem}
+  .tracker-item{padding:.2rem .6rem; border-radius:5px; background:var(--code-bg)}
+  hr{border:0; border-top:1px solid var(--rule); margin:2.5rem 0}
+</style>
+</head>
+<body>
+
+<h1>High-Level System Design (HLD) — The Master Map</h1>
+<p class="subtitle">How to see an entire distributed architecture across 7 Core Boxes, strip away all infrastructure magic into plain data structures, and derive any Google-level interview answer from 5 Universal Laws.</p>
+
+<div class="mission">
+  <h2>Mission — Why and How We Learn This</h2>
+  <ul>
+    <li><strong>Target Bar:</strong> Independently architect, explain from first principles, calculate capacity, debug 2 A.M. production failures, and defend trade-offs for any unfamiliar large-scale system at a <strong>Google Senior / Staff / Principal Architect</strong> interview bar.</li>
+    <li><strong>Simple English First &rarr; 3-Level Zoom:</strong>
+      <ol style="margin:.3rem 0">
+        <li><strong>Level 0 (The Whole Machine):</strong> Where every piece sits on the <strong>7-Box Master System Map</strong> across a request's lifecycle.</li>
+        <li><strong>Level 1 (Inside the Box — Strip the Magic):</strong> What actual plain data structure (<code>HashMap</code>, B+Tree, append-only file log, ring array, <code>Semaphore</code>, token counter, TCP socket backlog queue) lives inside each component. <strong>Zero black boxes.</strong></li>
+        <li><strong>Level 2 (Packet-by-Packet Lifecycle, Scale, Failures &amp; Trade-Offs):</strong> How a real request flows through it, when it breaks at 100K/100M users, and how to defend it in an interview.</li>
+      </ol>
+    </li>
+    <li><strong>Contrast Anchor ("Naive Baseline First &rarr; Watch It Break &rarr; Invent the Box"):</strong> We never start a topic by announcing a solution. We start with the simplest 1-server baseline, throw realistic traffic or hardware crashes at it, feel the exact pain that breaks it, and invent the new box or algorithm to remove that pain.</li>
+    <li><strong>Connected to Your Java &amp; Spring Boot Foundation:</strong> Every distributed concept connects back to JVM and Spring mechanics you already know (Tomcat thread pools, <code>ThreadLocal</code>, HikariCP JDBC pools, <code>@Transactional</code> proxies, JVM GC pauses, Netty event loops, Outbox + Kafka).</li>
+  </ul>
+</div>
+
+<div class="tracker-bar">
+  <div class="tracker-item"><strong>Current Topic:</strong> #1 — What is System Design? (🔄 Current)</div>
+  <div class="tracker-item"><strong>Completed:</strong> 0 / 140 ✅</div>
+  <div class="tracker-item"><strong>Remaining:</strong> 140 ⏳</div>
+  <div class="tracker-item"><strong>Needs Revision:</strong> 0 🔁</div>
+  <div class="tracker-item"><strong>Flagship System:</strong> PulseStream / ScaleVault (Stage 0: 1-Box Monolith)</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="lvl">LEVEL 0</span>The Whole Machine: The 7-Box Master System Map</h2>
+
+<p>
+Why do most engineers get overwhelmed by System Design? Because they see 100 disconnected buzzwords (<em>CDN, Anycast, gRPC, Consistent Hashing, LSM-Tree, Raft, Outbox, Circuit Breaker, Kafka ISR</em>). In reality, every single one of our <strong>140 curriculum topics</strong> lives inside one of <strong>7 Core Boxes</strong> along a single request's journey from the user's device to persistent storage and production operations
+<span class="sources">(<a href="https://sre.google/sre-book/table-of-contents/">Google SRE Book</a>; <a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/framework.html">AWS Well-Architected Framework</a>)</span>:
+</p>
+
+<figure>
+<svg viewBox="0 0 900 720" width="100%" role="img" aria-label="The 7-Box Master System Map showing Edge/Networking, Compute, Resilience, Caching, Messaging, Storage/Consensus, and Production Operations">
+  <style>
+    .b-edge{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.8}
+    .b-comp{fill:#f6faf2;stroke:#2e7d32;stroke-width:1.8}
+    .b-res{fill:#fdf2f2;stroke:#7a1f1f;stroke-width:1.8}
+    .b-cache{fill:#fff8ee;stroke:#b85d00;stroke-width:1.8}
+    .b-msg{fill:#f5f0fa;stroke:#4a2b7a;stroke-width:1.8}
+    .b-data{fill:#eef7f6;stroke:#0f5c5c;stroke-width:1.8}
+    .b-ops{fill:#f4f0e6;stroke:#2b2b28;stroke-width:1.8}
+    .client-bx{fill:#2b2b28;stroke:#2b2b28; rx:6}
+    .client-txt{font:bold 13px "SF Mono",Menlo,monospace;fill:#fff}
+    .title{font:bold 14px "SF Mono",Menlo,monospace;fill:#7a1f1f}
+    .sub{font:bold 12px Georgia,serif;fill:#1f4d7a}
+    .txt{font:11.8px Georgia,serif;fill:#2b2b28}
+    .code-lbl{font:11px "SF Mono",Menlo,monospace;fill:#4a2b7a}
+    .arr{stroke:#2b2b28;stroke-width:1.8;marker-end:url(#arrow);fill:none}
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#2b2b28"/>
+    </marker>
+  </defs>
+
+  <!-- Client -->
+  <rect class="client-bx" x="320" y="10" width="260" height="36" rx="6"/>
+  <text class="client-txt" x="348" y="33">[CLIENTS: Mobile / Browser / IoT]</text>
+  <line class="arr" x1="450" y1="46" x2="450" y2="70"/>
+
+  <!-- BOX 1 -->
+  <rect class="b-edge" x="25" y="72" width="850" height="88" rx="8"/>
+  <text class="title" x="42" y="95">BOX 1: EDGE &amp; NETWORKING PLANE (Phase 2 — Topics 11–22)</text>
+  <text class="txt" x="42" y="116">DNS (Geo/Anycast) &rarr; CDN / Edge Cache &rarr; L4 Load Balancer (TCP/UDP) &rarr; L7 Load Balancer / Reverse Proxy &rarr; API Gateway (Auth, Rate Limit, BFF)</text>
+  <text class="code-lbl" x="42" y="138">Inside the Box: UDP/TCP Packets, TLS Handshake, Kernel SYN/Accept Queues, Epoll Event Loop, Keep-Alive Connection Pools</text>
+  <line class="arr" x1="450" y1="160" x2="450" y2="186"/>
+
+  <!-- BOX 2 -->
+  <rect class="b-comp" x="25" y="188" width="850" height="90" rx="8"/>
+  <text class="title" x="42" y="211">BOX 2: COMPUTE &amp; SERVICE ARCHITECTURE PLANE (Phase 3 — Topics 23–36)</text>
+  <text class="txt" x="42" y="232">Monolith / Modular Monolith / Stateless Microservices &bull; Service Discovery &bull; Dynamic Config &bull; REST / gRPC / WebSockets / SSE &bull; Idempotency &bull; Saga / Outbox / CQRS</text>
+  <text class="code-lbl" x="42" y="255">Inside the Box: Tomcat ThreadPool / Virtual Threads / Netty EventLoop, Service Registry Map, Protobuf Wire Bytes, Idempotency Key Table</text>
+
+  <!-- Arrows from Box 2 to Boxes 3, 4, 5 -->
+  <line class="arr" x1="165" y1="278" x2="165" y2="308"/>
+  <line class="arr" x1="450" y1="278" x2="450" y2="308"/>
+  <line class="arr" x1="735" y1="278" x2="735" y2="308"/>
+
+  <!-- BOX 3 -->
+  <rect class="b-res" x="25" y="310" width="268" height="135" rx="8"/>
+  <text class="title" x="38" y="332">BOX 3: RESILIENCE &amp;</text>
+  <text class="title" x="38" y="349">PROTECTION PLANE</text>
+  <text class="sub" x="38" y="367">(Phase 5 &amp; 7 — Topics 58–59, 71–75)</text>
+  <text class="txt" x="38" y="386">&bull; Timeouts, Retries + Backoff/Jitter</text>
+  <text class="txt" x="38" y="403">&bull; Circuit Breakers &amp; Bulkheads</text>
+  <text class="txt" x="38" y="420">&bull; Rate Limiting &amp; Load Shedding</text>
+  <text class="code-lbl" x="38" y="437">Inside: Token Bucket, Semaphore, Sliding Ring</text>
+
+  <!-- BOX 4 -->
+  <rect class="b-cache" x="316" y="310" width="268" height="135" rx="8"/>
+  <text class="title" x="329" y="332">BOX 4: FAST MEMORY &amp;</text>
+  <text class="title" x="329" y="349">CACHING PLANE</text>
+  <text class="sub" x="329" y="367">(Phase 5 — Topics 52–60)</text>
+  <text class="txt" x="329" y="386">&bull; L1 App RAM Cache &amp; Distributed Redis</text>
+  <text class="txt" x="329" y="403">&bull; Cache-Aside / Write-Through / Behind</text>
+  <text class="txt" x="329" y="420">&bull; Eviction, Stampede &amp; Bloom Filters</text>
+  <text class="code-lbl" x="329" y="437">Inside: Dict HashTable + Skiplist + DoublyLinkedList</text>
+
+  <!-- BOX 5 -->
+  <rect class="b-msg" x="607" y="310" width="268" height="135" rx="8"/>
+  <text class="title" x="620" y="332">BOX 5: MESSAGING &amp;</text>
+  <text class="title" x="620" y="349">STREAMING PLANE</text>
+  <text class="sub" x="620" y="367">(Phase 6 — Topics 61–70)</text>
+  <text class="txt" x="620" y="386">&bull; Queues (RabbitMQ) vs Log (Kafka)</text>
+  <text class="txt" x="620" y="403">&bull; Partitions, ISR, Consumer Groups</text>
+  <text class="txt" x="620" y="420">&bull; Exactly-Once, Stream Windows, DLQ</text>
+  <text class="code-lbl" x="620" y="437">Inside: Append-Only Segment Log + OS PageCache</text>
+
+  <!-- Arrows from Boxes 3, 4, 5 into Box 6 -->
+  <path class="arr" d="M165,445 L165,465 L450,465 L450,482"/>
+  <line class="arr" x1="450" y1="445" x2="450" y2="482"/>
+  <path class="arr" d="M735,445 L735,465 L450,465 L450,482"/>
+
+  <!-- BOX 6 -->
+  <rect class="b-data" x="25" y="484" width="850" height="102" rx="8"/>
+  <text class="title" x="42" y="507">BOX 6: DATA, STORAGE &amp; CONSENSUS PLANE (Phase 4 &amp; 7 — Topics 37–51, 76–82)</text>
+  <text class="txt" x="42" y="528">SQL vs NoSQL &bull; B+Tree vs LSM-Tree + WAL &bull; Indexes &bull; ACID &amp; MVCC Isolation &bull; Leader/Leaderless Replication &bull; Sharding &amp; Consistent Hashing</text>
+  <text class="txt" x="42" y="546">CAP &amp; PACELC &bull; Linearizability vs Eventual Consistency &bull; Raft/Paxos Consensus &bull; Distributed Locks &amp; Fencing Tokens &bull; Quorums (R+W&gt;N) &bull; Object Storage (S3)</text>
+  <text class="code-lbl" x="42" y="569">Inside the Box: Append-Only WAL, 16KB B+Tree Pages, MemTable SkipList + SSTables, TreeMap Hash Ring, Raft State Machine Log</text>
+  <line class="arr" x1="450" y1="586" x2="450" y2="612"/>
+
+  <!-- BOX 7 -->
+  <rect class="b-ops" x="25" y="614" width="850" height="94" rx="8"/>
+  <text class="title" x="42" y="637">BOX 7: PRODUCTION OPERATIONS, MULTI-REGION &amp; CONTROL PLANE (Phase 8 &amp; 9 — Topics 83–115)</text>
+  <text class="txt" x="42" y="658">Auto-Scaling &bull; Multi-AZ &amp; Multi-Region (Active-Passive / Active-Active) &bull; DR, Backups, RPO/RTO &bull; Zero-Downtime Migrations &amp; Blue-Green/Canary Deploys</text>
+  <text class="txt" x="42" y="676">Observability (Logs, RED/USE Histogram Metrics, OpenTelemetry Traces, SLO Error Budgets) &bull; Zero-Trust Security (mTLS, OAuth2/JWT, KMS) &bull; FinOps &amp; Capacity</text>
+  <text class="code-lbl" x="42" y="696">Inside the Box: Control-Plane Reconciliation Loop, W3C TraceContext Propagation, Histogram Buckets, Envelope Encryption Keys</text>
+</svg>
+<figcaption>The 7-Box Master System Map: Every single topic in our 140-topic curriculum zooms into one of these 7 planes.</figcaption>
+</figure>
+
+<h3>Text Reference — The 7-Box Master Map (Used in Every Lesson Banner)</h3>
+<pre>[Clients]
+   │
+   ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">BOX 1: EDGE &amp; NETWORKING PLANE</span>                                             │
+│ DNS → CDN / Edge → L4/L7 Load Balancer → Reverse Proxy → API Gateway       │
+└────────────────────────────────────┬───────────────────────────────────────┘
+                                     │
+                                     ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">BOX 2: COMPUTE &amp; SERVICE ARCHITECTURE PLANE</span>                                │
+│ Stateless Workers │ Service Discovery │ REST / gRPC / WS │ Sync vs Async   │
+└───────┬────────────────────────────┼───────────────────────────────┬───────┘
+        │                            │                               │
+        ▼                            ▼                               ▼
+┌──────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────┐
+│ <span class="h">BOX 3: RESILIENCE &amp;</span>  │  │ <span class="h">BOX 4: FAST MEMORY &amp;</span>    │  │ <span class="h">BOX 5: MESSAGING &amp;</span>  │
+│ <span class="h">PROTECTION PLANE</span>     │  │ <span class="h">CACHING PLANE</span>           │  │ <span class="h">STREAMING PLANE</span>     │
+│ Timeouts, Retries,   │  │ Local Cache, Redis,     │  │ Queues, Pub/Sub,    │
+│ Circuit Breakers,    │  │ Read/Write Strategies,  │  │ Kafka Append Logs,  │
+│ Bulkheads, RateLimit │  │ Eviction &amp; Invalidation │  │ Outbox, Sagas, DLQ  │
+└──────────┬───────────┘  └────────────┬────────────┘  └──────────┬──────────┘
+           │                           │                          │
+           └───────────────────────────┼──────────────────────────┘
+                                       ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">BOX 6: DATA, STORAGE &amp; CONSENSUS PLANE</span>                                     │
+│ SQL/NoSQL │ B-Tree vs LSM │ ACID &amp; Isolation │ Replication &amp; Sharding      │
+│ Consistent Hashing │ CAP &amp; PACELC │ Raft/Paxos Consensus │ Quorums │ S3    │
+└────────────────────────────────────┬───────────────────────────────────────┘
+                                     │
+                                     ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">BOX 7: PRODUCTION OPERATIONS, MULTI-REGION &amp; CONTROL PLANE</span>                 │
+│ Auto-Scaling │ Multi-AZ / Multi-Region │ DR (RPO/RTO) │ Zero-Downtime      │
+│ Observability (Logs/Metrics/Traces/SLOs) │ Security &amp; Auth │ Cost &amp; CapEx  │
+└────────────────────────────────────────────────────────────────────────────┘</pre>
+
+<div class="callout">
+  <strong>Why Our 10 Phases Follow This Exact Dependency Order:</strong>
+  <ol style="margin:.4rem 0 0">
+    <li><strong>Phase 1 (Foundations &amp; Physics):</strong> Before drawing boxes, you must know the speed of RAM vs SSD vs Network, Little's Law ($L = \lambda \times W$), and how to turn vague product goals into QPS, storage, and SLA numbers.</li>
+    <li><strong>Phase 2 (Box 1 — Edge &amp; Networking):</strong> Follow a user's packet from the outside in: DNS lookup &rarr; TCP/TLS handshake &rarr; HTTP/1.1/2/3, gRPC, or WebSockets &rarr; CDN &rarr; L4/L7 Load Balancer &rarr; API Gateway.</li>
+    <li><strong>Phase 3 (Box 2 — Compute &amp; Service Architecture):</strong> Once the packet enters your backend, how do you structure the compute tier? Monolith &rarr; Modular Monolith &rarr; Microservices, stateless workers, idempotency, and distributed workflows (Outbox, Saga, CQRS).</li>
+    <li><strong>Phase 4 (Box 6 — Data &amp; Storage):</strong> Compute is stateless; the hardest problems live where state is stored. We open B+Trees vs LSM-Trees, WAL, ACID/MVCC isolation, replication, sharding, Consistent Hashing, CAP/PACELC, and S3.</li>
+    <li><strong>Phase 5 (Box 4 &amp; Box 3 — Caching &amp; Traffic Protection):</strong> Once the database becomes the read bottleneck, we add in-memory caches (Redis internals, invalidation, stampede defense) and rate limiters / backpressure to protect the fleet.</li>
+    <li><strong>Phase 6 (Box 5 — Messaging &amp; Streaming):</strong> Once synchronous writes or fan-out become the bottleneck, we decouple producers from consumers using queues, Pub/Sub, and Kafka append-only logs.</li>
+    <li><strong>Phase 7 (Box 3 &amp; Box 6 Deep Internals — Reliability &amp; Distributed Consensus):</strong> What happens when machines lie, pause (GC), or partition? Circuit breakers, bulkheads, leader election, Raft/Paxos consensus, fencing tokens, and Dynamo-style quorums.</li>
+    <li><strong>Phase 8 (Box 7 — Large-Scale Production &amp; Multi-Region):</strong> How do you run this across Availability Zones and continents with zero-downtime migrations, RPO/RTO disaster recovery, OpenTelemetry observability, Zero-Trust security, and FinOps cost control?</li>
+    <li><strong>Phase 9 (Combining All 7 Boxes — Advanced Architectural Patterns):</strong> Event sourcing, distributed cron/job schedulers, inverted-index search, recommendation pipelines, notification fan-out, chunked file sync, and spatial indexing (Geohash/H3).</li>
+    <li><strong>Phase 10 (25 Google-Level Capstones):</strong> Apply the 7 Boxes and 5 Universal Laws to design 25 real-world systems end-to-end under interview pressure.</li>
+  </ol>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="lvl">LEVEL 1</span>Opening the 7 Boxes: What Plain Data Structure Lives Inside Each?</h2>
+
+<p>
+In our Spring course, we demystified <code>ApplicationContext</code> by showing it is just a <code>ConcurrentHashMap&lt;String, Object&gt;</code>. We do the exact same thing in System Design: <strong>every piece of distributed infrastructure is just a familiar in-memory or on-disk data structure wrapped in a network socket</strong>.
+</p>
+
+<div class="box-card">
+  <h3>Box 1 Inside: OS Kernel Socket Queues, Connection Pools &amp; Routing Tables</h3>
+  <div class="box-meta">Covers: DNS, CDN, L4/L7 Load Balancers, Reverse Proxy, API Gateway (Topics 11–22)</div>
+  <p>A Load Balancer or API Gateway is not magic hardware. Inside Linux/JVM, every listening port holds two kernel ring-buffer queues (<code>syn_backlog</code> for half-open handshakes and <code>accept_queue</code> for completed connections) plus an in-memory routing table:</p>
+<pre><span class="c">// Inside an L7 Load Balancer / Reverse Proxy (Netty / Envoy / Nginx):</span>
+Map&lt;String, List&lt;InetSocketAddress&gt;&gt; routeTable = <span class="k">new</span> ConcurrentHashMap&lt;&gt;(); <span class="c">// "/api/v1/orders" -&gt; [10.0.1.4:8080, 10.0.1.5:8080]</span>
+Map&lt;InetSocketAddress, Deque&lt;SocketChannel&gt;&gt; keepAlivePool = <span class="k">new</span> ConcurrentHashMap&lt;&gt;(); <span class="c">// Reuses warm TCP+TLS sockets!</span>
+
+<span class="c">// Power-of-Two-Choices Load Balancing (O(1) — avoids herding onto one slow server):</span>
+InetSocketAddress pickBackend(List&lt;Server&gt; healthyPool) {
+    Server a = healthyPool.get(random.nextInt(healthyPool.size()));
+    Server b = healthyPool.get(random.nextInt(healthyPool.size()));
+    <span class="k">return</span> (a.activeRequests.get() &lt;= b.activeRequests.get()) ? a.address : b.address;
+}</pre>
+</div>
+
+<div class="box-card">
+  <h3>Box 2 Inside: Worker Thread Pools, Service Registry Maps &amp; Idempotency Keys</h3>
+  <div class="box-meta">Covers: Stateless Compute, Service Discovery, REST/gRPC/WS, Idempotency, Outbox, Sagas (Topics 23–36)</div>
+  <p>Inside each microservice is your familiar Spring Boot Tomcat <code>ThreadPoolExecutor</code> (or Java 21 Virtual Threads / Netty EventLoop). Across services, safe retries and transactional messaging rely on two plain SQL tables inside the service's database:</p>
+<pre><span class="c">// Inside a Payment/Order Service (Handling Safe Retries + Outbox Dual-Write Prevention):</span>
+<span class="a">@Transactional</span> <span class="c">// Single local ACID transaction on 1 DB connection!</span>
+<span class="k">public</span> OrderResult createOrder(String idempotencyKey, OrderRequest req) {
+    <span class="c">// 1. Atomic Idempotency Guard: INSERT INTO idempotency_keys (key, status) VALUES (?, 'IN_PROGRESS') ON CONFLICT DO NOTHING</span>
+    <span class="k">if</span> (!idempotencyRepo.tryClaimKey(idempotencyKey)) {
+        <span class="k">return</span> idempotencyRepo.getSavedResponse(idempotencyKey); <span class="c">// Safe duplicate retry!</span>
+    }
+    Order order = orderRepo.save(<span class="k">new</span> Order(req));
+    <span class="c">// 2. Transactional Outbox: Write event to local SQL table in the SAME commit (never call Kafka directly inside @Transactional!)</span>
+    outboxRepo.save(<span class="k">new</span> OutboxEvent(order.getId(), <span class="s">"ORDER_CREATED"</span>, toJson(order)));
+    <span class="k">return</span> idempotencyRepo.completeKey(idempotencyKey, OrderResult.from(order));
+}</pre>
+</div>
+
+<div class="box-card">
+  <h3>Box 3 Inside: Token Buckets, Semaphore Bulkheads &amp; Circuit Breaker State Machines</h3>
+  <div class="box-meta">Covers: Rate Limiting, Backpressure, Timeouts, Retries + Jitter, Circuit Breakers, Bulkheads (Topics 58–59, 71–75)</div>
+  <p>Resilience patterns are tiny state counters that stop a slow downstream dependency from exhausting all 200 Tomcat threads in your caller:</p>
+<pre><span class="c">// 1. Token Bucket Rate Limiter (2 numbers per user/key):</span>
+<span class="k">class</span> TokenBucket {
+    <span class="k">double</span> tokens = MAX_BURST;
+    <span class="k">long</span> lastRefillNanos = System.nanoTime();
+    <span class="k">synchronized boolean</span> allowRequest() {
+        <span class="k">long</span> now = System.nanoTime();
+        tokens = Math.min(MAX_BURST, tokens + (now - lastRefillNanos) * REFILL_RATE_PER_NS);
+        lastRefillNanos = now;
+        <span class="k">if</span> (tokens &lt; 1.0) <span class="k">return false</span>; <span class="c">// Return HTTP 429 Too Many Requests immediately!</span>
+        tokens -= 1.0;
+        <span class="k">return true</span>;
+    }
+}
+<span class="c">// 2. Bulkhead = java.util.concurrent.Semaphore(20) — caps concurrent calls to Service B at 20 so 180 Tomcat threads stay free!</span>
+<span class="c">// 3. Circuit Breaker = AtomicReference&lt;State&gt; (CLOSED -&gt; OPEN when failureRate &gt; 50% in sliding ring buffer -&gt; HALF_OPEN probe).</span></pre>
+</div>
+
+<div class="box-card">
+  <h3>Box 4 Inside: Hash Table + Doubly-Linked List (LRU) + Singleflight Stampede Lock</h3>
+  <div class="box-meta">Covers: App Cache (Caffeine), Redis Internals, Eviction, Cache Invalidation, Stampede Protection (Topics 52–57)</div>
+  <p>Why is Redis so fast (~100,000+ QPS on 1 core)? Because a single-threaded event loop reads commands from epoll sockets and mutates an in-memory Hash Table (<code>dict</code>) or SkipList (<code>zset</code>) in ~100 nanoseconds with <strong>zero thread locks</strong>:</p>
+<pre><span class="c">// Inside an O(1) LRU Cache + Singleflight Stampede Protection:</span>
+Map&lt;String, Node&gt; hashIndex = <span class="k">new</span> HashMap&lt;&gt;();         <span class="c">// O(1) lookup by key</span>
+DoublyLinkedList&lt;Node&gt; recencyList = <span class="k">new</span> DoublyLinkedList&lt;&gt;(); <span class="c">// O(1) move-to-head on read; O(1) evict-tail when RAM full</span>
+ConcurrentMap&lt;String, CompletableFuture&lt;Product&gt;&gt; inFlight = <span class="k">new</span> ConcurrentHashMap&lt;&gt;(); <span class="c">// Singleflight coalescing!</span>
+
+<span class="c">// If 10,000 threads miss hot key "iphone-16" at the exact same millisecond, ONLY ONE hits the DB:</span>
+Product getProduct(String key) {
+    Product cached = cache.get(key);
+    <span class="k">if</span> (cached != <span class="k">null</span>) <span class="k">return</span> cached;
+    <span class="k">return</span> inFlight.computeIfAbsent(key, k -&gt; CompletableFuture.supplyAsync(() -&gt; {
+        Product p = db.query(k);
+        cache.put(k, p, ttlWithJitter(300)); <span class="c">// Add random jitter so keys don't expire together!</span>
+        inFlight.remove(k);
+        <span class="k">return</span> p;
+    })).join();
+}</pre>
+</div>
+
+<div class="box-card">
+  <h3>Box 5 Inside: Append-Only Segment Files, Sparse Index &amp; OS Zero-Copy</h3>
+  <div class="box-meta">Covers: Message Queues, Pub/Sub, Kafka Brokers/Partitions/ISR, Consumer Groups, DLQ (Topics 61–70)</div>
+  <p>Why can Kafka handle millions of messages per second on spinning disks or SSDs? Because it never does random disk updates. A Kafka Partition is literally an <strong>append-only file</strong> plus an integer offset counter:</p>
+<pre><span class="c">// Inside a Kafka Broker Partition Folder (/data/orders-topic-partition-0/):</span>
+FileChannel segmentLog = FileChannel.open(<span class="s">"00000000000000000000.log"</span>, APPEND);   <span class="c">// Sequential byte append only!</span>
+FileChannel sparseIndex = FileChannel.open(<span class="s">"00000000000000000000.index"</span>, READ_WRITE); <span class="c">// Maps Offset -&gt; Physical Byte Position</span>
+
+<span class="c">// Producer append = O(1) sequential write to OS Page Cache:</span>
+<span class="k">long</span> assignedOffset = nextOffset++;
+segmentLog.write(serializeRecord(assignedOffset, key, payload));
+
+<span class="c">// Consumer read at offset 48,291 = Binary search sparseIndex -&gt; Zero-Copy DMA transfer directly from Page Cache to NIC!</span>
+<span class="k">long</span> fileBytePos = binarySearchBytePosition(sparseIndex, 48291L);
+segmentLog.transferTo(fileBytePos, batchSize, consumerSocketChannel); <span class="c">// Linux sendfile() — zero copies into JVM heap!</span></pre>
+</div>
+
+<div class="box-card">
+  <h3>Box 6 Inside: WAL + B+Tree vs LSM-Tree, Consistent Hash Ring &amp; Raft Consensus Log</h3>
+  <div class="box-meta">Covers: Storage Engines, ACID/MVCC, Sharding, Consistent Hashing, CAP/PACELC, Raft/Paxos, Quorums (Topics 37–51, 76–82)</div>
+  <p>Every storage engine, sharding router, and consensus cluster boils down to three core structures:</p>
+<pre><span class="c">// 1. LSM-Tree Storage Engine (Cassandra / RocksDB — optimized for massive write throughput):</span>
+FileChannel wal = FileChannel.open(<span class="s">"commit.wal"</span>, APPEND);                 <span class="c">// 1. Sequential append for crash durability</span>
+ConcurrentSkipListMap&lt;Key, Value&gt; memTable = <span class="k">new</span> ConcurrentSkipListMap&lt;&gt;(); <span class="c">// 2. Sorted in-RAM tree (O(log N))</span>
+List&lt;SSTableFile&gt; immutableDiskTables;                                     <span class="c">// 3. Flushed sorted files + BloomFilter bit-arrays</span>
+
+<span class="c">// 2. Consistent Hashing Router (Sharding without rehashing 99% of keys when a node joins/leaves):</span>
+TreeMap&lt;Long, ServerNode&gt; hashRing = <span class="k">new</span> TreeMap&lt;&gt;(); <span class="c">// Each physical server places 150 virtual nodes on the [0, 2^64-1] ring</span>
+ServerNode routeKey(String key) {
+    <span class="k">long</span> h = murmurHash64(key);
+    Map.Entry&lt;Long, ServerNode&gt; clockwise = hashRing.ceilingEntry(h); <span class="c">// O(log V) lookup!</span>
+    <span class="k">return</span> (clockwise != <span class="k">null</span>) ? clockwise.getValue() : hashRing.firstEntry().getValue();
+}
+
+<span class="c">// 3. Fencing Token Lock (Why Distributed Locks WITHOUT a monotonically increasing token corrupt storage on GC pause):</span>
+<span class="c">// Storage rejects any write where (request.fencingToken &lt; storage.highestSeenToken)!</span></pre>
+</div>
+
+<div class="box-card">
+  <h3>Box 7 Inside: Reconciliation Loops, Histogram Buckets &amp; Distributed Trace Context</h3>
+  <div class="box-meta">Covers: Auto-Scaling, Multi-AZ/Region, DR, Deployments, Observability, Security, FinOps (Topics 83–100)</div>
+  <p>How does Kubernetes, an Auto-Scaler, or a Multi-Region failover controller manage thousands of machines? A Control-Plane reconciliation loop comparing <em>Desired State</em> vs <em>Observed State</em>, paired with constant-memory latency histograms:</p>
+<pre><span class="c">// Why you NEVER average percentiles (and why storing every request latency in RAM crashes your server):</span>
+<span class="c">// Prometheus / Micrometer Histogram = fixed array of atomic bucket counters!</span>
+<span class="k">long</span>[] boundsMs = {5, 10, 25, 50, 100, 250, 500, 1000, 2500};
+AtomicLongArray bucketCounts = <span class="k">new</span> AtomicLongArray(boundsMs.length + 1); <span class="c">// O(1) memory regardless of 100K QPS!</span></pre>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="lvl">PLAYBOOK</span>The 5 Universal Laws of System Design (Derive, Don't Memorize)</h2>
+
+<p>
+Whenever an interviewer asks <em>"Why does X break at 50,000 QPS?"</em> or <em>"Why did you pick X over Y?"</em>, you never need to guess. Every phenomenon in distributed systems is governed by one of these <strong>5 Universal First-Principles Laws</strong>:
+</p>
+
+<div class="rule-grid">
+  <div class="rule-card">
+    <h3>Law 1: The Physics of Hardware (Latency Hierarchy &amp; Sequential vs Random I/O)</h3>
+    <p>Software runs on physical silicon and fiber-optic cables. Two hardware facts dictate almost every storage and caching design
+    <span class="sources">(<a href="https://norvig.com/21-days.html#answers">Jeff Dean / Peter Norvig — Latency Numbers Every Programmer Should Know</a>)</span>:</p>
+    <ul>
+      <li><strong>The Distance Ladder:</strong> CPU L1/L2 Cache (<code>~1–4 ns</code>) &rarr; RAM (<code>~100 ns</code>) &rarr; Local NVMe SSD (<code>~100 &mu;s</code> = <strong>1,000&times; slower than RAM</strong>) &rarr; Same-Datacenter Network Round-Trip (<code>~500 &mu;s</code>) &rarr; Cross-AZ Round-Trip (<code>~1–2 ms</code>) &rarr; US-to-Europe/Asia Transoceanic Fiber (<code>~100–150 ms</code> = <strong>1,000,000&times; slower than RAM</strong>).</li>
+      <li><strong>Sequential Append vs Random Seek:</strong> Appending bytes sequentially to the end of a file is orders of magnitude faster than seeking to random disk blocks and updating in place. <strong>This single hardware fact explains why Database Write-Ahead Logs (WAL), Kafka Segment Logs, Event Sourcing, and LSM-Trees exist!</strong></li>
+    </ul>
+  </div>
+
+  <div class="rule-card">
+    <h3>Law 2: Follow the State (Where Does State Live?)</h3>
+    <p>Ask of every box: <em>"If I pull the power plug on this server right now, or put a Load Balancer in front of 10 copies of it, what state is lost or inconsistent?"</em></p>
+    <ul>
+      <li><strong>Stateless Compute (Easy to Scale):</strong> If a worker holds zero client session or lock state in its local RAM/disk between requests, you can scale from 2 servers to 200 servers behind a Load Balancer in seconds.</li>
+      <li><strong>Stateful Storage (Hard to Scale):</strong> The moment state lives on a machine (logged-in session, WebSocket TCP connection, local cache, database row, distributed lock), horizontal scaling requires either <strong>pushing state to the client</strong> (signed JWT), <strong>sticky routing</strong> (consistent hashing), or <strong>replicated consensus/quorum storage</strong>.</li>
+    </ul>
+  </div>
+
+  <div class="rule-card">
+    <h3>Law 3: Little's Law, Queueing &amp; Blast Radius (<code>L = &lambda; &times; W</code>)</h3>
+    <p>In any system at steady state, the number of active concurrent requests in flight (<code>L</code>) equals the arrival rate (<code>&lambda; = QPS</code>) multiplied by the average response time (<code>W = Latency</code>):</p>
+    <ul>
+      <li><strong>Example:</strong> At <code>&lambda; = 1,000 QPS</code> and fast database latency <code>W = 10 ms (0.01 s)</code>, your Spring Boot server only has <code>L = 1,000 &times; 0.01 = 10</code> active threads working at any instant.</li>
+      <li><strong>Why Slow Is Worse Than Down:</strong> If a downstream service slows down from <code>10 ms</code> to <code>2 seconds</code>, then <code>L = 1,000 &times; 2 = 2,000</code> concurrent requests! Your 200 Tomcat threads fill up in <strong>200 milliseconds</strong>, queues explode, and the entire upstream fleet crashes (<strong>Cascading Failure</strong>)—unless guarded by <strong>Strict Timeouts + Bulkheads + Circuit Breakers + Load Shedding</strong>.</li>
+    </ul>
+  </div>
+
+  <div class="rule-card">
+    <h3>Law 4: No Free Coordination Across a Network (CAP / PACELC / Two Generals)</h3>
+    <p>The moment the same piece of truth lives in <strong>more than one place</strong> (Primary DB + Read Replica, DB + Redis Cache, Postgres + Kafka, Region US + Region EU), network packets <em>will</em> be delayed, dropped, or duplicated:</p>
+    <ul>
+      <li><strong>During a Partition (CAP) &amp; During Normal Operation (PACELC):</strong> You must trade off <strong>Synchronous Coordination</strong> (blocking the caller until a quorum/replica confirms, paying cross-network latency and availability risk) vs <strong>Asynchronous Propagation</strong> (returning fast in ~2 ms, accepting temporary replication lag / stale reads, and repairing via <strong>Idempotency Keys + Transactional Outbox + Sagas + Read-Your-Own-Writes</strong>).</li>
+    </ul>
+  </div>
+
+  <div class="rule-card">
+    <h3>Law 5: Every Optimization Shifts the Bottleneck</h3>
+    <p>No architectural pattern is free. A Senior/Staff engineer immediately names the <em>new problem created by their own solution</em>:</p>
+    <ul>
+      <li><strong>Add a Cache (Box 4)</strong> to save the DB &rarr; creates <strong>Cache Invalidation</strong> bugs, <strong>Cold-Cache Stampedes</strong>, and <strong>Hot-Key</strong> bottlenecks.</li>
+      <li><strong>Shard the Database (Box 6)</strong> to scale writes &rarr; breaks <strong>Cross-Shard Joins/Transactions</strong> and risks <strong>Hot Partitions (Celebrity Problem)</strong>.</li>
+      <li><strong>Add Network Retries (Box 3)</strong> to mask transient blips &rarr; creates <strong>Retry Storms</strong> (without exponential backoff + jitter) and <strong>Double Charges</strong> (without idempotency keys).</li>
+      <li><strong>Add Async Queues (Box 5)</strong> to smooth traffic spikes &rarr; creates <strong>Consumer Lag</strong>, <strong>Out-of-Order Events</strong>, and <strong>Duplicate Delivery</strong>.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="lvl">FLAGSHIP</span>Our Growing System Across Phases 1–9: <em>PulseStream / ScaleVault</em></h2>
+
+<div class="app">
+  <strong>One Continuous System Evolves Across Topics 1–115 — <em>PulseStream / ScaleVault</em>:</strong>
+  Instead of learning 115 isolated theory fragments, we build and scale <strong>one unified real-time creator &amp; commerce platform</strong> where creators publish media/posts, fans receive live feeds &amp; notifications, and users purchase digital passes/tickets with strict ledger consistency:
+  <ul style="margin:.4rem 0 0">
+    <li><strong>Phase 1 (Topics 1–10 — 100 Users):</strong> A single Spring Boot + PostgreSQL box. We define functional/non-functional requirements, run back-of-the-envelope capacity math, and establish SLOs.</li>
+    <li><strong>Phase 2 (Topics 11–22 — 10K Users):</strong> We put DNS, Cloudflare CDN, L4/L7 Load Balancers, an API Gateway, gRPC internal links, and WebSockets/SSE in front of PulseStream.</li>
+    <li><strong>Phase 3 (Topics 23–36 — 100K Users):</strong> We evolve from Monolith &rarr; Modular Monolith &rarr; Microservices (User, Feed, Order/Payment, Notification) using stateless JWTs, Idempotency Keys, Transactional Outbox, Sagas, and CQRS.</li>
+    <li><strong>Phase 4 (Topics 37–51 — 1M Users):</strong> We tune B+Trees vs LSM-Trees, add composite/inverted indexes, fix MVCC isolation race conditions, add Read Replicas, shard via Consistent Hashing, and move media blobs to S3.</li>
+    <li><strong>Phase 5 (Topics 52–60 — 10M Users):</strong> We add a multi-tier cache (CDN + Caffeine L1 + Redis Cluster L2), solve cache stampedes with Singleflight and Bloom filters, and protect APIs with Token Bucket rate limiters.</li>
+    <li><strong>Phase 6 (Topics 61–70 — 25M Users):</strong> We decouple high-velocity event streams and fan-out with Apache Kafka partitions, consumer groups, idempotent producers, windowed stream processing, and DLQs.</li>
+    <li><strong>Phase 7 (Topics 71–82 — 50M Users):</strong> We harden PulseStream against 2 A.M. chaos: Circuit Breakers, Bulkheads, Raft/etcd Leader Election, Fencing-Token Distributed Locks, and Dynamo Quorum storage.</li>
+    <li><strong>Phase 8 (Topics 83–100 — 100M+ Global Users):</strong> We take PulseStream Multi-AZ and Multi-Region (Active-Active), build zero-downtime migration pipelines, add OpenTelemetry tracing + RED/USE dashboards, Zero-Trust mTLS, and cut cloud spend by 50%.</li>
+    <li><strong>Phase 9 (Topics 101–115 — Platform Mastery):</strong> We add Event Sourcing ledgers, Distributed Cron/Time-Wheels, Inverted-Index Search, Multi-Stage Recommendations, Geohash/H3 spatial routing, Multi-Tenant isolation, and complete the Strangler-Fig evolution.</li>
+    <li><strong>Phase 10 (Topics 116–140 — 25 Standalone Google Capstones):</strong> Having built every single organ inside PulseStream, we tackle 25 classic and modern Google-level system design interviews end-to-end.</li>
+  </ul>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="lvl">LEVEL 2</span>The 140-Topic Master HLD Curriculum (10 Phases, Dependency-Ordered)</h2>
+
+<p>
+Every topic below is permanent and dependency-ordered. Status tags:
+<span class="tag curr">🔄 Current</span> = active topic in progress;
+<span class="tag done">✅ Completed</span> = cleared after scoring &ge; 4/5 on the multi-area Socratic Gate;
+<span class="tag pend">⏳ Pending</span> = upcoming in sequence.
+Depth tags: <span class="tag deep">DEEP</span> = core architectural machinery &amp; internals; <span class="tag skim">SKIM</span> = high-level framing or operational surface.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:4%">#</th>
+      <th style="width:31%">Topic Name &amp; Lesson Link</th>
+      <th style="width:17%">7-Box Map Location</th>
+      <th style="width:11%">Primary Law</th>
+      <th style="width:8%">Depth</th>
+      <th style="width:10%">Status</th>
+      <th style="width:19%">Why Here (What It Unlocks)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- PHASE 1 -->
+    <tr class="phase-row"><td colspan="7">PHASE 1 — SYSTEM DESIGN FOUNDATIONS (Pre-Map &amp; The 5 Universal Laws · Topics 1–10)</td></tr>
+    <tr><td>1</td><td><strong><a href="001-what-is-system-design/lesson.html">001. What is System Design? (The 7-Box Master Map &amp; 5 Universal Laws)</a></strong></td><td><span class="tag box">ALL 7 BOXES</span></td><td><span class="tag law">LAWS 1–5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag curr">🔄 Ready (Phase 1)</span></td><td>Establishes the 7-Box mental map, 5 Universal Laws, and PulseStream v0 baseline.</td></tr>
+    <tr><td>2</td><td><strong><a href="002-hld-vs-lld-and-architectural-thinking/lesson.html">002. HLD vs LLD and Architectural Thinking</a></strong></td><td><span class="tag box">PRE-MAP</span></td><td><span class="tag law">LAW 2 &amp; 5</span></td><td><span class="tag skim">SKIM</span></td><td><span class="tag curr">🔄 Ready (Phase 1)</span></td><td>Separates class/code boundaries (LLD) from process/network/storage boundaries (HLD).</td></tr>
+    <tr><td>3</td><td><strong><a href="003-functional-vs-non-functional-requirements/lesson.html">003. Functional vs Non-Functional Requirements</a></strong></td><td><span class="tag box">PRE-MAP</span></td><td><span class="tag law">LAWS 1–5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag curr">🔄 Ready (Phase 1)</span></td><td>Shows why features dictate APIs while NFRs (latency, scale, consistency) dictate the architecture.</td></tr>
+    <tr><td>4</td><td><strong><a href="004-requirements-clarification/lesson.html">004. Requirements Clarification (Vague Prompts &rarr; Concrete Numbers)</a></strong></td><td><span class="tag box">PRE-MAP</span></td><td><span class="tag law">LAW 3 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag curr">🔄 Ready (Phase 1)</span></td><td>The first 5 minutes of any interview: scoping read:write ratios, peak spikes, and consistency targets.</td></tr>
+    <tr><td>5</td><td><strong><a href="005-capacity-estimation/lesson.html">005. Capacity Estimation</a></strong></td><td><span class="tag box">ALL 7 BOXES</span></td><td><span class="tag law">LAW 1 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag curr">🔄 Ready (Phase 1)</span></td><td>Translates DAU into QPS, peak QPS, daily/5-year storage, RAM working set, and network bandwidth.</td></tr>
+    <tr><td>6</td><td><strong><a href="006-back-of-the-envelope-calculations/lesson.html">006. Back-of-the-Envelope Calculations (Hardware Physics &amp; Powers of 2/10)</a></strong></td><td><span class="tag box">ALL 7 BOXES</span></td><td><span class="tag law">LAW 1</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag curr">🔄 Ready (Phase 1)</span></td><td>Mental math shortcuts ($10^5$ sec/day, latency table, single-server limits) to size systems in 60 seconds.</td></tr>
+    <tr><td>7</td><td><strong><a href="007-latency-throughput-qps-concurrency-and-bandwidth/lesson.html">007. Latency, Throughput, QPS, Concurrency (Little's Law) &amp; Bandwidth</a></strong></td><td><span class="tag box">BOX 1, 2, 3</span></td><td><span class="tag law">LAW 1 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag curr">🔄 Ready (Phase 1)</span></td><td>Proves $L = \lambda \times W$, why tail latency (p99) matters, and how queueing saturates thread pools.</td></tr>
+    <tr><td>8</td><td><strong><a href="008-availability-reliability-durability-and-slas/lesson.html">008. Availability, Reliability, Durability and the "Nines" (SLA/SLO/SLI)</a></strong></td><td><span class="tag box">BOX 6 &amp; 7</span></td><td><span class="tag law">LAW 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag curr">🔄 Ready (Phase 1)</span></td><td>Series vs parallel availability math ($99.9\%$ vs $99.999\%$), error budgets, and durability vs availability.</td></tr>
+    <tr><td>9</td><td><strong><a href="009-scalability-and-elasticity/lesson.html">009. Scalability and Elasticity</a></strong></td><td><span class="tag box">BOX 2, 6, 7</span></td><td><span class="tag law">LAW 2 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag curr">🔄 Ready (Phase 1)</span></td><td>Vertical vs horizontal scaling, Amdahl's/Universal Scalability Law, and stateless vs stateful elasticity.</td></tr>
+    <tr><td>10</td><td><strong><a href="010-fundamental-system-design-trade-offs/lesson.html">010. Fundamental System Design Trade-offs</a></strong></td><td><span class="tag box">ALL 7 BOXES</span></td><td><span class="tag law">LAWS 1–5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag curr">🔄 Ready (Phase 1)</span></td><td>Synthesizes Phase 1 into a master trade-off matrix (Latency vs Consistency, Cost vs Availability, Read vs Write).</td></tr>
+
+    <!-- PHASE 2 -->
+    <tr class="phase-row"><td colspan="7">PHASE 2 — NETWORKING AND COMMUNICATION (Box 1: Edge &amp; Networking Plane · Topics 11–22)</td></tr>
+    <tr><td>11</td><td><strong>011. Networking Fundamentals (OSI/TCP-IP Packet Journey)</strong></td><td><span class="tag box">BOX 1</span></td><td><span class="tag law">LAW 1</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Traces an IP packet from NIC DMA ring buffer through L3/L4/L7 so network hops are never abstract.</td></tr>
+    <tr><td>12</td><td><strong>012. DNS (Resolution Lifecycle, Records, TTL, Anycast &amp; Geo-Routing)</strong></td><td><span class="tag box">BOX 1</span></td><td><span class="tag law">LAW 1 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>How clients find the closest edge IP; why DNS TTL caching delays failover during outages.</td></tr>
+    <tr><td>13</td><td><strong>013. TCP/IP, UDP, TLS Handshake &amp; Connection Lifecycle (Pools &amp; Keep-Alive)</strong></td><td><span class="tag box">BOX 1 &amp; 2</span></td><td><span class="tag law">LAW 1 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>3-way SYN handshake, TLS 1.3 1-RTT, TIME_WAIT port exhaustion, and why connection pooling saves 3 RTTs.</td></tr>
+    <tr><td>14</td><td><strong>014. HTTP/HTTPS Internals</strong></td><td><span class="tag box">BOX 1 &amp; 2</span></td><td><span class="tag law">LAW 1 &amp; 2</span></td><td><span class="tag skim">SKIM</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Headers, methods, status codes, idempotency of GET/PUT/DELETE vs POST, and TLS termination.</td></tr>
+    <tr><td>15</td><td><strong>015. HTTP/1.1 vs HTTP/2 vs HTTP/3 (HOL Blocking, Multiplexing &amp; QUIC)</strong></td><td><span class="tag box">BOX 1</span></td><td><span class="tag law">LAW 1 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why HTTP/2 multiplexing solved app-level HOL blocking but created TCP-level HOL blocking, solved by QUIC/UDP.</td></tr>
+    <tr><td>16</td><td><strong>016. REST APIs (Resource Design, Pagination, Filtering &amp; Versioning)</strong></td><td><span class="tag box">BOX 1 &amp; 2</span></td><td><span class="tag law">LAW 1 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why `OFFSET 1000000` kills SQL databases and how Cursor/Keyset pagination fixes it in $O(\log N)$.</td></tr>
+    <tr><td>17</td><td><strong>017. RPC and gRPC (Protobuf Binary Wire Format, Streaming &amp; Microservices)</strong></td><td><span class="tag box">BOX 2</span></td><td><span class="tag law">LAW 1</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Tag-Length-Value varint encoding, schema evolution, HTTP/2 streams, and why internal services use gRPC.</td></tr>
+    <tr><td>18</td><td><strong>018. WebSockets, Server-Sent Events (SSE) and Long Polling</strong></td><td><span class="tag box">BOX 1 &amp; 2</span></td><td><span class="tag law">LAW 2 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Stateful persistent connections, memory per socket, heartbeats, and choosing Polling vs SSE vs WebSockets.</td></tr>
+    <tr><td>19</td><td><strong>019. API Gateway (Routing, Auth Offloading, Rate Limiting &amp; BFF Pattern)</strong></td><td><span class="tag box">BOX 1</span></td><td><span class="tag law">LAW 2 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Single entry point for cross-cutting concerns without making the gateway a business-logic bottleneck.</td></tr>
+    <tr><td>20</td><td><strong>020. Load Balancers (L4 vs L7, NAT/DSR, Health Checks &amp; Routing Algorithms)</strong></td><td><span class="tag box">BOX 1</span></td><td><span class="tag law">LAW 2 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Packet-level L4 (Maglev/ALB) vs HTTP-level L7, Direct Server Return, Round-Robin vs Least-Connections/P2C.</td></tr>
+    <tr><td>21</td><td><strong>021. Reverse Proxy vs Forward Proxy vs Load Balancer</strong></td><td><span class="tag box">BOX 1</span></td><td><span class="tag law">LAW 1 &amp; 2</span></td><td><span class="tag skim">SKIM</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Clarifies who the proxy represents (client vs server) and where SSL termination, compression, and caching sit.</td></tr>
+    <tr><td>22</td><td><strong>022. CDN and Edge Computing (Push vs Pull, Anycast, Cache Keys &amp; Invalidation)</strong></td><td><span class="tag box">BOX 1 &amp; 4</span></td><td><span class="tag law">LAW 1 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Beats speed-of-light latency by serving static/dynamic content at PoPs; Origin Shielding against cache misses.</td></tr>
+
+    <!-- PHASE 3 -->
+    <tr class="phase-row"><td colspan="7">PHASE 3 — APPLICATION ARCHITECTURE (Box 2: Compute &amp; Service Plane · Topics 23–36)</td></tr>
+    <tr><td>23</td><td><strong>023. Monolith Architecture (PulseStream on 1 Box — Where It Shines &amp; Breaks)</strong></td><td><span class="tag box">BOX 2</span></td><td><span class="tag law">LAW 1 &amp; 2</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>In-process function calls (`~ns`), single ACID DB, zero network serialization—and when scale/teams outgrow it.</td></tr>
+    <tr><td>24</td><td><strong>024. Modular Monolith (Package-by-Feature, Hexagonal Boundaries &amp; When to Stop)</strong></td><td><span class="tag box">BOX 2</span></td><td><span class="tag law">LAW 2 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Strict module boundaries without distributed network tax; why 80% of startups should stop here before microservices.</td></tr>
+    <tr><td>25</td><td><strong>025. Microservices Architecture (Team &amp; Deployment Decomposition)</strong></td><td><span class="tag box">BOX 2</span></td><td><span class="tag law">LAW 4 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Database-per-service rule, bounded contexts, independent scaling, and the distributed systems tax you pay.</td></tr>
+    <tr><td>26</td><td><strong>026. Service Discovery (Client-Side vs Server-Side, Heartbeats &amp; K8s DNS)</strong></td><td><span class="tag box">BOX 2</span></td><td><span class="tag law">LAW 2 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>How ephemeral containers register/deregister IPs dynamically without hardcoded configs.</td></tr>
+    <tr><td>27</td><td><strong>027. Configuration Management (Dynamic Config, Feature Flags &amp; Secret Injection)</strong></td><td><span class="tag box">BOX 2 &amp; 7</span></td><td><span class="tag law">LAW 2 &amp; 4</span></td><td><span class="tag skim">SKIM</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Pushing kill-switches and rate limits to 1,000 pods in seconds without redeploying code.</td></tr>
+    <tr><td>28</td><td><strong>028. Service-to-Service Communication (Sync Blocking vs Async Non-Blocking &amp; Mesh)</strong></td><td><span class="tag box">BOX 2</span></td><td><span class="tag law">LAW 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Thread-per-request (Tomcat) vs Event-Loop (Netty) vs Virtual Threads; Envoy sidecar proxies.</td></tr>
+    <tr><td>29</td><td><strong>029. Synchronous vs Asynchronous Architecture (Queueing Math &amp; Decoupling)</strong></td><td><span class="tag box">BOX 2 &amp; 5</span></td><td><span class="tag law">LAW 3 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why synchronous call chains multiply failure probabilities ($0.99^{10}$) and latency, and how queues cut the chain.</td></tr>
+    <tr><td>30</td><td><strong>030. Stateless vs Stateful Services (Sticky Sessions vs Shared State Stores)</strong></td><td><span class="tag box">BOX 2 &amp; 4</span></td><td><span class="tag law">LAW 2</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why `HttpSession` in Tomcat RAM breaks load balancing and how JWT / Redis session stores make compute stateless.</td></tr>
+    <tr><td>31</td><td><strong>031. Idempotency (Idempotency Keys, Atomic Upserts &amp; Safe Network Retries)</strong></td><td><span class="tag box">BOX 2 &amp; 6</span></td><td><span class="tag law">LAW 4 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why every network timeout leaves an unknown state, and how `idempotency_key` + unique DB constraints prevent double-charging.</td></tr>
+    <tr><td>32</td><td><strong>032. Distributed Transactions (Why Single-JVM `@Transactional` &amp; 2PC/XA Fail at Scale)</strong></td><td><span class="tag box">BOX 2 &amp; 6</span></td><td><span class="tag law">LAW 3 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why holding row locks across two databases over a network (2-Phase Commit) destroys throughput and availability.</td></tr>
+    <tr><td>33</td><td><strong>033. Saga Pattern (Choreography vs Orchestration &amp; Compensating Transactions)</strong></td><td><span class="tag box">BOX 2 &amp; 5</span></td><td><span class="tag law">LAW 4 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Replacing long locks with sequential local ACID commits + semantic undo (compensating) steps and handling lack of isolation.</td></tr>
+    <tr><td>34</td><td><strong>034. Transactional Outbox Pattern &amp; CDC (Solving Dual Writes Between DB &amp; Broker)</strong></td><td><span class="tag box">BOX 2, 5, 6</span></td><td><span class="tag law">LAW 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why `db.save()` followed by `kafka.send()` loses data on crash, and how local Outbox tables + Debezium WAL tailing solve it.</td></tr>
+    <tr><td>35</td><td><strong>035. CQRS (Splitting Read Models from Write Models)</strong></td><td><span class="tag box">BOX 2 &amp; 6</span></td><td><span class="tag law">LAW 4 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Separating normalized write tables from denormalized read views (Elasticsearch/Redis) and managing sync lag.</td></tr>
+    <tr><td>36</td><td><strong>036. Event-Driven Architecture</strong></td><td><span class="tag box">BOX 2 &amp; 5</span></td><td><span class="tag law">LAW 4 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Event Notification vs Event-Carried State Transfer, schema registries, and avoiding event spaghetti.</td></tr>
+
+    <!-- PHASE 4 -->
+    <tr class="phase-row"><td colspan="7">PHASE 4 — DATA AND STORAGE (Box 6: Data, Storage &amp; Consensus Plane · Topics 37–51)</td></tr>
+    <tr><td>37</td><td><strong>037. Database Fundamentals (Storage Engines: B+Trees vs LSM-Trees, SSTables, MemTable &amp; WAL)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 1</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Opens the disk engine: page-based B+Trees (fast reads) vs log-structured LSM-Trees (fast writes + compaction).</td></tr>
+    <tr><td>38</td><td><strong>038. SQL vs NoSQL (Relational, Key-Value, Document, Wide-Column, Graph &amp; Time-Series)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 1 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>How to pick the exact storage engine in an interview based on access patterns, relationships, and write scale.</td></tr>
+    <tr><td>39</td><td><strong>039. Data Modeling (Access-Pattern-Driven Design, Denormalization &amp; Schema Evolution)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 1 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>3NF relational modeling vs single-table/partition-key modeling in Cassandra/DynamoDB.</td></tr>
+    <tr><td>40</td><td><strong>040. Indexing (Primary/Secondary, Composite, Leftmost Prefix, Covering, Inverted &amp; Geo)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 1 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Clustered vs non-clustered B+Trees, why `(a, b, c)` index fails on `WHERE b = ?`, and write-amplification cost.</td></tr>
+    <tr><td>41</td><td><strong>041. Transactions and ACID Internals (Undo/Redo Logs &amp; Write-Ahead Logging)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 1 &amp; 2</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>How Atomicity (Undo Log), Durability (`fsync` Redo/WAL), and ARIES crash recovery actually work on disk.</td></tr>
+    <tr><td>42</td><td><strong>042. Isolation Levels (Read Uncommitted &rarr; Serializable, MVCC, Anomalies &amp; Locks)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 2 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>MVCC tuple versions (`xmin`/`xmax`), Lost Updates, Write Skew, `SELECT FOR UPDATE` vs Optimistic `@Version`.</td></tr>
+    <tr><td>43</td><td><strong>043. Replication (Single-Leader, Multi-Leader, Leaderless, Logs &amp; Replication Lag)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Sync vs async replication, WAL shipping vs row-based logs, failover split-brain, and reading stale replicas.</td></tr>
+    <tr><td>44</td><td><strong>044. Partitioning / Sharding (Range vs Hash Sharding, Routing &amp; Rebalancing Pain)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 2 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why `hash(key) % N` moves ~90% of data when $N$ changes, hot keys, and scatter-gather secondary index traps.</td></tr>
+    <tr><td>45</td><td><strong>045. Consistent Hashing (Hash Ring, Virtual Nodes &amp; Bounded-Load Hot-Shard Mitigation)</strong></td><td><span class="tag box">BOX 6 &amp; 4</span></td><td><span class="tag law">LAW 2 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Moves only $1/N$ keys on scale-out; virtual nodes fix data skew; salted keys fix celebrity hot spots.</td></tr>
+    <tr><td>46</td><td><strong>046. Distributed Databases (Spanner/CockroachDB vs Dynamo/Cassandra Internals)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 1 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Compare NewSQL (Raft groups + TrueTime/HLC) against leaderless NoSQL (Hash ring + LSM + Quorums).</td></tr>
+    <tr><td>47</td><td><strong>047. CAP Theorem (What It Actually Means &amp; Common Interview Misconceptions)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why "pick 2 of 3" is false (you cannot forbid network partitions $P$), so the real choice during $P$ is $C$ vs $A$.</td></tr>
+    <tr><td>48</td><td><strong>048. PACELC Theorem (Why Latency vs Consistency Matters Even Without Partitions)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 1 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Even when the network is healthy (`Else`), replicating across nodes forces a Latency ($L$) vs Consistency ($C$) choice.</td></tr>
+    <tr><td>49</td><td><strong>049. Consistency Models (Linearizability, Sequential, Causal, Read-Your-Writes &amp; Eventual)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>The spectrum of consistency and how to pin a user to primary/LSN for Read-Your-Own-Writes.</td></tr>
+    <tr><td>50</td><td><strong>050. Distributed Transactions and Consensus (2PC vs Paxos/Raft State Machines)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why 2PC blocks when the coordinator crashes, while fault-tolerant majority consensus ($N/2 + 1$) continues safely.</td></tr>
+    <tr><td>51</td><td><strong>051. Object Storage and Blob Storage (S3 Architecture, Multipart Upload &amp; Immutability)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 1 &amp; 2</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why you never store 50MB videos in SQL; pre-signed URLs (offloading Box 2), erasure coding, and metadata separation.</td></tr>
+
+    <!-- PHASE 5 -->
+    <tr class="phase-row"><td colspan="7">PHASE 5 — CACHING AND PERFORMANCE (Box 4: Fast Memory &amp; Box 3: Protection · Topics 52–60)</td></tr>
+    <tr><td>52</td><td><strong>052. Caching Fundamentals (Hierarchy: Browser &rarr; CDN &rarr; Proxy &rarr; L1 App RAM &rarr; L2 Redis)</strong></td><td><span class="tag box">BOX 1 &amp; 4</span></td><td><span class="tag law">LAW 1 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Hit ratio math: why increasing hit rate from $95\%$ to $99\%$ cuts database load by $5\times$.</td></tr>
+    <tr><td>53</td><td><strong>053. Cache-Aside / Read-Through / Write-Through / Write-Behind (Refresh-Ahead)</strong></td><td><span class="tag box">BOX 4 &amp; 6</span></td><td><span class="tag law">LAW 4 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Packet flows, race conditions (why Cache-Aside deletes rather than updates cache on write), and durability trade-offs.</td></tr>
+    <tr><td>54</td><td><strong>054. Cache Invalidation (TTL, Jitter, Purge, Versioned Keys &amp; Event/CDC Invalidation)</strong></td><td><span class="tag box">BOX 4 &amp; 5</span></td><td><span class="tag law">LAW 4 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Solving stale-cache race conditions using CDC/Outbox invalidation streams and lease tokens.</td></tr>
+    <tr><td>55</td><td><strong>055. Distributed Caches (Sharding, Replication &amp; Client Routing)</strong></td><td><span class="tag box">BOX 4</span></td><td><span class="tag law">LAW 2 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>How Memcached client-side consistent hashing compares to Redis Cluster's 16,384 hash slots.</td></tr>
+    <tr><td>56</td><td><strong>056. Redis-like Architectures (Event Loop, SDS/Dict/Skiplist, RDB/AOF, Sentinel &amp; Cluster)</strong></td><td><span class="tag box">BOX 4</span></td><td><span class="tag law">LAW 1 &amp; 2</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Opens Redis internals: why `KEYS *` freezes single-threaded Redis, AOF fsync policies, and gossip slot routing.</td></tr>
+    <tr><td>57</td><td><strong>057. Cache Consistency &amp; Stampede Protection (Hot Keys, Penetration/Bloom, Breakdown &amp; Avalanche)</strong></td><td><span class="tag box">BOX 4</span></td><td><span class="tag law">LAW 3 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>The 4 deadly cache failures and their surgical fixes: Local L1 replication, Bloom filters, Singleflight locks, and TTL jitter.</td></tr>
+    <tr><td>58</td><td><strong>058. Rate Limiting (Token Bucket, Leaky Bucket, Fixed Window, Sliding Log &amp; Counter)</strong></td><td><span class="tag box">BOX 1 &amp; 3</span></td><td><span class="tag law">LAW 2 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>All 5 algorithms compared with exact memory/boundary-burst trade-offs and atomic Redis Lua scripts.</td></tr>
+    <tr><td>59</td><td><strong>059. Throttling, Load Shedding and Backpressure</strong></td><td><span class="tag box">BOX 2 &amp; 3</span></td><td><span class="tag law">LAW 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>How to drop low-priority traffic gracefully (HTTP 503 + Priority Shedding) before queues implode.</td></tr>
+    <tr><td>60</td><td><strong>060. End-to-End Performance Optimization (Tail Latency p99, Batching, Compression &amp; Pools)</strong></td><td><span class="tag box">ALL BOXES</span></td><td><span class="tag law">LAW 1 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Hedged requests, fan-out tail latency amplification, Nagle's algorithm, and JVM GC pause tuning.</td></tr>
+
+    <!-- PHASE 6 -->
+    <tr class="phase-row"><td colspan="7">PHASE 6 — MESSAGING AND STREAMING (Box 5: Messaging &amp; Streaming Plane · Topics 61–70)</td></tr>
+    <tr><td>61</td><td><strong>061. Message Queues (Point-to-Point, AMQP/RabbitMQ vs Log-Based Brokers)</strong></td><td><span class="tag box">BOX 5</span></td><td><span class="tag law">LAW 1 &amp; 2</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Queue brokers that delete messages on ACK (RabbitMQ/SQS) vs immutable append-only log brokers (Kafka).</td></tr>
+    <tr><td>62</td><td><strong>062. Pub/Sub Architecture (Fan-Out, Filtering &amp; Push vs Pull Delivery)</strong></td><td><span class="tag box">BOX 5</span></td><td><span class="tag law">LAW 3 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why push-based brokers overwhelm slow consumers unless paired with credits/backpressure, and why pull wins for batching.</td></tr>
+    <tr><td>63</td><td><strong>063. Kafka Architecture (Brokers, Topics, Append-Only Segments, Page Cache &amp; Zero-Copy)</strong></td><td><span class="tag box">BOX 5</span></td><td><span class="tag law">LAW 1</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>How sequential disk appends + OS Page Cache + `sendfile()` DMA bypass JVM heap garbage collection completely.</td></tr>
+    <tr><td>64</td><td><strong>064. Partitions and Ordering (Partition Keys, ISR, `acks=0/1/all` &amp; High Watermark)</strong></td><td><span class="tag box">BOX 5 &amp; 6</span></td><td><span class="tag law">LAW 4 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why Kafka guarantees ordering ONLY within a single partition, and how `acks=all` + `min.insync.replicas=2` prevent data loss.</td></tr>
+    <tr><td>65</td><td><strong>065. Consumer Groups (Partition Assignment, Rebalance Protocol &amp; Offset Commits)</strong></td><td><span class="tag box">BOX 5</span></td><td><span class="tag law">LAW 2 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why adding more consumers than partitions leaves idle threads; stop-the-world vs cooperative sticky rebalances.</td></tr>
+    <tr><td>66</td><td><strong>066. Delivery Semantics (At-Most-Once, At-Least-Once, Exactly-Once)</strong></td><td><span class="tag box">BOX 5</span></td><td><span class="tag law">LAW 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>How the exact line of code where you commit the offset (before vs after processing) changes your delivery guarantee.</td></tr>
+    <tr><td>67</td><td><strong>067. Exactly-Once vs At-Least-Once Processing (Transactional Producers + Idempotent Consumers)</strong></td><td><span class="tag box">BOX 2, 5, 6</span></td><td><span class="tag law">LAW 4 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why true end-to-end "exactly-once" with external side effects requires At-Least-Once delivery + Idempotent Consumer upserts.</td></tr>
+    <tr><td>68</td><td><strong>068. Event Ordering, Causal Clocks and Deduplication At Scale</strong></td><td><span class="tag box">BOX 5 &amp; 6</span></td><td><span class="tag law">LAW 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why wall-clock `System.currentTimeMillis()` lies across servers (NTP skew) and how Lamport/Vector Clocks &amp; Sequence IDs work.</td></tr>
+    <tr><td>69</td><td><strong>069. Stream Processing (Stateless vs Stateful Streams, Tumbling/Sliding Windows &amp; Watermarks)</strong></td><td><span class="tag box">BOX 5</span></td><td><span class="tag law">LAW 2 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Event Time vs Processing Time, handling late-arriving mobile events with Watermarks, and RocksDB state checkpoints in Flink.</td></tr>
+    <tr><td>70</td><td><strong>070. Dead Letter Queues (DLQ), Poison Pills and Exponential Retry Architecture</strong></td><td><span class="tag box">BOX 3 &amp; 5</span></td><td><span class="tag law">LAW 3 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Preventing a malformed JSON message from blocking a Kafka partition forever via tiered retry topics and DLQ replay tooling.</td></tr>
+
+    <!-- PHASE 7 -->
+    <tr class="phase-row"><td colspan="7">PHASE 7 — RELIABILITY AND DISTRIBUTED SYSTEMS (Box 3 &amp; Box 6 Deep Internals · Topics 71–82)</td></tr>
+    <tr><td>71</td><td><strong>071. Failure Models (Fail-Stop, Crash-Recovery, Omission, Gray Failures &amp; Byzantine Faults)</strong></td><td><span class="tag box">BOX 3 &amp; 6</span></td><td><span class="tag law">LAW 3 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why partial "zombie" degradation (packet loss, slow disk, GC pause) is deadlier than a clean server crash.</td></tr>
+    <tr><td>72</td><td><strong>072. Timeouts, Retries, Exponential Backoff and Jitter (Preventing Retry Storms)</strong></td><td><span class="tag box">BOX 3</span></td><td><span class="tag law">LAW 3 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Connect vs Read timeouts, Deadline Propagation across RPC hops, Full Jitter math, and Client-Side Retry Budgets.</td></tr>
+    <tr><td>73</td><td><strong>073. Circuit Breakers (CLOSED &rarr; OPEN &rarr; HALF_OPEN State Machine &amp; Sliding Windows)</strong></td><td><span class="tag box">BOX 3</span></td><td><span class="tag law">LAW 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Resilience4j internals: count-based vs time-based ring buffers, fail-fast fallbacks, and recovery probing.</td></tr>
+    <tr><td>74</td><td><strong>074. Bulkheads (Thread-Pool vs Semaphore Isolation &amp; Blast-Radius Containment)</strong></td><td><span class="tag box">BOX 2 &amp; 3</span></td><td><span class="tag law">LAW 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Compartmentalizing resources like ship hulls (and Shuffle Sharding) so one slow tenant/dependency cannot sink the JVM.</td></tr>
+    <tr><td>75</td><td><strong>075. Health Checks (Liveness vs Readiness vs Startup Probes &amp; Cascading Reboots)</strong></td><td><span class="tag box">BOX 1, 2, 7</span></td><td><span class="tag law">LAW 3 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why checking the database inside a Kubernetes Liveness probe causes a catastrophic fleet-wide reboot loop during a DB blip.</td></tr>
+    <tr><td>76</td><td><strong>076. Leader Election (Split-Brain, Leases, Ephemeral Nodes &amp; Fencing Tokens)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 2 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>How one node becomes leader safely, why GC pauses cause dual leaders (Split-Brain), and how epoch numbers fence old leaders.</td></tr>
+    <tr><td>77</td><td><strong>077. Consensus (Raft &amp; Paxos Demystified: Terms, Log Replication &amp; Safety)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Step-by-step state machine of Raft: Leader Election, Term numbers, Log Matching invariant, and Quorum Commit ($N/2 + 1$).</td></tr>
+    <tr><td>78</td><td><strong>078. Distributed Locks (Redis Redlock vs ZooKeeper/etcd Leases + Fencing Tokens)</strong></td><td><span class="tag box">BOX 4 &amp; 6</span></td><td><span class="tag law">LAW 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Martin Kleppmann's critique: why TTL-based locks without monotonic fencing tokens fail under GC pauses or clock jumps.</td></tr>
+    <tr><td>79</td><td><strong>079. Distributed Coordination (ZooKeeper, etcd, Chubby &amp; Gossip Protocols)</strong></td><td><span class="tag box">BOX 6 &amp; 7</span></td><td><span class="tag law">LAW 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>CP coordination stores (Watches, Ephemeral ZNodes) vs AP epidemic Gossip protocols (SWIM membership, Cassandra).</td></tr>
+    <tr><td>80</td><td><strong>080. Fault Tolerance &amp; Graceful Degradation</strong></td><td><span class="tag box">BOX 2 &amp; 3</span></td><td><span class="tag law">LAW 3 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Serving stale cache, static recommendations, or core-only checkout when non-critical microservices go down.</td></tr>
+    <tr><td>81</td><td><strong>081. Replication Strategies (Chain Replication, Primary-Backup &amp; State Machine Replication)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 1 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>How Head-to-Tail Chain Replication achieves strong consistency with higher throughput than star replication.</td></tr>
+    <tr><td>82</td><td><strong>082. Quorum-Based Systems (`R + W &gt; N`, Sloppy Quorums, Hinted Handoff, Read Repair &amp; Merkle Trees)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Pigeonhole principle of strict quorums ($W + R > N$), tunable availability via Sloppy Quorums, and anti-entropy Merkle trees.</td></tr>
+
+    <!-- PHASE 8 -->
+    <tr class="phase-row"><td colspan="7">PHASE 8 — LARGE-SCALE PRODUCTION ARCHITECTURE (Box 7: Production &amp; Multi-Region · Topics 83–100)</td></tr>
+    <tr><td>83</td><td><strong>083. Horizontal vs Vertical Scaling (Stateless Tier vs Stateful Tier Scaling)</strong></td><td><span class="tag box">BOX 2, 6, 7</span></td><td><span class="tag law">LAW 2</span></td><td><span class="tag skim">SKIM</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Playbook for scaling stateless compute in seconds vs scaling stateful storage via read replicas and sharding.</td></tr>
+    <tr><td>84</td><td><strong>084. Auto Scaling (Reactive Metrics vs Predictive Scaling &amp; Cold-Start Traps)</strong></td><td><span class="tag box">BOX 7</span></td><td><span class="tag law">LAW 1 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why scaling on CPU % fails when threads block on I/O, and why un-warmed JVM JIT/caches crash newly launched pods.</td></tr>
+    <tr><td>85</td><td><strong>085. Multi-AZ Architecture (Synchronous Cross-AZ Replication, Blast Radius &amp; Latency)</strong></td><td><span class="tag box">BOX 6 &amp; 7</span></td><td><span class="tag law">LAW 1 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Designing across 3 isolated datacenters (`~1–2 ms` apart) so a power/fire outage in one AZ causes zero data loss.</td></tr>
+    <tr><td>86</td><td><strong>086. Multi-Region Architecture (Geo-DNS, Anycast, Data Residency &amp; Cross-Region Latency)</strong></td><td><span class="tag box">BOX 1, 6, 7</span></td><td><span class="tag law">LAW 1 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Beating the `150 ms` speed-of-light barrier across continents while respecting GDPR/local data residency laws.</td></tr>
+    <tr><td>87</td><td><strong>087. Active-Passive vs Active-Active (Conflict Resolution, LWW &amp; CRDTs)</strong></td><td><span class="tag box">BOX 6 &amp; 7</span></td><td><span class="tag law">LAW 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>What happens when two regions accept writes simultaneously: Home-Region pinning, Last-Write-Wins traps, and CRDTs.</td></tr>
+    <tr><td>88</td><td><strong>088. Disaster Recovery (Failover Playbooks, Chaos Engineering &amp; Game Days)</strong></td><td><span class="tag box">BOX 7</span></td><td><span class="tag law">LAW 3 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why untested failover scripts fail at 2 A.M., cold-standby capacity overload, and Netflix Chaos Monkey principles.</td></tr>
+    <tr><td>89</td><td><strong>089. Backup and Restore (Snapshots, PITR, WAL Archiving &amp; Verifying Restores)</strong></td><td><span class="tag box">BOX 6 &amp; 7</span></td><td><span class="tag law">LAW 1 &amp; 2</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why replication does NOT protect against `DROP TABLE` (it replicates the drop in 2ms!) and how Point-In-Time Recovery works.</td></tr>
+    <tr><td>90</td><td><strong>090. RPO and RTO (Designing Tiers from Hours Down to Zero-Data-Loss)</strong></td><td><span class="tag box">BOX 6 &amp; 7</span></td><td><span class="tag law">LAW 1 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Mapping Backup/Restore, Pilot Light, Warm Standby, and Hot Active-Active to exact RPO (data loss) and RTO (recovery time).</td></tr>
+    <tr><td>91</td><td><strong>091. Zero-Downtime Data Migration (Dual-Write, Shadow Reads, Backfill, Verify &amp; Cutover)</strong></td><td><span class="tag box">BOX 2, 6, 7</span></td><td><span class="tag law">LAW 4 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>The 6-step Staff-level playbook for migrating 10TB from PostgreSQL to Cassandra/DynamoDB without 1 second of downtime.</td></tr>
+    <tr><td>92</td><td><strong>092. Zero-Downtime Application Deployment (Expand-and-Contract DB Schema Migrations &amp; Drain)</strong></td><td><span class="tag box">BOX 2, 6, 7</span></td><td><span class="tag law">LAW 2 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why renaming a SQL column breaks rolling deploys while v1 and v2 pods run together, and how Expand-Migrate-Contract fixes it.</td></tr>
+    <tr><td>93</td><td><strong>093. Blue-Green, Canary and Feature-Flagged Deployments (Automated Rollbacks)</strong></td><td><span class="tag box">BOX 1, 2, 7</span></td><td><span class="tag law">LAW 3 &amp; 5</span></td><td><span class="tag skim">SKIM</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Routing 1% canary traffic, comparing error/p99 metrics automatically, and decoupling deployment from release.</td></tr>
+    <tr><td>94</td><td><strong>094. Observability Architecture</strong></td><td><span class="tag box">BOX 7</span></td><td><span class="tag law">LAW 1 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Designing the high-throughput ingestion pipeline for telemetry (Collectors, Kafka buffers, TSDBs, Columnar log stores).</td></tr>
+    <tr><td>95</td><td><strong>095. Logging, Metrics (RED/USE, Histograms) &amp; Distributed Tracing (OpenTelemetry W3C)</strong></td><td><span class="tag box">BOX 7</span></td><td><span class="tag law">LAW 1 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>High-cardinality metric explosions, head vs tail trace sampling, and propagating `traceparent` across async threads/Kafka.</td></tr>
+    <tr><td>96</td><td><strong>096. Security Architecture (Defense in Depth, Zero Trust, mTLS &amp; WAF/DDoS Protection)</strong></td><td><span class="tag box">BOX 1, 2, 7</span></td><td><span class="tag law">LAW 1 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why perimeter firewalls are not enough; SPIFFE/mTLS service identity, VPC segmentation, and L3/L7 DDoS absorption.</td></tr>
+    <tr><td>97</td><td><strong>097. Authentication &amp; Authorization at Scale (OAuth2, OIDC, JWT vs Opaque, RBAC/ABAC/Zanzibar)</strong></td><td><span class="tag box">BOX 1, 2, 6</span></td><td><span class="tag law">LAW 2 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>The JWT revocation problem (short-lived access token + refresh token rotation) and Google Zanzibar relation-tuple graph auth.</td></tr>
+    <tr><td>98</td><td><strong>098. Secrets and Key Management (KMS, Envelope Encryption &amp; Automated Rotation)</strong></td><td><span class="tag box">BOX 6 &amp; 7</span></td><td><span class="tag law">LAW 1 &amp; 2</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>How Envelope Encryption (KEK inside HSM + DEK per record) encrypts gigabytes locally without calling KMS on every read.</td></tr>
+    <tr><td>99</td><td><strong>099. Cost Optimization (Compute, Storage Tiering, Cross-AZ/NAT Egress Traps &amp; FinOps)</strong></td><td><span class="tag box">ALL 7 BOXES</span></td><td><span class="tag law">LAW 1 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why cross-AZ network transfer and NAT gateways silently cost more than EC2/EKS compute, and how locality/tiering cuts 50%.</td></tr>
+    <tr><td>100</td><td><strong>100. Capacity Planning (Load Testing, Headroom, Little's Law &amp; Bottleneck Modeling)</strong></td><td><span class="tag box">ALL 7 BOXES</span></td><td><span class="tag law">LAW 1 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Shadow traffic, $N+2$ redundancy headroom, and queueing knee-curve math (why running CPUs at $90\%$ explodes p99 latency).</td></tr>
+
+    <!-- PHASE 9 -->
+    <tr class="phase-row"><td colspan="7">PHASE 9 — ARCHITECTURAL PATTERNS AND ADVANCED DESIGN (Combining All 7 Boxes · Topics 101–115)</td></tr>
+    <tr><td>101</td><td><strong>101. Event Sourcing (Append-Only Event Ledger, Snapshots &amp; Replay)</strong></td><td><span class="tag box">BOX 2, 5, 6</span></td><td><span class="tag law">LAW 1 &amp; 2</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Storing immutable state transitions (`AccountCredited($50)`) instead of mutable rows, plus periodic snapshots for fast boot.</td></tr>
+    <tr><td>102</td><td><strong>102. Materialized Views (Precomputed Read Models &amp; Incremental Updates)</strong></td><td><span class="tag box">BOX 4, 5, 6</span></td><td><span class="tag law">LAW 1 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Shifting expensive joins/aggregations from read time ($O(N)$) to write/stream time ($O(1)$ lookup).</td></tr>
+    <tr><td>103</td><td><strong>103. Distributed Scheduling (Cron at Scale, Leases, Sharded Timers &amp; Time-Wheel Algorithms)</strong></td><td><span class="tag box">BOX 2, 5, 6</span></td><td><span class="tag law">LAW 1, 2, 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Hashed Hierarchical Timing Wheels ($O(1)$ insert/tick vs $O(\log N)$ heap) and sharded DB lease polling (`SKIP LOCKED`).</td></tr>
+    <tr><td>104</td><td><strong>104. Distributed Job Processing (DAG Workflows, Worker Pools, Heartbeats &amp; Checkpointing)</strong></td><td><span class="tag box">BOX 2, 5, 6</span></td><td><span class="tag law">LAW 2 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Temporal/Airflow-style durable execution: visibility timeouts, heartbeating long jobs, and resuming from checkpoints.</td></tr>
+    <tr><td>105</td><td><strong>105. Search Architecture (Inverted Index, Tokenization, BM25 Ranking &amp; Scatter-Gather)</strong></td><td><span class="tag box">BOX 6</span></td><td><span class="tag law">LAW 1 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why `LIKE '%term%'` does a full table scan, and how Elasticsearch/Lucene Inverted Indexes + Finite State Transducers work.</td></tr>
+    <tr><td>106</td><td><strong>106. Recommendation Systems (Candidate Generation &rarr; Scoring &rarr; Re-Ranking &amp; Feature Stores)</strong></td><td><span class="tag box">BOX 2, 4, 6</span></td><td><span class="tag law">LAW 1 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Filtering 100M items to 1,000 (ANN/Two-Tower) &rarr; 100 (Heavy ML Ranker) &rarr; 20 (Diversity/Business Rules) under 100ms using Online/Offline Feature Stores.</td></tr>
+    <tr><td>107</td><td><strong>107. Notification Systems (Multi-Channel Fan-Out, Rate Caps, Templating &amp; Delivery Tracking)</strong></td><td><span class="tag box">BOX 2, 4, 5</span></td><td><span class="tag law">LAW 3 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Deduplicating, prioritizing (OTP vs Promo), respecting user quiet hours, and isolating APNs/FCM/SMS provider failures.</td></tr>
+    <tr><td>108</td><td><strong>108. File Storage Systems (Chunking, Content-Addressable Hashing, Dedup &amp; Metadata Split)</strong></td><td><span class="tag box">BOX 1, 2, 6</span></td><td><span class="tag law">LAW 1 &amp; 2</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Splitting 4MB content-addressed SHA-256 chunks (Rabin fingerprinting) so editing 1KB of a 1GB file only uploads 1 chunk.</td></tr>
+    <tr><td>109</td><td><strong>109. Real-Time Systems (Presence, Pub/Sub Edge Gateways &amp; Low-Latency Fan-Out)</strong></td><td><span class="tag box">BOX 1, 2, 4, 5</span></td><td><span class="tag law">LAW 2 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Routing messages to the exact Stateful Connection Gateway holding User B's WebSocket, and solving Presence storms.</td></tr>
+    <tr><td>110</td><td><strong>110. Geo-Distributed Systems (Geohashing, S2/H3 Spatial Indexing &amp; Regional Partitioning)</strong></td><td><span class="tag box">BOX 4 &amp; 6</span></td><td><span class="tag law">LAW 1 &amp; 2</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Turning 2D `(lat, lon)` into a 1D string/64-bit integer (Geohash / Uber H3 hexagons) so range queries become fast prefix lookups.</td></tr>
+    <tr><td>111</td><td><strong>111. Multi-Tenant Architecture (Silo vs Pool vs Bridge, Noisy Neighbor &amp; Tenant Routing)</strong></td><td><span class="tag box">BOX 1, 2, 3, 6</span></td><td><span class="tag law">LAW 2 &amp; 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>B2B SaaS design: shared schema (`tenant_id` + Row-Level Security) vs isolated DBs, per-tenant rate limits, and Shuffle Sharding.</td></tr>
+    <tr><td>112</td><td><strong>112. Data Pipeline Architecture (OLTP vs OLAP, Batch vs Streaming, Lambda/Kappa &amp; Lakehouse)</strong></td><td><span class="tag box">BOX 5 &amp; 6</span></td><td><span class="tag law">LAW 1 &amp; 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Row-oriented OLTP vs Columnar OLAP (Parquet/ClickHouse/Snowflake), SIMD vectorized scans, and Kappa vs Lambda pipelines.</td></tr>
+    <tr><td>113</td><td><strong>113. Control Plane vs Data Plane (Separation of Concerns &amp; Static Stability)</strong></td><td><span class="tag box">BOX 7</span></td><td><span class="tag law">LAW 2 &amp; 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>AWS's #1 resilience rule: the high-QPS Data Plane must keep serving traffic using cached state even if the Control Plane is 100% down.</td></tr>
+    <tr><td>114</td><td><strong>114. Platform Architecture (Internal Developer Platforms, Sidecars &amp; Shared Infrastructure)</strong></td><td><span class="tag box">BOX 2 &amp; 7</span></td><td><span class="tag law">LAW 2 &amp; 5</span></td><td><span class="tag skim">SKIM</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Paved-road golden paths, SDKs vs Sidecars, and standardizing auth, observability, and CI/CD across 500 engineers.</td></tr>
+    <tr><td>115</td><td><strong>115. Architecture Evolution &amp; Migration (Strangler Fig: PulseStream Topic 1 &rarr; Topic 115)</strong></td><td><span class="tag box">ALL 7 BOXES</span></td><td><span class="tag law">LAWS 1–5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Grand synthesis of Phases 1–9: extracting services safely via API Gateway routing + CDC Strangler Fig pattern.</td></tr>
+
+    <!-- PHASE 10 -->
+    <tr class="phase-row"><td colspan="7">PHASE 10 — GOOGLE-LEVEL SYSTEM DESIGN INTERVIEWS (25 End-to-End Capstones · Topics 116–140)</td></tr>
+    <tr><td>116</td><td><strong>116. Design a URL Shortener (TinyURL)</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 2, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Base62 encoding vs Snowflake ID generation, 100:1 read:write caching, 301 vs 302 redirects, and click analytics decoupling.</td></tr>
+    <tr><td>117</td><td><strong>117. Design a Distributed Rate Limiter</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 3, 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Edge vs Gateway placement, Redis Lua atomic Token Bucket / Sliding Window, local batching for ultra-hot keys, and fail-open vs fail-closed.</td></tr>
+    <tr><td>118</td><td><strong>118. Design a Large-Scale Notification System</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 3, 4, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>100M+ daily pushes/emails/SMS, priority queues (OTP vs marketing), user preference cache, deduplication, and provider circuit breakers.</td></tr>
+    <tr><td>119</td><td><strong>119. Design a 1-on-1 &amp; Group Chat System (Slack / Discord)</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 2, 3, 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Stateful WebSocket gateways, Session routing table, Snowflake causal ordering, Cassandra/ScyllaDB wide-column storage, and large-channel fan-out.</td></tr>
+    <tr><td>120</td><td><strong>120. Design a WhatsApp-like End-to-End Encrypted Messaging System</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 2, 4, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Signal Double-Ratchet pre-key bundles, store-and-forward transient queues (delete on ACK), multi-device fan-out, and presence throttling.</td></tr>
+    <tr><td>121</td><td><strong>121. Design a YouTube-like Video Upload, Transcoding &amp; Streaming Platform</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 3, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Resumable multipart S3 uploads, DAG video chunk transcoding pipeline (HLS/DASH adaptive bitrate), and CDN edge caching.</td></tr>
+    <tr><td>122</td><td><strong>122. Design a Netflix-like Global Video Streaming &amp; Open Connect CDN Platform</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 2, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Control Plane (AWS microservices) vs Data Plane (ISP-embedded Open Connect Appliances), off-peak proactive cache pre-positioning.</td></tr>
+    <tr><td>123</td><td><strong>123. Design an Uber-like Real-Time Ride Sharing &amp; Dispatch System</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 2, 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>High-frequency GPS ingestion (4M drivers every 4s), Uber H3 hexagonal spatial index in RAM, ETA graph routing, and atomic ride matching locks.</td></tr>
+    <tr><td>124</td><td><strong>124. Design a Google Drive-like Cloud Storage System</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 2, 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Hierarchical folder metadata (sharded SQL + Zanzibar ACLs) separated from immutable S3 object storage and real-time change notifications.</td></tr>
+    <tr><td>125</td><td><strong>125. Design a Dropbox-like Chunked File Sync &amp; Differential Update System</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 4, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Content-defined chunking (Rabin fingerprinting), SHA-256 global deduplication, cold archival tiering, and conflict-safe offline sync.</td></tr>
+    <tr><td>126</td><td><strong>126. Design a Twitter/X-like Home Timeline (Hybrid Push/Pull Celebrity Fan-Out)</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 3, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Why pure Fan-Out-on-Write breaks for a celebrity with 50M followers, and how Hybrid Push (normal users) + Pull-on-Read (celebrities) solves it.</td></tr>
+    <tr><td>127</td><td><strong>127. Design an Instagram-like Media Feed &amp; Stories System</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 2, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Pre-signed media upload + CDN resizing, 24-hour TTL ephemeral Stories ring, and high-concurrency like/view counters.</td></tr>
+    <tr><td>128</td><td><strong>128. Design a Distributed Search Engine</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 2, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Document-partitioned vs term-partitioned inverted indexes, scatter-gather query coordinator, WAND top-K pruning, and real-time index segments.</td></tr>
+    <tr><td>129</td><td><strong>129. Design a Distributed Web Crawler</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 2, 3</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>URL Frontier (Priority + Politeness host queues), `robots.txt` cache, Bloom filter URL deduplication, SimHash near-duplicate content detection.</td></tr>
+    <tr><td>130</td><td><strong>130. Design a Personalized News Feed System</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 3, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Multi-stage retrieval + ML ranking pipeline, real-time user engagement signal feedback loop, and unseen-post Bloom filter tracking.</td></tr>
+    <tr><td>131</td><td><strong>131. Design a Payment System (Double-Entry Ledger, Idempotency, PSP Webhooks &amp; Reconciliation)</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 2, 4, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Zero-cent-lost architecture: Idempotency keys, immutable Double-Entry Ledger ($\sum \text{Debits} = \sum \text{Credits}$), Outbox, PSP webhook state machine, and nightly reconciliation.</td></tr>
+    <tr><td>132</td><td><strong>132. Design an E-Commerce Platform (Flash Sales, High-Contention Inventory &amp; Checkout)</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 3, 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Handling 500,000 users clicking "Buy" on 1,000 iPhones: Redis Lua atomic inventory reservation, TTL hold release, and async order Saga.</td></tr>
+    <tr><td>133</td><td><strong>133. Design a Ticket Booking System (Ticketmaster / BookMyShow — Seat Locking &amp; Waiting Room)</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 2, 3, 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Edge Virtual Waiting Room (token queue), exact seat-map contention (`SELECT FOR UPDATE` / Redis seat lock with 10-min payment TTL), and zero double-booking.</td></tr>
+    <tr><td>134</td><td><strong>134. Design a Distributed Logging System</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 3, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Lightweight daemonset agents, Kafka ingestion backpressure, streaming log parsing, inverted + columnar storage (ClickHouse/OpenSearch), and hot/warm/cold S3 tiering.</td></tr>
+    <tr><td>135</td><td><strong>135. Design a Metrics &amp; Monitoring / Alerting Platform (Prometheus / Datadog at Scale)</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 2, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Time-Series Database (TSDB) Gorilla delta-of-delta compression (`1.37 bytes/point`), downsampling rollups, and high-availability alert evaluation engine.</td></tr>
+    <tr><td>136</td><td><strong>136. Design a Real-Time Analytics Platform (Clickstream Aggregation &amp; Top-K Heavy Hitters)</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 2, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Sub-second trending topics &amp; metrics at 1M events/sec using Count-Min Sketch, HyperLogLog, Flink tumbling windows, and Apache Pinot/Druid OLAP.</td></tr>
+    <tr><td>137</td><td><strong>137. Design a Distributed Task Scheduler</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 2, 3, 4</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Executing 10M delayed/cron tasks with $<1\text{s}$ jitter: Sharded Time-Wheels, lease-based worker claims, idempotency, and dead-worker recovery.</td></tr>
+    <tr><td>138</td><td><strong>138. Design an Ad Click Attribution &amp; Ad Serving System</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 4, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>$<50\text{ms}$ Real-Time Bidding (RTB) budget pacing + Exactly-Once stream join between Ad Impressions and Ad Clicks with fraud deduplication.</td></tr>
+    <tr><td>139</td><td><strong>139. Design a Large-Scale Recommendation System</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 1, 3, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>End-to-end production ML serving: HNSW vector index candidate retrieval, Feature Store (Redis + Iceberg), GPU batching ranker, and real-time embedding updates.</td></tr>
+    <tr><td>140</td><td><strong>140. Design a Global Transactional &amp; Bulk Email Platform</strong></td><td><span class="tag box">CAPSTONE</span></td><td><span class="tag law">LAWS 3, 4, 5</span></td><td><span class="tag deep">DEEP</span></td><td><span class="tag pend">⏳ Pending</span></td><td>Strict physical isolation of transactional vs marketing queues, IP reputation warm-up &amp; per-domain ISP throttling (Gmail/Outlook), DKIM/SPF signing, and bounce loops.</td></tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="lvl">BLUEPRINT</span>How Every Single Lesson Is Taught (20-Part KB-2 + Spring Edition)</h2>
+
+<p>
+Every lesson (`lesson.html` + interactive mentor session) follows the exact 20-part structure designed to build permanent first-principles intuition:
+</p>
+
+<table>
+  <thead><tr><th>Section</th><th>What It Covers</th></tr></thead>
+  <tbody>
+    <tr><td><strong>0. TL;DR + 🧭 You Are Here</strong></td><td>2–3 sentences in simple English + placement on the <strong>7-Box Master Map</strong> + governing <strong>Universal Law (1–5)</strong>.</td></tr>
+    <tr><td><strong>1. Why Does This Exist?</strong></td><td><strong>Contrast Anchor:</strong> Build the naive 1-server baseline first &rarr; throw scale/failures at it &rarr; feel the pain &rarr; invent the box.</td></tr>
+    <tr><td><strong>2. Explain to a 12-Year-Old</strong></td><td>Vivid real-world Feynman analogy + answering the naive <em>"Why can't we just do X?"</em> question.</td></tr>
+    <tr><td><strong>3. Formal Definition &amp; Guarantees</strong></td><td>Interview-grade definition, invariants, and what it guarantees vs explicitly does NOT guarantee.</td></tr>
+    <tr><td><strong>4. Strip the Magic (Internals)</strong></td><td>What plain data structure (`HashMap`, B+Tree, append-only file, ring buffer, `Semaphore`, state machine) runs inside the box.</td></tr>
+    <tr><td><strong>5. Architectural &amp; Lifecycle Diagram</strong></td><td>Detailed SVG + ASCII topology and control-flow diagram with every box and arrow explained.</td></tr>
+    <tr><td><strong>6. Step-by-Step Packet Flow</strong></td><td>Trace one concrete request (Step 1 &rarr; Step N) across Network, RAM, CPU, and Disk.</td></tr>
+    <tr><td><strong>7. Scale Evolution (1K &rarr; 1B Users)</strong></td><td>Back-of-the-envelope numbers for <em>PulseStream / ScaleVault</em> across 1K, 100K, 1M, 100M, and 1B users, showing where the bottleneck shifts.</td></tr>
+    <tr><td><strong>8. 2 A.M. Failure Scenarios</strong></td><td><code>Failure &rarr; Detection &rarr; Immediate Mitigation &rarr; Long-Term Recovery</code> across crashes, partitions, lag, and hot keys.</td></tr>
+    <tr><td><strong>9. Trade-Off Matrix</strong></td><td>Why choose X vs Y, what you gain vs pay (latency, consistency, ops complexity, $$$), and when NOT to use it.</td></tr>
+    <tr><td><strong>10. Real-World Production Usage</strong></td><td>How Google, Amazon, Meta, Netflix, Uber, Stripe, Cloudflare, or Discord use this pattern in production.</td></tr>
+    <tr><td><strong>11. Day-to-Day On-Call Runbook</strong></td><td>2–3 realistic production incidents: <code>Symptoms &rarr; Root Cause &rarr; Investigation &rarr; Immediate Fix &rarr; Prevention</code>.</td></tr>
+    <tr><td><strong>12. Observability (X-Raying the Box)</strong></td><td>Exact SLIs/SLOs, p50/p95/p99 Metrics, Structured Logs, OpenTelemetry Traces, and Pager Alerts.</td></tr>
+    <tr><td><strong>13. Security Considerations</strong></td><td>AuthN/AuthZ, mTLS/TLS, encryption at rest, rate limiting, DDoS protection, and tenant isolation.</td></tr>
+    <tr><td><strong>14. Cost &amp; FinOps Reality</strong></td><td>The most expensive resource (RAM, IOPS, cross-AZ egress, idle compute) and how to cut cost by 50% safely.</td></tr>
+    <tr><td><strong>15. Interview Derivation Playbook</strong></td><td>How to derive the answer from the 5 Universal Laws + Side-by-Side <em>Junior vs Senior vs Staff/Principal Answer</em> + Pitfalls.</td></tr>
+    <tr><td><strong>16. Dependency Graph &amp; Connections</strong></td><td><code>[Prerequisite Topic X] &rarr; [Current Topic Y] &rarr; [Next Topic Z]</code> + links to Java/Spring mental models.</td></tr>
+    <tr><td><strong>17–20. Socratic Gate (Interactive)</strong></td><td>Multi-area Knowledge Check across <code>[theory]</code>, <code>[practical]</code>, <code>[diagram]</code>, and <code>[trade-offs]</code> scored 1–5 (<strong>&ge; 4/5 required to unlock next topic</strong>) + 5-Type Mistake Taxonomy logging + Spaced Retrieval.</td></tr>
+  </tbody>
+</table>
+
+<hr/>
+
+<h2>Glossary (Core Foundation Terms)</h2>
+<dl class="glossary">
+  <dt>HLD (High-Level Design)</dt><dd>Macro-level system architecture: processes, network protocols, caches, queues, databases, sharding, replication, and multi-region topology across the 7 Boxes.</dd>
+  <dt>LLD (Low-Level Design)</dt><dd>Micro-level software design inside a single process (Box 2): classes, interfaces, design patterns, thread safety, and in-memory object graphs.</dd>
+  <dt>QPS / RPS (Queries / Requests Per Second)</dt><dd>The rate of incoming requests arriving at a component ($\lambda$ in Little's Law).</dd>
+  <dt>Tail Latency (p95 / p99 / p99.9)</dt><dd>The response time experienced by the slowest 5%, 1%, or 0.1% of requests. If p99 is 1.8s, 1 out of every 100 requests takes at least 1.8s.</dd>
+  <dt>Little's Law ($L = \lambda \times W$)</dt><dd>Fundamental queueing law stating that concurrent in-flight requests ($L$) equal arrival rate ($\lambda$) times average latency ($W$).</dd>
+  <dt>SLO / SLI / SLA</dt><dd><strong>SLI</strong> is the quantitative measurement (e.g., 99th percentile latency or % of HTTP 2xx/3xx responses); <strong>SLO</strong> is the internal engineering target (e.g., 99.95% availability); <strong>SLA</strong> is the external legal contract with financial penalties if breached.</dd>
+  <dt>WAL (Write-Ahead Log)</dt><dd>An append-only disk file where every database mutation is sequentially recorded and flushed (`fsync`) before modifying in-memory pages, guaranteeing crash durability at sequential I/O speed.</dd>
+  <dt>CAP / PACELC</dt><dd>During a network Partition ($P$), a distributed data store must choose between linearizable Consistency ($C$) and 100% Availability ($A$). Even when no partition exists ($E$), it must choose between low Latency ($L$) and strong Consistency ($C$).</dd>
+</dl>
+
+<h2 id="refs">Primary High-Trust Sources</h2>
+<div class="refs">
+<ul>
+  <li><a href="https://sre.google/sre-book/table-of-contents/">Google Site Reliability Engineering (SRE) Book &amp; Workbook</a> — The definitive primary reference on SLIs/SLOs, cascading failures, load shedding, overload, and distributed production operations.</li>
+  <li><a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/framework.html">AWS Well-Architected Framework &amp; Builders' Library</a> — Deep production engineering articles on control plane vs data plane static stability, timeouts/jitter, shuffle sharding, and multi-AZ/region design.</li>
+  <li><strong>Martin Kleppmann — <em>Designing Data-Intensive Applications (DDIA)</em></strong> — The gold-standard reference for Box 5 and Box 6 internals (B-Trees vs LSM-Trees, replication, partitioning, transactions, consensus, and stream processing).</li>
+  <li><a href="https://kafka.apache.org/documentation/#design">Apache Kafka Official Design Documentation</a>, <a href="https://redis.io/docs/latest/">Redis Official Documentation</a>, and <a href="https://www.postgresql.org/docs/current/mvcc.html">PostgreSQL Internals Documentation</a> — Primary engineering docs for storage, caching, and messaging internals.</li>
+</ul>
+</div>
+
+<p class="sources" style="margin-top:2rem">Sources fetched &amp; cited: Google SRE Book (sre.google), AWS Well-Architected Framework (docs.aws.amazon.com), Designing Data-Intensive Applications, Apache Kafka / Redis / PostgreSQL official documentation. Authored per Knowledge-Base-2 rules §6.2 and <code>rules/topic-styles/high-level-design.md</code>.</p>
+
+</body>
+</html>

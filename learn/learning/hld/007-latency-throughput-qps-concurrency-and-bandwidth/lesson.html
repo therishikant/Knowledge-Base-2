@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>007 · Latency, Throughput, QPS, Concurrency (Little's Law) &amp; Bandwidth — HLD</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#2e7d32;--amber:#b85d00}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:900px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58;-webkit-font-smoothing:antialiased}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.65rem;margin-bottom:1.2rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  .status-hdr{background:#fff;border:1.5px solid var(--rule);border-left:5px solid var(--accent2);border-radius:6px;padding:.75rem 1rem;margin-bottom:1.5rem;font-size:.86rem;font-family:"SF Mono",Menlo,Consolas,monospace;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.14;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .55rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem;font-family:"SF Mono",Menlo,Consolas,monospace}
+  h3{font-size:1.13rem;margin:1.45rem 0 .35rem;color:var(--accent)}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.81rem;line-height:1.48;font-family:"SF Mono",Menlo,Consolas,monospace}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f} pre .h{color:#ffd166;font-weight:bold}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.98rem;margin:0 0 .45rem;text-transform:uppercase;letter-spacing:.03em}
+  .flow-steps{background:#fff8ee;border:1px solid var(--rule);border-radius:6px;padding:.85rem 1.1rem;margin:1rem 0;font-size:.94rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem}
+  .flow-steps li{margin:.35rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .gate{background:#fff8ee;border:2px dashed var(--accent);border-radius:8px;padding:1.15rem 1.3rem;margin:1.6rem 0}
+  .gate h3{margin-top:0;color:var(--accent)}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  @media print{body{padding:1rem;max-width:100%} pre{white-space:pre-wrap} .nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../006-back-of-the-envelope-calculations/lesson.html">006: Back-of-the-Envelope Calculations</a></span>
+  <span><strong>Topic 007 of 140</strong> · Phase 1: Foundations</span>
+  <span><a href="../008-availability-reliability-durability-and-slas/lesson.html">008: Availability, Reliability &amp; SLAs</a> →</span>
+</nav>
+
+<div class="status-hdr">
+  <div><strong>Current Topic:</strong> #7 — Latency, Throughput, QPS, Concurrency (Little's Law) &amp; Bandwidth</div>
+  <div><strong>7-Box Map Location:</strong> Box 1 (Bandwidth), Box 2 (Thread/Event Pools), Box 3 (Queueing &amp; Load Shedding), Box 7 (p95/p99 Metrics) | <strong>Depth Tag:</strong> [DEEP]</div>
+  <div><strong>Prerequisites Completed:</strong> [Topics #1–#6] &rarr; <strong>Unlocks Next:</strong> [Topic #8 — Availability, Reliability, Durability &amp; SLAs]</div>
+  <div><strong>Progress:</strong> [0] Completed | [140] Remaining | [0] Needs Revision</div>
+</div>
+
+<h1>007 · Latency, Throughput, QPS, Concurrency (Little's Law) &amp; Bandwidth</h1>
+<p class="crumb"><a href="../overview.html">High-Level System Design (HLD)</a> › Phase 1: Foundations › Topic 7 of 140 · <span style="color:#7a1f1f;font-weight:700">DEEP</span></p>
+
+<div class="tldr">
+  <strong>0. TL;DR in Simple English —</strong> Five words get mixed up constantly in interviews: <strong>Latency</strong> is how long <em>1 car</em> takes to drive down the highway (`ms`); <strong>Throughput / QPS</strong> is how many cars exit the highway per second (`requests/sec`); <strong>Concurrency</strong> is how many cars are currently on the highway at the exact same instant ($L = \lambda \times W$, <strong>Little's Law</strong>); and <strong>Bandwidth</strong> is the width of the highway in bytes/sec (`Gbps`). Understanding how these 4 numbers lock together via <strong>Little's Law</strong> and the <strong>Queueing Knee Curve</strong> is the secret to diagnosing every production outage.
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§1</span>Where it fits — 🧭 You Are Here on the 7-Box Master Map</h2>
+
+<div class="map-banner">
+  <div class="map-title">🧭 You Are Here: How QPS ($\lambda$), Latency ($W$), and Concurrency ($L$) Flow Through a Spring Boot Pod</div>
+<pre>                    Arrival Rate (&lambda; = 1,000 QPS)
+                                 │
+                                 ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">BOX 2 &amp; BOX 3: INSIDE A SPRING BOOT + TOMCAT + HIKARICP POD</span>                    │
+│                                                                               │
+│  [OS TCP Accept Queue] ──► [Tomcat Worker Pool: 200 Threads]                  │
+│                             (Active Concurrent Requests: <span class="h">L = &lambda; &times; W</span>)          │
+│                                         │                                     │
+│                                         ▼                                     │
+│                            [HikariCP DB Pool: 20 Connections]                 │
+│                                         │                                     │
+│                                         ▼                                     │
+│                            [Downstream DB / RPC Wait Time: W]                 │
+└───────────────────────────────────────────────────────────────────────────────┘</pre>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§2</span>Why it exists — The Naive Myth: "Average Latency is 30ms, So Everything is Fine!"</h2>
+
+<p>
+Why do production systems meltdown when dashboards show "Average Latency = 30 ms" and "CPU = 40%"?
+</p>
+<ol>
+  <li><strong>Trap 1 — Average Latency Hides the p99 Tail (&amp; Tail Latency Amplification):</strong> Suppose 99 out of 100 requests hit Redis in `2 ms`, and 1 request hits a slow unindexed DB query + GC pause taking `2,800 ms`. The arithmetic mean is $\frac{99(2) + 2800}{100} = \mathbf{29.98\text{ ms}}$ ("looks great!"), while 1 in 100 requests takes nearly 3 seconds! Worse: if your homepage calls <strong>20 microservices in parallel</strong> and each service has a `1%` chance of a slow p99 spike, the probability that your homepage waits for at least one slow service is $1 - (0.99)^{20} = \mathbf{18.2\%}$ of all page loads!
+  <span class="sources">(<a href="https://cacm.acm.org/research/the-tail-at-scale/">Jeff Dean &amp; Luiz André Barroso — The Tail at Scale, CACM</a>)</span></li>
+  <li><strong>Trap 2 — Ignoring Little's Law ($L = \lambda \times W$):</strong> If your service handles $\lambda = 1,000\text{ QPS}$ and each request takes $W = 0.02\text{ s}$ (`20 ms`), you only have $L = 1,000 \times 0.02 = \mathbf{20}$ concurrent requests in flight at any moment. Your 200-thread Tomcat pool is 90% idle. Now a downstream payment API slows down from `20 ms` to `1.0 second` ($W = 1.0\text{ s}$). Even though traffic (`1,000 QPS`) and CPU did NOT increase, concurrency jumps to $L = 1,000 \times 1.0 = \mathbf{1,000\text{ concurrent requests}}$—instantly exhausting all 200 Tomcat threads and freezing the entire JVM!</li>
+</ol>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§3</span>How it works — Little's Law, M/M/1 Queueing Knee &amp; Tail Percentiles</h2>
+
+<h3>3.1 Level 1 (Inside the Box): The Highway &amp; Queueing Diagram</h3>
+
+<figure>
+<svg viewBox="0 0 820 270" width="100%" role="img" aria-label="Little's Law and the Queueing Theory Utilization Knee Curve">
+  <defs>
+    <style>
+      .bx{fill:#fff8ee;stroke:#2b2b28;stroke-width:1.8;rx:6}
+      .t{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;fill:#2b2b28}
+      .th{font-family:"Iowan Old Style",Georgia,serif;font-size:13.5px;font-weight:bold;fill:#7a1f1f}
+    </style>
+  </defs>
+  <!-- Left Panel: Little's Law Box -->
+  <rect class="bx" x="15" y="15" width="380" height="240"/>
+  <text class="th" x="30" y="40">1. Little's Law: L = &lambda; &times; W</text>
+  <text class="t" x="30" y="65">&lambda; (Throughput / QPS) = 1,000 req/sec</text>
+  <text class="t" x="30" y="85">W (Latency in system) = 0.05 sec (50 ms)</text>
+  <rect x="30" y="100" width="350" height="55" fill="#eef3f7" stroke="#1f4d7a" rx="4"/>
+  <text class="t" x="42" y="122" style="font-weight:bold;fill:#1f4d7a">L (Concurrent In-Flight Requests)</text>
+  <text class="t" x="42" y="142">L = 1,000 req/s &times; 0.05 s = 50 threads occupied!</text>
+  <text class="t" x="30" y="180" style="fill:#7a1f1f;font-weight:bold">What if W spikes 20x (50ms &rarr; 1,000ms)?</text>
+  <text class="t" x="30" y="200">L = 1,000 &times; 1.0 s = 1,000 threads needed!</text>
+  <text class="t" x="30" y="220">Tomcat maxThreads=200 &rarr; 100% Pool Exhaustion!</text>
+  <text class="t" x="30" y="240">Fix: Hard Timeouts (W &le; 200ms) + Bulkhead!</text>
+
+  <!-- Right Panel: Queueing Theory Knee Curve -->
+  <rect class="bx" x="415" y="15" width="390" height="240"/>
+  <text class="th" x="430" y="40">2. The Queueing Theory "Hockey Stick" Knee</text>
+  <text class="t" x="430" y="62">Wait Time &prop; &rho; / (1 - &rho;) where &rho; = Utilization</text>
+  <!-- Axes -->
+  <line x1="460" y1="215" x2="775" y2="215" stroke="#2b2b28" stroke-width="1.8"/>
+  <line x1="460" y1="215" x2="460" y2="75" stroke="#2b2b28" stroke-width="1.8"/>
+  <text class="t" x="545" y="238">Server Utilization (&rho;: 0% &rarr; 100%)</text>
+  <text class="t" x="425" y="145" transform="rotate(-90 435,145)">Latency (p99)</text>
+  <!-- 70% Safe Zone Line -->
+  <line x1="670" y1="75" x2="670" y2="215" stroke="#b85d00" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text class="t" x="580" y="92" style="fill:#1f6b4d;font-weight:bold">Safe Zone (&le;70%)</text>
+  <text class="t" x="676" y="92" style="fill:#7a1f1f;font-weight:bold">Knee! (&gt;80%)</text>
+  <!-- Hockey stick curve -->
+  <path d="M 465 205 L 580 200 L 650 190 Q 700 175 725 130 L 745 78" fill="none" stroke="#7a1f1f" stroke-width="3"/>
+  <text class="t" x="462" y="228">0%</text>
+  <text class="t" x="565" y="228">50%</text>
+  <text class="t" x="658" y="228">70%</text>
+  <text class="t" x="720" y="228">90%</text>
+  <text class="t" x="758" y="228">100%</text>
+</svg>
+<figcaption>Figure 1 — Left: Little's Law links QPS (&lambda;), Latency (W), and Concurrency (L). Right: Kingman's / M/M/1 queueing curve shows why latency explodes non-linearly once server utilization (&rho;) crosses ~70%–80%.</figcaption>
+</figure>
+
+<h3>3.2 The 5 Metrics Defined Precisely</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Metric</th>
+      <th>Unit</th>
+      <th>Exact Meaning &amp; Formula</th>
+      <th>How It Breaks</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Latency ($W$)</strong></td>
+      <td><code>ms</code> or <code>s</code></td>
+      <td>Total time a single request spends from arrival to response: $W = T_{\text{queue}} + T_{\text{service}}$.</td>
+      <td>Queueing delay ($T_{\text{queue}}$) explodes exponentially when utilization $\rho \to 100\%$.</td>
+    </tr>
+    <tr>
+      <td><strong>Percentiles (`p50`, `p95`, `p99`, `p99.9`)</strong></td>
+      <td><code>ms</code></td>
+      <td>If `p99 = 180 ms`, then 99% of requests finish in $\le 180\text{ ms}$ and the slowest 1% take $> 180\text{ ms}$.</td>
+      <td>GC pauses, lock contention, cold cache misses, and noisy neighbors hit `p99` first while `p50` stays flat.</td>
+    </tr>
+    <tr>
+      <td><strong>Throughput / QPS ($\lambda$)</strong></td>
+      <td><code>req/sec</code> or <code>ops/sec</code></td>
+      <td>Rate of requests completed per second. Max single-resource throughput is bounded by $\lambda_{\max} = \frac{\text{Concurrency Capacity}}{T_{\text{service}}}$.</td>
+      <td>When a system passes 100% capacity without load shedding, throughput actually <strong>drops</strong> (congestion collapse) due to context-switching &amp; retries!</td>
+    </tr>
+    <tr>
+      <td><strong>Concurrency ($L$)</strong></td>
+      <td>In-flight requests / threads</td>
+      <td><strong>Little's Law:</strong> $L = \lambda \times W$. Number of requests simultaneously inside the box.</td>
+      <td>Exceeds Tomcat thread pool (`200`), HikariCP DB pool (`20`), or OS file descriptors (`65,535`).</td>
+    </tr>
+    <tr>
+      <td><strong>Bandwidth</strong></td>
+      <td><code>Gbps</code> or <code>MB/s</code></td>
+      <td>$\text{Bandwidth} = \lambda \times \text{Payload Size}$.</td>
+      <td>Saturates NIC or switch buffer (`10 Gbps = 1.25 GB/s`), causing TCP packet drops and retransmissions.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.3 Code Dissection — Computing HikariCP &amp; Tomcat Pool Sizes + Bounding Tail Latency in Spring Boot</h3>
+<pre><span class="c">// ============================================================================</span>
+<span class="c">// 1. HOW TO SIZE HIKARICP CONNECTION POOL (PostgreSQL Official Formula):</span>
+<span class="c">//    connections = (core_count * 2) + effective_spindle_count</span>
+<span class="c">//    For an 8-core DB server on SSD: ~18 to 25 connections PER DB NODE total!</span>
+<span class="c">//    Why so small? Because 500 concurrent active SQL queries thrash CPU caches</span>
+<span class="c">//    and LWLocks! Let requests queue cleanly in memory rather than thrashing DB CPU.</span>
+<span class="c">// ============================================================================</span>
+
+<span class="c">// 2. BOUNDING CONCURRENCY (L) IN SPRING BOOT USING LITTLE'S LAW + SEMAPHORE:</span>
+<span class="c">//    Suppose Downstream Inventory RPC supports &lambda; = 500 QPS at W = 50ms (0.05s).</span>
+<span class="c">//    By Little's Law: Normal Concurrency L = 500 * 0.05 = 25 in-flight calls.</span>
+<span class="c">//    We cap concurrency at L_max = 40 and timeout at W_max = 150ms so a slow</span>
+<span class="c">//    Inventory Service can NEVER consume more than 40 of our 200 Tomcat threads!</span>
+
+<span class="an">@Service</span>
+<span class="k">public class</span> BoundedInventoryClient {
+    <span class="k">private final</span> Semaphore bulkhead = <span class="k">new</span> Semaphore(40); <span class="c">// Caps L &le; 40 threads!</span>
+    <span class="k">private final</span> HttpClient http = HttpClient.newBuilder().build();
+
+    <span class="k">public</span> InventoryDto fetchStock(Long itemId) {
+        <span class="k">if</span> (!bulkhead.tryAcquire()) {
+            <span class="c">// Fail fast in 100 nanoseconds instead of queuing to death!</span>
+            <span class="k">throw new</span> BulkheadFullException(<span class="s">"Inventory concurrency cap (40) reached"</span>);
+        }
+        <span class="k">try</span> {
+            HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(<span class="s">"http://inventory-svc/v1/items/"</span> + itemId))
+                .timeout(Duration.ofMillis(150)) <span class="c">// Caps W &le; 0.15s!</span>
+                .build();
+            <span class="c">// ... execute request ...</span>
+            <span class="k">return</span> <span class="k">new</span> InventoryDto(itemId, 10);
+        } <span class="k">finally</span> {
+            bulkhead.release();
+        }
+    }
+}</pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§4</span>When to use — Latency vs Throughput Optimization Trade-Offs</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Optimization Technique</th>
+      <th>Effect on Throughput (QPS / MB/s)</th>
+      <th>Effect on Latency ($W$)</th>
+      <th>Where We Use It on the 7-Box Map</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Micro-Batching (`linger.ms = 5ms` in Kafka / Group Commit in DB WAL)</strong></td>
+      <td><strong>Massive increase ($10\times–50\times$)</strong> by amortizing network RTT and disk `fsync` across 100 events.</td>
+      <td><strong>Slightly increases `p50` latency</strong> by `+2–5 ms` while waiting for the batch to fill.</td>
+      <td>Box 5 (Kafka Producers) &amp; Box 6 (Database WAL Group Commit).</td>
+    </tr>
+    <tr>
+      <td><strong>Hedged Requests (Send duplicate read to Replica 2 if Replica 1 hasn't replied in `p95 = 10ms`)</strong></td>
+      <td>Costs <strong>$+5\%$ extra QPS load</strong> on the cluster.</td>
+      <td><strong>Slashes `p99.9` tail latency by $70\%+$</strong> by routing around transient GC/disk hiccups.</td>
+      <td>Box 2 &rarr; Box 4/6 read paths at Google/AWS scale.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§5</span>Explain it to a 12-year-old (The Feynman Pass)</h2>
+
+<p>
+Picture a Starbucks coffee shop:
+</p>
+<ul>
+  <li><strong>Latency ($W$)</strong> is how many minutes <em>you</em> stand inside the shop from the moment you walk in the door until you walk out holding your latte (say, `3 minutes`).</li>
+  <li><strong>Throughput ($\lambda$)</strong> is how many customers walk out the door with coffee per minute (say, `5 customers/minute`).</li>
+  <li><strong>Concurrency ($L$, Little's Law)</strong> is how many people are standing inside the shop right now: $\text{5 customers/min} \times \text{3 min} = \mathbf{15\text{ people inside the room}}$.</li>
+  <li>Now imagine the espresso machine gets jammed so each latte takes `30 minutes` ($W = 30$) instead of `3 minutes`, while `5 new people` still walk in the door every minute! Suddenly $\text{5} \times \text{30} = \mathbf{150\text{ people}}$ are crammed inside a tiny room built for 30 people—nobody can move, the fire marshal shuts the building down, and even people who just wanted a bottle of water can't get inside! That is why we put a bouncer at the door (<strong>Load Shedding / Bulkhead</strong>) and a timer on the espresso machine (<strong>Timeout</strong>).</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§6</span>Dependency Graph &amp; Connections</h2>
+
+<pre>[Topic 006: Back-of-the-Envelope Math] ──► <span class="h">[Topic 007: Latency, Throughput &amp; Little's Law]</span> ──► [Topic 008: Availability, Reliability &amp; SLAs]</pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§7</span>In practice — Why M/M/1 Queueing Math Forbids Running Servers at 95% CPU</h2>
+
+<div class="callout">
+  <strong>The Mathematical Proof of the 70% Utilization Rule:</strong>
+  <p>
+  In queueing theory (Kingman's formula / M/M/1 queue), average total latency $W$ as a function of server utilization $\rho \in [0, 1)$ and base service time $T_s$ is:
+  $$W = \frac{T_s}{1 - \rho}$$
+  Look at what happens to a `10 ms` ($T_s = 10\text{ ms}$) API endpoint as CPU utilization $\rho$ rises:
+  </p>
+  <ul>
+    <li>At $\rho = 50\%$ utilization: $W = \frac{10\text{ ms}}{1 - 0.50} = \mathbf{20\text{ ms}}$ (Smooth!).</li>
+    <li>At $\rho = 70\%$ utilization: $W = \frac{10\text{ ms}}{1 - 0.70} = \mathbf{33\text{ ms}}$ (Still fast—the edge of the safe zone).</li>
+    <li>At $\rho = 90\%$ utilization: $W = \frac{10\text{ ms}}{1 - 0.90} = \mathbf{100\text{ ms}}$ ($10\times$ base latency!).</li>
+    <li>At $\rho = 98\%$ utilization: $W = \frac{10\text{ ms}}{1 - 0.98} = \mathbf{500\text{ ms}}$ ($50\times$ base latency—and p99 is in the multi-seconds!).</li>
+  </ul>
+  <p>
+  <strong>Architect's Rule:</strong> Auto-scale your stateless Box 2 fleet when CPU or thread utilization crosses <strong>65%–70%</strong>, never 95%!
+  </p>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§8</span>Pitfalls &amp; Traps</h2>
+
+<div class="pitfall"><strong>⚠️ Pitfall 1 — Averaging Percentiles Across Servers ("The Average of p99s"):</strong> Never take the `p99` metric from 20 pods and average them together! Percentiles are statistically non-aggregatable by averaging. In Prometheus/Datadog (Box 7), always aggregate latency using <strong>Histogram buckets (`histogram_quantile(0.99, sum(rate(http_bucket[1m])) by (le))`)</strong> or DDSketch.</div>
+
+<div class="pitfall"><strong>⚠️ Pitfall 2 — Fixing a Concurrency Bottleneck by Setting `tomcat.max-threads = 5000`:</strong> In platform-thread Java, 5,000 OS threads consume `~5 GB` of stack memory (`1 MB/thread`) and spend all CPU time in OS kernel context-switching. Instead of bloating OS thread pools, bound latency ($W$) with timeouts, cache hot reads, or use non-blocking I/O / Java 21 Virtual Threads (`spring.threads.virtual.enabled=true`) while still protecting the downstream DB with a small HikariCP pool!</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§9</span>Recap &amp; Glossary</h2>
+
+<ul class="recap">
+  <li><strong>Little's Law ($L = \lambda \times W$):</strong> In-flight concurrency equals arrival QPS times average response time.</li>
+  <li><strong>Tail Latency Amplification:</strong> Calling $N$ services in parallel multiplies the probability that the user experiences the slowest service's `p99`.</li>
+  <li><strong>The 70% Utilization Knee:</strong> Because $W = \frac{T_s}{1 - \rho}$, queueing wait time grows hyperbolically past 70%–80% utilization.</li>
+</ul>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>p99 (99th Percentile Latency)</dt><dd>The response time threshold below which 99% of requests complete; reflects the experience of your slowest 1% of requests (and often your most valuable, data-heavy customers!).</dd>
+  <dt>Hedged Request</dt><dd>A tail-latency reduction technique where a client sends a secondary read request to a replica if the first request takes longer than the `p95` latency, taking whichever response returns first.</dd>
+</dl>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§10</span>Interactive Socratic Gate &amp; Sources</h2>
+
+<div class="gate">
+  <h3>🎯 Socratic Verification Gate — Topic 007 (Score &ge; 4/5 Required)</h3>
+  <ol>
+    <li><strong><code>[theory]</code>:</strong> State <strong>Little's Law ($L = \lambda \times W$)</strong> in plain English and explain why a downstream microservice slowing down from `25 ms` to `2,000 ms` crashes the upstream caller even when QPS ($\lambda$) stays completely flat.</li>
+    <li><strong><code>[practical]</code>:</strong> A Spring Boot service has `200` Tomcat worker threads. It processes $\lambda = 800\text{ QPS}$. Under normal conditions, average response time is $W = 50\text{ ms}$. (a) How many threads are concurrently busy normally? (b) What is the maximum average latency $W_{\max}$ the service can tolerate at `800 QPS` before all `200` Tomcat threads are 100% saturated?</li>
+    <li><strong><code>[diagram]</code>:</strong> Sketch or describe the <strong>Queueing Utilization Curve ($W = \frac{T_s}{1-\rho}$)</strong> and explain why running servers at `95% CPU` to "save cloud money" actually destroys `p99` latency.</li>
+    <li><strong><code>[trade-offs]</code>:</strong> An API gateway aggregates responses from <strong>15 microservices in parallel</strong>. Each microservice has a `p99` latency spike (`> 1 second`) on `1%` of requests independently. What percentage of top-level user requests will experience a `> 1 second` response time, and name two architectural ways to reduce that tail latency?</li>
+  </ol>
+</div>
+
+<h3>Sources &amp; Further Reading</h3>
+<ul class="sources">
+  <li><a href="https://cacm.acm.org/research/the-tail-at-scale/">Jeff Dean &amp; Luiz André Barroso — The Tail at Scale (Communications of the ACM, Vol. 56)</a></li>
+  <li><a href="https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing">HikariCP Engineering Wiki — About Pool Sizing &amp; Little's Law</a></li>
+</ul>
+
+</body>
+</html>

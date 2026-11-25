@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>004 · Requirements Clarification (Turning Vague Prompts into Concrete Numbers) — HLD</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#2e7d32;--amber:#b85d00}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:900px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58;-webkit-font-smoothing:antialiased}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.65rem;margin-bottom:1.2rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  .status-hdr{background:#fff;border:1.5px solid var(--rule);border-left:5px solid var(--accent2);border-radius:6px;padding:.75rem 1rem;margin-bottom:1.5rem;font-size:.86rem;font-family:"SF Mono",Menlo,Consolas,monospace;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.14;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .55rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem;font-family:"SF Mono",Menlo,Consolas,monospace}
+  h3{font-size:1.13rem;margin:1.45rem 0 .35rem;color:var(--accent)}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.81rem;line-height:1.48;font-family:"SF Mono",Menlo,Consolas,monospace}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f} pre .h{color:#ffd166;font-weight:bold}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.98rem;margin:0 0 .45rem;text-transform:uppercase;letter-spacing:.03em}
+  .flow-steps{background:#fff8ee;border:1px solid var(--rule);border-radius:6px;padding:.85rem 1.1rem;margin:1rem 0;font-size:.94rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem}
+  .flow-steps li{margin:.35rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .gate{background:#fff8ee;border:2px dashed var(--accent);border-radius:8px;padding:1.15rem 1.3rem;margin:1.6rem 0}
+  .gate h3{margin-top:0;color:var(--accent)}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  @media print{body{padding:1rem;max-width:100%} pre{white-space:pre-wrap} .nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../003-functional-vs-non-functional-requirements/lesson.html">003: Functional vs Non-Functional Requirements</a></span>
+  <span><strong>Topic 004 of 140</strong> · Phase 1: Foundations</span>
+  <span><a href="../005-capacity-estimation/lesson.html">005: Capacity Estimation</a> →</span>
+</nav>
+
+<div class="status-hdr">
+  <div><strong>Current Topic:</strong> #4 — Requirements Clarification (Turning Vague Prompts into Concrete Numbers)</div>
+  <div><strong>7-Box Map Location:</strong> Pre-Map (The 5-Minute Scoping Protocol That Prunes the Decision Tree) | <strong>Depth Tag:</strong> [DEEP]</div>
+  <div><strong>Prerequisites Completed:</strong> [Topics #1–#3] &rarr; <strong>Unlocks Next:</strong> [Topic #5 — Capacity Estimation]</div>
+  <div><strong>Progress:</strong> [0] Completed | [140] Remaining | [0] Needs Revision</div>
+</div>
+
+<h1>004 · Requirements Clarification (Turning Vague Prompts into Concrete Numbers)</h1>
+<p class="crumb"><a href="../overview.html">High-Level System Design (HLD)</a> › Phase 1: Foundations › Topic 4 of 140 · <span style="color:#7a1f1f;font-weight:700">DEEP</span></p>
+
+<div class="tldr">
+  <strong>0. TL;DR in Simple English —</strong> In both real life and Google System Design interviews, prompts are intentionally <strong>4 words long and 90% ambiguous</strong> (e.g., <em>"Design a Notification System"</em> or <em>"Design WhatsApp"</em>). Requirements Clarification is a disciplined 5-minute protocol where you ask <strong>high-leverage architectural questions</strong>—not random feature trivia—where every single answer flips a major binary switch on the 7-Box Map.
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§1</span>Where it fits — 🧭 You Are Here on the 7-Box Master Map</h2>
+
+<div class="map-banner">
+  <div class="map-title">🧭 You Are Here: The 6 Architectural Switches Before Drawing Any Box</div>
+<pre>               [Vague Prompt: "Design PulseStream Live Feed &amp; Ticketing"]
+                                           │
+                                           ▼
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">THE 6-SWITCH CLARIFICATION PROTOCOL (MINUTES 0–5 OF ANY DESIGN)</span>                   │
+│  Switch 1 (Users &amp; Scale):      10K DAU vs 100M DAU?  Peak-to-Average ratio?      │
+│  Switch 2 (Read : Write Ratio): 100:1 Read-heavy (Box 4) vs 1:1 Write-heavy (5/6)?│
+│  Switch 3 (Payload &amp; Media):    200B JSON only vs 100MB 4K Video blobs (CDN/S3)?  │
+│  Switch 4 (Latency &amp; Delivery): Pull on refresh vs Real-time Push &lt;100ms (WS/SSE)?│
+│  Switch 5 (Consistency &amp; Loss): Eventual OK vs Strict CP Zero-Loss Ledger?        │
+│  Switch 6 (Access &amp; Skew):      Uniform keys vs Celebrity Hot-Key Skew (50M fans)?│
+└──────────────────────────────────────────┬────────────────────────────────────────┘
+                                           │
+                                           ▼
+                   [Unlocks Exact 7-Box Topology + Topic 005 Capacity Math]</pre>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§2</span>Why it exists — Watch an Unclarified Design Crash in 4 Minutes</h2>
+
+<p>
+Why do interviewers give you a 4-word prompt like <em>"Design a Chat System"</em>? Because they are testing whether you act like a junior coder (who immediately draws whatever tutorial they memorized) or a Principal Architect (who narrows the problem space first).
+</p>
+<p>
+Suppose a candidate hears <em>"Design a Chat System"</em> and spends 30 minutes designing 1-on-1 encrypted mobile messaging with transient store-and-forward queues (WhatsApp). At minute 35, the interviewer says:
+<em>"Actually, I wanted a public livestream chat room where 500,000 viewers watch one gaming streamer and type 20,000 messages/second in the same room (Twitch/YouTube Live)."</em>
+</p>
+<ul>
+  <li>In <strong>WhatsApp (1-on-1 / small group &le; 1,000)</strong>, every message is delivered reliably to every member's device via per-user queues.</li>
+  <li>In <strong>Twitch Live Chat (500,000 viewers in 1 room)</strong>, fanning out 20,000 messages/sec to 500,000 sockets = $10,000,000,000$ (10 billion!) deliveries per second—which would melt the planet unless you sample/batch messages at Edge Pub/Sub trees and drop messages for lagging clients!</li>
+  <li><strong>One 15-second question in Minute 1</strong> (<em>"Are we designing 1-on-1 / small private groups up to ~500 users, or massive public broadcast rooms with 100K+ concurrent viewers?"</em>) saves the entire interview!</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§3</span>How it works — The 6-Switch Decision-Tree Protocol</h2>
+
+<h3>3.1 Formal Rule: Only Ask Questions That Flip an Architectural Switch</h3>
+<p>
+Never ask low-leverage product trivia like <em>"What color should the send button be?"</em> or <em>"Should usernames allow underscores?"</em> Every question you ask must have a clear <strong>If Answer = A &rarr; Box X; If Answer = B &rarr; Box Y</strong> branch:
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Switch #</th>
+      <th>The High-Leverage Question to Ask</th>
+      <th>If Answer = Option A</th>
+      <th>If Answer = Option B</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Core Scope &amp; Actors</strong></td>
+      <td><em>"To keep us focused in 45 minutes, should we prioritize [Core Workflow 1] and [Core Workflow 2], and mark admin/billing out of scope?"</em></td>
+      <td>Locks down the 3–4 APIs for Box 2.</td>
+      <td>Prevents scope creep from eating your deep-dive time.</td>
+    </tr>
+    <tr>
+      <td><strong>2. Scale &amp; Burstiness</strong></td>
+      <td><em>"What is our target DAU (e.g., 50M DAU), and is traffic steady or spiky (e.g., 10x flash-sale / live event spike)?"</em></td>
+      <td><strong>Steady:</strong> Standard auto-scaling + capacity headroom.</td>
+      <td><strong>10x Spiky (Law 3):</strong> Forces Edge Waiting Room / Token Bucket (Box 3) + Kafka shock-absorber queue (Box 5).</td>
+    </tr>
+    <tr>
+      <td><strong>3. Read : Write Ratio</strong></td>
+      <td><em>"What is the approximate Read-to-Write ratio (e.g., 100:1 read-heavy vs 1:1 write-heavy)?"</em></td>
+      <td><strong>100:1 Read-Heavy:</strong> Multi-tier CDN + Redis Cache + DB Read Replicas (Box 1 &amp; 4).</td>
+      <td><strong>1:1 or Write-Heavy:</strong> Sharded LSM-Tree DB (Cassandra/RocksDB) + Kafka batching (Box 5 &amp; 6).</td>
+    </tr>
+    <tr>
+      <td><strong>4. Payload Size &amp; Media</strong></td>
+      <td><em>"Are payloads small structured records (&lt;1 KB JSON), or do users attach photos/videos (10 MB – 4 GB)?"</em></td>
+      <td><strong>Small JSON:</strong> Flows directly through API Gateway &rarr; Box 2 &rarr; Box 6 DB.</td>
+      <td><strong>Large Blobs (Law 1):</strong> Bypass Box 2 via Pre-Signed URLs directly to S3 + Multipart Upload + CDN (Box 1 &amp; 6).</td>
+    </tr>
+    <tr>
+      <td><strong>5. Real-Time vs Pull Latency</strong></td>
+      <td><em>"Do clients pull updates on page load, or do we need sub-second server push? What is the p99 latency target?"</em></td>
+      <td><strong>Pull:</strong> Stateless HTTP/2 REST APIs + Redis cache.</td>
+      <td><strong>Real-Time Push (Law 2):</strong> Stateful WebSocket / SSE Gateways + Connection Routing Map (Box 1, 2, 4).</td>
+    </tr>
+    <tr>
+      <td><strong>6. Consistency &amp; Distribution Skew</strong></td>
+      <td><em>"Can reads tolerate a few seconds of eventual consistency, or do we need strict linearizability? And do we have 'celebrity' accounts with 50M followers?"</em></td>
+      <td><strong>Uniform + Eventual:</strong> Standard hash sharding + async replication.</td>
+      <td><strong>Celebrity Hot-Key Skew (Law 5):</strong> Hybrid Push/Pull fan-out + Salted shard keys + Local L1 hot-key cache.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.2 Strip the Magic — Propose-and-Confirm (How Senior/Staff Engineers Drive)</h3>
+<p>
+In real architecture reviews and Google interviews, reading a robotic checklist of 12 questions feels like an interrogation. Instead, use the <strong>"Propose Defaults &amp; Confirm"</strong> pattern:
+</p>
+<pre><span class="c">// JUNIOR INTERROGATION (Slow, passive, eats 10 minutes):</span>
+<span class="c">// "How many users? What is the read/write ratio? What is the latency? Do we support images?..."</span>
+
+<span class="c">// STAFF ARCHITECT "PROPOSE-AND-CONFIRM" (Crisp, proactive, takes 90 seconds):</span>
+<span class="s">"Let me align on scope and scale for PulseStream:</span>
+<span class="s"> 1. Functional Scope: I'll focus on (a) publishing a post with optional media,</span>
+<span class="s">    (b) generating the personalized home feed, and (c) booking a limited-inventory VIP ticket.</span>
+<span class="s"> 2. Scale &amp; Traffic: I'll assume 50M DAU, ~100:1 read-to-write ratio on feeds,</span>
+<span class="s">    and extreme burstiness (100K concurrent requests) when a creator drops VIP tickets.</span>
+<span class="s"> 3. NFRs: For the feed, I'll target p99 &lt; 150ms with eventual consistency (&le; 3s lag)</span>
+<span class="s">    and handle the celebrity hot-key problem (creators with 20M followers).</span>
+<span class="s">    For ticket checkout, I'll enforce strict ACID serializability with zero double-booking.</span>
+<span class="s"> Does this framing match what you'd like to explore, or should we adjust any constraint?"</span></pre>
+
+<h3>3.3 Diagram — The 5-Minute Scoping Funnel</h3>
+<figure>
+<svg viewBox="0 0 860 210" width="100%" role="img" aria-label="The 5-Minute Requirements Clarification Funnel from Vague Prompt to Locked Architecture Contract">
+  <style>
+    .st{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.7}
+    .st2{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.7}
+    .st3{fill:#eefaf4;stroke:#1f6b4d;stroke-width:1.8}
+    .hd{font:bold 12px "SF Mono",Menlo,monospace;fill:#7a1f1f}
+    .tx{font:11.2px Georgia,serif;fill:#2b2b28}
+    .ar{stroke:#2b2b28;stroke-width:1.6;marker-end:url(#asc);fill:none}
+  </style>
+  <defs><marker id="asc" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2b2b28"/></marker></defs>
+
+  <rect class="st" x="12" y="20" width="190" height="165" rx="7"/>
+  <text class="hd" x="24" y="44">Min 0–1: De-Ambiguate</text>
+  <text class="tx" x="24" y="66">&bull; Who are the actors?</text>
+  <text class="tx" x="24" y="86">&bull; Top 3 Core Verbs (FRs)</text>
+  <text class="tx" x="24" y="106">&bull; Explicit Out-of-Scope</text>
+  <text class="tx" x="24" y="126">&bull; B2C Global vs B2B</text>
+
+  <rect class="st2" x="228" y="20" width="195" height="165" rx="7"/>
+  <text class="hd" x="240" y="44" style="fill:#1f4d7a">Min 1–3: Flip Switches</text>
+  <text class="tx" x="240" y="66">&bull; DAU &amp; Peak Spike factor</text>
+  <text class="tx" x="240" y="86">&bull; Read:Write ratio</text>
+  <text class="tx" x="240" y="106">&bull; Payload size (JSON/Blob)</text>
+  <text class="tx" x="240" y="126">&bull; Push vs Pull delivery</text>
+  <text class="tx" x="240" y="146">&bull; Hot-key skew risk</text>
+
+  <rect class="st2" x="449" y="20" width="195" height="165" rx="7"/>
+  <text class="hd" x="461" y="44" style="fill:#1f4d7a">Min 3–4: Lock NFRs</text>
+  <text class="tx" x="461" y="66">&bull; p50 / p99 Latency SLO</text>
+  <text class="tx" x="461" y="86">&bull; Availability (Nines)</text>
+  <text class="tx" x="461" y="106">&bull; CP vs AP per workflow</text>
+  <text class="tx" x="461" y="126">&bull; Durability / Retention</text>
+
+  <rect class="st3" x="670" y="20" width="178" height="165" rx="7"/>
+  <text class="hd" x="682" y="44" style="fill:#1f6b4d">Min 4–5: Sign-Off</text>
+  <text class="tx" x="682" y="66">&bull; Summarize on board</text>
+  <text class="tx" x="682" y="86">&bull; Confirm with interviewer</text>
+  <text class="tx" x="682" y="106">&bull; Feed numbers into</text>
+  <text class="tx" x="682" y="126">  Topic 005 Capacity Math</text>
+
+  <line class="ar" x1="202" y1="102" x2="226" y2="102"/>
+  <line class="ar" x1="423" y1="102" x2="447" y2="102"/>
+  <line class="ar" x1="644" y1="102" x2="668" y2="102"/>
+</svg>
+<figcaption>The 5-Minute Requirements Clarification Funnel: Every question prunes half the architectural decision tree.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§4</span>When to use — Prompt-to-Hidden-Bottleneck Cheat Sheet</h2>
+
+<p>
+Every classic System Design prompt hides <strong>one or two killer edge cases</strong> that the interviewer is waiting for you to uncover during clarification:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>Vague Interview Prompt</th>
+      <th>The Hidden Trap Question You MUST Ask</th>
+      <th>How the Answer Changes the 7-Box Design</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><em>"Design Twitter / News Feed"</em></td>
+      <td><em>"Can a single celebrity account have 50 million followers?"</em></td>
+      <td>Forces <strong>Hybrid Fan-Out</strong> (Push to Redis timelines for normal users; Pull at read-time for celebrities so 1 tweet doesn't trigger 50M Redis writes).</td>
+    </tr>
+    <tr>
+      <td><em>"Design Ticketmaster / Flash Sale"</em></td>
+      <td><em>"Do users pick a specific seat on a stadium map, or just a general-admission quantity? And how long is a seat held during payment?"</em></td>
+      <td>Specific seat = exact row/key lock (`seat_id`) with 5-minute TTL release; General admission = atomic counter decrement in Redis/SQL.</td>
+    </tr>
+    <tr>
+      <td><em>"Design Dropbox / Google Drive"</em></td>
+      <td><em>"If a user edits 10 KB inside a 2 GB video file, should we re-upload the whole 2 GB or only the changed block?"</em></td>
+      <td>Forces <strong>Client-Side Content-Defined Chunking (4 MB SHA-256 blocks)</strong> so only the mutated 4 MB chunk is uploaded and synced.</td>
+    </tr>
+    <tr>
+      <td><em>"Design a Web Crawler"</em></td>
+      <td><em>"Are we crawling HTML text only or executing headless JavaScript SPAs? And how strictly must we enforce per-domain politeness?"</em></td>
+      <td>Forces separate Politeness Queues per target hostname (`crawl-delay`) so you don't accidentally DDoS small websites.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§5</span>Explain it to a 12-year-old (The Feynman Pass)</h2>
+
+<p>
+Imagine a customer walks into your custom bakery and says: <em>"Bake me a cake for tomorrow!"</em>
+</p>
+<p>
+A <strong>beginner baker</strong> immediately runs to the oven and bakes a small chocolate cupcake with peanuts on top. The next day, the customer arrives with <strong>500 wedding guests</strong>, and the bride has a <strong>deadly peanut allergy</strong>!
+</p>
+<p>
+A <strong>master baker</strong> pauses for 60 seconds before touching the flour and asks 4 smart questions:
+</p>
+<ol>
+  <li><em>"How many people are eating it?"</em> (<strong>Scale / QPS</strong> — 1 cupcake vs a 5-tier wedding cake)</li>
+  <li><em>"Any allergies or strict dietary rules?"</em> (<strong>Consistency / Security / Durability</strong> — peanuts = double-charging a credit card!)</li>
+  <li><em>"Is this being eaten inside our shop or shipped across the desert in July?"</em> (<strong>Network / Multi-Region / Edge CDN</strong> — prevents melting in transit!)</li>
+  <li><em>"What time does the party start?"</em> (<strong>Latency SLO / Deadlines</strong>)</li>
+</ol>
+<p>
+Asking those 4 questions takes 1 minute and saves 10 hours of baking the wrong cake.
+</p>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§6</span>Dependency Graph &amp; Connections</h2>
+
+<pre>[Topic 003: FR vs NFR] ──► <span class="h">[Topic 004: Requirements Clarification]</span> ──► [Topic 005: Capacity Estimation]
+                                              │
+                                              └──► [Phase 10 (Topics 116–140): Every Google Capstone Starts Here!]</pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§7</span>In practice — Real-World RFC Template &amp; Interview Derivation Playbook</h2>
+
+<h3>7.1 How Principal Engineers Clarify Requirements in Real Production RFCs</h3>
+<p>
+At companies like Google, Amazon, Stripe, and Uber, no team is allowed to write production code for a new system without first writing a 1-page <strong>Design Doc / RFC Header</strong> that locks down the 6 Switches:
+</p>
+<pre><span class="c"># RFC-042: PulseStream Real-Time Creator Tipping &amp; Gift Ledger</span>
+<span class="k">1. Goals (Functional Scope):</span>
+   - Fans can send $1–$500 tips during a live stream; creator sees live alert &lt; 500ms; ledger settles daily.
+<span class="k">2. Non-Goals (Explicitly Out of Scope):</span>
+   - Crypto payouts, cross-currency FX trading, and tax-form PDF generation (handled by existing Batch Service).
+<span class="k">3. Scale &amp; Traffic Profile:</span>
+   - 10M concurrent viewers across top streams; Peak write rate = 25,000 tips/sec during viral moments.
+<span class="k">4. SLO &amp; Consistency Contract:</span>
+   - Payment &amp; Ledger Write: Strict CP idempotency (zero duplicate charges), p99 &lt; 450ms, RPO = 0.
+   - Live Stream Overlay Animation: AP best-effort via WebSocket fan-out, p99 &lt; 250ms, coalesced when &gt;50 tips/sec.</pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§8</span>Pitfalls &amp; Traps</h2>
+
+<div class="pitfall"><strong>⚠️ Pitfall 1 — Spending 15 Minutes on Clarification:</strong> Clarification should take <strong>3 to 5 minutes max</strong> in a 45-minute interview. Ask your 5–6 high-leverage questions (using Propose-and-Confirm), write the agreed numbers in the corner of the whiteboard, and move immediately to Capacity Estimation &amp; High-Level Design.</div>
+
+<div class="pitfall"><strong>⚠️ Pitfall 2 — Asking Questions But Ignoring the Answers:</strong> If you ask <em>"What is the read-to-write ratio?"</em>, the interviewer says <em>"1:1 write-heavy telemetry ingestion,"</em> and you still spend 15 minutes designing a read-through Redis cache instead of a write-optimized Kafka + LSM-Tree pipeline, you lose points for failing to connect requirements to architecture!</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§9</span>Recap, Reference Cheat-Sheet &amp; Glossary</h2>
+
+<ul class="recap">
+  <li><strong>Every Clarification Question Must Flip a Switch:</strong> Ask about (1) Core 3 Verbs &amp; Non-Goals, (2) DAU &amp; Spike Multiplier, (3) Read:Write Ratio, (4) Payload Size/Media, (5) Push vs Pull Latency, and (6) Consistency &amp; Hot-Key Skew.</li>
+  <li><strong>Use "Propose and Confirm":</strong> State sensible production defaults and ask the interviewer if they want to adjust any knob.</li>
+  <li><strong>Explicit Non-Goals Protect Your Clock:</strong> Naming what you are <em>not</em> building is just as important as naming what you are building.</li>
+</ul>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>Non-Goals (Out of Scope)</dt><dd>Features or edge cases explicitly excluded from the current design iteration to keep the architecture focused on core value and risks.</dd>
+  <dt>Hot-Key Skew (Celebrity Problem)</dt><dd>A traffic distribution where a tiny fraction of keys (e.g., 1 celebrity account or 1 flash-sale item) receives 10,000&times; more reads or writes than the average key.</dd>
+  <dt>Peak-to-Average Ratio</dt><dd>The multiplier between average QPS across a 24-hour day and the highest 1-second burst QPS (typically $3\times$ to $10\times$, or $50\times$ for flash sales/live events).</dd>
+</dl>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§10</span>Interactive Socratic Gate &amp; Sources</h2>
+
+<div class="gate">
+  <h3>🎯 Socratic Verification Gate — Topic 004 (Score &ge; 4/5 Required)</h3>
+  <ol>
+    <li><strong><code>[theory]</code>:</strong> Why is a question like <em>"Should users be able to change their display name?"</em> a bad clarification question in an HLD interview, whereas <em>"Can a single user have 50 million followers?"</em> is a great one?</li>
+    <li><strong><code>[practical]</code>:</strong> An interviewer gives you the 3-word prompt: <strong>"Design Uber Eats."</strong> Write a crisp, 90-second <strong>"Propose-and-Confirm"</strong> opening statement covering all 6 Architectural Switches.</li>
+    <li><strong><code>[diagram]</code>:</strong> Trace the two different architectural branches on the 7-Box Map when you ask: <em>"Do users upload 50MB photos/videos, or only 280-character text?"</em></li>
+    <li><strong><code>[trade-offs]</code>:</strong> Why is stating explicit <strong>Non-Goals (Out-of-Scope items)</strong> mandatory in both a 45-minute interview and a real-world engineering RFC?</li>
+  </ol>
+</div>
+
+<h3>Sources &amp; Further Reading</h3>
+<ul class="sources">
+  <li><a href="https://sre.google/workbook/non-abstract-design/">Google SRE Workbook — Chapter 12: Introducing Non-Abstract Large System Design (NALSD)</a></li>
+  <li><a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html">AWS Well-Architected Framework — Architectural Design Review Process</a></li>
+</ul>
+
+</body>
+</html>

@@ -10,6 +10,7 @@ A personal, AI-assisted learning system for mastering software engineering topic
 ### Learning Modules (`learn/learning/`)
 - [**Java Learning Overview**](learn/learning/java/overview.html)
 - [**Spring & Spring Boot Overview**](learn/learning/spring/overview.html)
+- [**High-Level System Design (HLD) Overview**](learn/learning/hld/overview.html)
 - [**React Learning Overview**](learn/learning/react/overview.html)
 
 ### Interview Question Banks (`learn/questions/`)
@@ -90,12 +91,27 @@ A personal, AI-assisted learning system for mastering software engineering topic
 
 ---
 
-### 3. React ([Overview](learn/learning/react/overview.html))
+### 3. High-Level System Design (HLD) ([Overview — 140 Topics Across 10 Phases](learn/learning/hld/overview.html))
+- **Phase 1: System Design Foundations**
+  - [001. What is System Design? (The 7-Box Master Map & 5 Universal Laws)](learn/learning/hld/001-what-is-system-design/lesson.html)
+  - [002. HLD vs LLD and Architectural Thinking](learn/learning/hld/002-hld-vs-lld-and-architectural-thinking/lesson.html)
+  - [003. Functional vs Non-Functional Requirements](learn/learning/hld/003-functional-vs-non-functional-requirements/lesson.html)
+  - [004. Requirements Clarification (Vague Prompts → Concrete Numbers)](learn/learning/hld/004-requirements-clarification/lesson.html)
+  - [005. Capacity Estimation](learn/learning/hld/005-capacity-estimation/lesson.html)
+  - [006. Back-of-the-Envelope Calculations (Hardware Physics & Powers of 2/10)](learn/learning/hld/006-back-of-the-envelope-calculations/lesson.html)
+  - [007. Latency, Throughput, QPS, Concurrency (Little's Law) & Bandwidth](learn/learning/hld/007-latency-throughput-qps-concurrency-and-bandwidth/lesson.html)
+  - [008. Availability, Reliability, Durability, SLIs/SLOs/SLAs & Error Budgets](learn/learning/hld/008-availability-reliability-durability-and-slas/lesson.html)
+  - [009. Scalability & Elasticity (Vertical vs Horizontal, Amdahl's Law & USL)](learn/learning/hld/009-scalability-and-elasticity/lesson.html)
+  - [010. Fundamental System Design Trade-offs (Phase 1 Capstone)](learn/learning/hld/010-fundamental-system-design-trade-offs/lesson.html)
+
+---
+
+### 4. React ([Overview](learn/learning/react/overview.html))
 - [JS Foundations for React](learn/learning/react/js-foundations-for-react/lesson.html)
 
 ---
 
-### 4. Java Interview Question Banks ([Study Index](learn/questions/java/index.md))
+### 5. Java Interview Question Banks ([Study Index](learn/questions/java/index.md))
 1. [Core Java and Object Design](learn/questions/java/core-java-and-object-design.md)
 2. [Collections, Generics, and Data Structures](learn/questions/java/collections-generics-and-data-structures.md)
 3. [Coding and Problem Solving](learn/questions/java/coding-and-problem-solving.md)

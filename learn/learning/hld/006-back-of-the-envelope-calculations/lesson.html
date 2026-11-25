@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>006 · Back-of-the-Envelope Calculations (Hardware Physics &amp; Powers of 2/10) — HLD</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#2e7d32;--amber:#b85d00}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:900px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58;-webkit-font-smoothing:antialiased}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.65rem;margin-bottom:1.2rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  .status-hdr{background:#fff;border:1.5px solid var(--rule);border-left:5px solid var(--accent2);border-radius:6px;padding:.75rem 1rem;margin-bottom:1.5rem;font-size:.86rem;font-family:"SF Mono",Menlo,Consolas,monospace;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.14;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .55rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem;font-family:"SF Mono",Menlo,Consolas,monospace}
+  h3{font-size:1.13rem;margin:1.45rem 0 .35rem;color:var(--accent)}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.81rem;line-height:1.48;font-family:"SF Mono",Menlo,Consolas,monospace}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f} pre .h{color:#ffd166;font-weight:bold}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.98rem;margin:0 0 .45rem;text-transform:uppercase;letter-spacing:.03em}
+  .flow-steps{background:#fff8ee;border:1px solid var(--rule);border-radius:6px;padding:.85rem 1.1rem;margin:1rem 0;font-size:.94rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem}
+  .flow-steps li{margin:.35rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .gate{background:#fff8ee;border:2px dashed var(--accent);border-radius:8px;padding:1.15rem 1.3rem;margin:1.6rem 0}
+  .gate h3{margin-top:0;color:var(--accent)}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  @media print{body{padding:1rem;max-width:100%} pre{white-space:pre-wrap} .nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../005-capacity-estimation/lesson.html">005: Capacity Estimation</a></span>
+  <span><strong>Topic 006 of 140</strong> · Phase 1: Foundations</span>
+  <span><a href="../007-latency-throughput-qps-concurrency-and-bandwidth/lesson.html">007: Latency, Throughput, QPS &amp; Little's Law</a> →</span>
+</nav>
+
+<div class="status-hdr">
+  <div><strong>Current Topic:</strong> #6 — Back-of-the-Envelope Calculations (Hardware Physics &amp; Powers of 2/10)</div>
+  <div><strong>7-Box Map Location:</strong> All 7 Boxes (Mental Math Engine Powered by Universal Law 1) | <strong>Depth Tag:</strong> [DEEP]</div>
+  <div><strong>Prerequisites Completed:</strong> [Topics #1–#5] &rarr; <strong>Unlocks Next:</strong> [Topic #7 — Latency, Throughput, QPS, Concurrency &amp; Bandwidth]</div>
+  <div><strong>Progress:</strong> [0] Completed | [140] Remaining | [0] Needs Revision</div>
+</div>
+
+<h1>006 · Back-of-the-Envelope Calculations (Hardware Physics &amp; Powers of 2/10)</h1>
+<p class="crumb"><a href="../overview.html">High-Level System Design (HLD)</a> › Phase 1: Foundations › Topic 6 of 140 · <span style="color:#7a1f1f;font-weight:700">DEEP</span></p>
+
+<div class="tldr">
+  <strong>0. TL;DR in Simple English —</strong> In an interview or architecture meeting, nobody cares whether storage is <code>182.5 TB</code> or <code>175.2 TB</code>—they care whether it is <strong>Gigabytes, Terabytes, or Petabytes</strong> (the order of magnitude). Back-of-the-Envelope math replaces ugly decimals with <strong>scientific notation ($10^N$), Powers of 2, Time Shortcuts ($1\text{ day} \approx 10^5\text{ s}$), and Jeff Dean's Hardware Latency Numbers</strong> so you never fumble mental division under pressure.
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§1</span>Where it fits — 🧭 You Are Here on the 7-Box Master Map</h2>
+
+<div class="map-banner">
+  <div class="map-title">🧭 You Are Here: Universal Law 1 Hardware Physics Across Every Box</div>
+<pre>┌───────────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">HARDWARE LATENCY &amp; THROUGHPUT PHYSICS ACROSS THE 7 BOXES (LAW 1)</span>                   │
+│                                                                                   │
+│  [Client] ──(50–150 ms Internet / 5–20 ms Edge CDN: BOX 1)──► [API Gateway]       │
+│                                                                     │             │
+│           ┌──────────────────(0.5 ms Same-AZ RPC: BOX 2)────────────┘             │
+│           ▼                                                                       │
+│   [Spring Boot JVM]                                                               │
+│     ├─► L1 Local Heap Cache (Caffeine):  ~100 ns       (BOX 4 Local)              │
+│     ├─► L2 Distributed Redis Cache:      ~500 us       (BOX 4 Remote)             │
+│     ├─► Kafka Sequential Log Append:     ~1–2 ms       (BOX 5 PageCache/SSD)      │
+│     ├─► Primary DB NVMe SSD Read/Commit: ~100 us–3 ms  (BOX 6 B+Tree/WAL)         │
+│     └─► Cross-Region Active-Active Sync: ~70–150 ms    (BOX 7 Speed of Light)     │
+└───────────────────────────────────────────────────────────────────────────────────┘</pre>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§2</span>Why it exists — How Long-Division Paralysis Ruins Interviews</h2>
+
+<p>
+Watch a candidate freeze in an interview when trying to divide `350,000,000 events / 86,400 seconds/day` by hand:
+</p>
+<pre><span class="c">// THE PAINFUL WAY (Candidate stares at whiteboard for 3 minutes doing long division):</span>
+350,000,000 / 86,400 = 350,000 / 86.4 = ... uh ... 4,050.9259? Or 40,509? (Drops a zero and panics!)
+
+<span class="c">// THE POWERS-OF-10 WAY (Done in 4 seconds with zero chance of dropping a zero!):</span>
+350 Million = 3.5 * 10^8
+1 Day       = 10^5 seconds
+QPS         = (3.5 * 10^8) / (10^5) = 3.5 * 10^3 = <span class="h">3,500 QPS!</span> (Within 13% of exact—100% accurate for sizing boxes!)</pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§3</span>How it works — The 4 Mental Tables Every Architect Knows Cold</h2>
+
+<h3>3.1 Table 1: Powers of 2 &amp; Powers of 10 (Data Volume &amp; ID Space)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Power of 2</th>
+      <th>Exact Value</th>
+      <th>Power of 10 Approximation</th>
+      <th>Unit Name</th>
+      <th>What Fits Inside This Size (Intuition Anchor)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$2^{10}$</td>
+      <td><code>1,024</code></td>
+      <td>$10^3$ (1 Thousand)</td>
+      <td><strong>1 KB</strong> (Kilobyte)</td>
+      <td>1 rich database row (`User` or `Order` metadata JSON + B+Tree index entry).</td>
+    </tr>
+    <tr>
+      <td>$2^{20}$</td>
+      <td><code>1,048,576</code></td>
+      <td>$10^6$ (1 Million)</td>
+      <td><strong>1 MB</strong> (Megabyte)</td>
+      <td>1 high-res compressed smartphone photo, or 1,000 database rows.</td>
+    </tr>
+    <tr>
+      <td>$2^{30}$</td>
+      <td><code>~1.07 Billion</code></td>
+      <td>$10^9$ (1 Billion)</td>
+      <td><strong>1 GB</strong> (Gigabyte)</td>
+      <td>1 million 1-KB rows in RAM! (Note: 32-bit signed `int` maxes out at $2^{31}-1 \approx 2.14\text{ Billion}$—why `user_id` must be 64-bit `long`!).</td>
+    </tr>
+    <tr>
+      <td>$2^{40}$</td>
+      <td><code>~1.1 Trillion</code></td>
+      <td>$10^{12}$ (1 Trillion)</td>
+      <td><strong>1 TB</strong> (Terabyte)</td>
+      <td>1 billion 1-KB database rows (fits on 1 modern NVMe SSD).</td>
+    </tr>
+    <tr>
+      <td>$2^{50}$</td>
+      <td><code>~1.12 Quadrillion</code></td>
+      <td>$10^{15}$ (1 Quadrillion)</td>
+      <td><strong>1 PB</strong> (Petabyte)</td>
+      <td>1,000 TB — large multi-year media/analytics cluster in S3/HDFS.</td>
+    </tr>
+    <tr>
+      <td>$2^{64}$</td>
+      <td><code>~1.84 &times; 10^{19}</code></td>
+      <td>$1.8 \times 10^{19}$</td>
+      <td><strong>64-Bit ID Space</strong></td>
+      <td>Snowflake ID / Consistent Hash Ring space ($[0, 2^{64}-1]$) — never overflows in our lifetime.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.2 Table 2: Time Conversion Shortcuts (Zero Long Division!)</h3>
+<table>
+  <thead>
+    <tr><th>Time Period</th><th>Exact Seconds</th><th>Mental Math Shortcut</th><th>Quick Rule Derived from This</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>1 Hour</strong></td><td><code>3,600 s</code></td><td>$3.6 \times 10^3 \approx \mathbf{4 \times 10^3\text{ s}}$</td><td>`3.6M requests/hour = 1,000 QPS`</td></tr>
+    <tr><td><strong>1 Day</strong></td><td><code>86,400 s</code></td><td>$\mathbf{10^5\text{ seconds}}$ (`100,000 s`)</td><td><strong>`100,000 requests/day = 1 QPS`</strong> · <strong>`100M requests/day = 1,000 QPS`</strong></td></tr>
+    <tr><td><strong>1 Month (30d)</strong></td><td><code>2,592,000 s</code></td><td>$\mathbf{2.5 \times 10^6\text{ s}}$ (`2.5M s`)</td><td>`250M requests/month = 100 QPS`</td></tr>
+    <tr><td><strong>1 Year (365d)</strong></td><td><code>31,536,000 s</code></td><td>$\mathbf{3 \times 10^7\text{ s}}$ (`30M s`)</td><td>`30B requests/year = 1,000 QPS` (Fun fact: $1\text{ year} \approx \pi \times 10^7\text{ s}$!)</td></tr>
+    <tr><td><strong>5 Years</strong></td><td><code>~1.57 &times; 10^8 s</code></td><td>$\mathbf{1.5 \times 10^8\text{ s}}$ (`~2,000 days`)</td><td>`Daily Storage &times; 2,000 = 5-Year Storage` (including ~10% buffer!)</td></tr>
+  </tbody>
+</table>
+
+<h3>3.3 Table 3: Universal Law 1 — Hardware Latency &amp; Throughput Numbers (2026 Server Reality)</h3>
+<p>
+Grounded in Jeff Dean and Peter Norvig's classic benchmarks updated for modern NVMe SSDs and cloud networks
+<span class="sources">(<a href="https://norvig.com/21-days.html#answers">Peter Norvig / Jeff Dean — Latency Numbers Every Programmer Should Know</a>)</span>:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>Operation</th>
+      <th>Real Hardware Time</th>
+      <th>Throughput / Bandwidth</th>
+      <th>Architectural Consequence on the 7-Box Map</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>L1 / L2 CPU Cache Reference</strong></td>
+      <td><code>~1 – 4 ns</code></td>
+      <td><code>~100+ GB/s</code></td>
+      <td>Why CPU cache-friendly contiguous arrays beat pointer-chasing linked lists.</td>
+    </tr>
+    <tr>
+      <td><strong>Java Mutex Lock / Unlock or CAS</strong></td>
+      <td><code>~15 – 25 ns</code></td>
+      <td><code>~40M ops/s</code> (uncontended)</td>
+      <td>Why in-memory Token Bucket or AtomicLong counters inside Box 2 are practically free.</td>
+    </tr>
+    <tr>
+      <td><strong>Main RAM Read</strong></td>
+      <td><code>~100 ns</code></td>
+      <td><code>~20 – 50 GB/s</code></td>
+      <td>Why in-process L1 Cache (`Caffeine`) can serve millions of lookups/sec without network cost.</td>
+    </tr>
+    <tr>
+      <td><strong>Compress 1 KB with Snappy / LZ4</strong></td>
+      <td><code>~2 – 3 &mu;s</code></td>
+      <td><code>~500 MB/s per core</code></td>
+      <td>Compressing JSON payloads before sending to Redis or Kafka saves 70% network/disk I/O for only `2 &mu;s` of CPU!</td>
+    </tr>
+    <tr>
+      <td><strong>NVMe SSD Random 4KB Read</strong></td>
+      <td><code>~50 – 150 &mu;s</code></td>
+      <td><code>~100K – 500K IOPS</code></td>
+      <td><strong>1,000&times; slower than RAM!</strong> Why missing the RAM buffer pool on a SQL query drops QPS by orders of magnitude.</td>
+    </tr>
+    <tr>
+      <td><strong>NVMe SSD Sequential Write (`1 MB`)</strong></td>
+      <td><code>~200 – 500 &mu;s</code></td>
+      <td><code>~2 – 5 GB/s</code></td>
+      <td>Sequential disk append is 10&times;–100&times; faster than random seeks—why WAL, Kafka, and LSM-Trees append sequentially!</td>
+    </tr>
+    <tr>
+      <td><strong>Same-Availability-Zone Network RTT</strong></td>
+      <td><code>~250 – 500 &mu;s</code></td>
+      <td><code>10 – 100 Gbps</code></td>
+      <td>Calling Redis or another microservice in the same AZ takes `~0.5 ms` (5,000&times; slower than local RAM).</td>
+    </tr>
+    <tr>
+      <td><strong>Cross-AZ Network RTT (Same Region)</strong></td>
+      <td><code>~1 – 2 ms</code></td>
+      <td><code>10 – 100 Gbps</code></td>
+      <td>Synchronous Multi-AZ DB replication (`RPO=0`) adds only `~1.5 ms` to every write commit!</td>
+    </tr>
+    <tr>
+      <td><strong>Cross-Continent RTT (US &harr; EU / Asia)</strong></td>
+      <td><code>~80 – 150 ms</code></td>
+      <td>Limited by TCP window</td>
+      <td><strong>1,000,000&times; slower than RAM!</strong> Why global users need Edge CDNs (Box 1) and Regional Read Replicas (Box 7).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.4 Table 4: Exact Byte Sizes of Common Data Types (For Row-Size Math)</h3>
+<pre><span class="c">// Memorize these 6 building blocks to size any database row or cache entry in 5 seconds:</span>
+64-bit ID (Snowflake / BIGINT / Timestamp / Double) = <span class="h">8 Bytes</span>
+32-bit Integer / IPv4 Address / Float               = <span class="h">4 Bytes</span>
+UUID (128-bit binary) / IPv6 Address                = <span class="h">16 Bytes</span>  (36 Bytes if stored as ASCII string!)
+SHA-256 Hash                                        = <span class="h">32 Bytes</span>
+ASCII / UTF-8 Text (English)                        = <span class="h">~1 Byte per character</span> (Tweet = 280 Bytes)
+Typical JSON API Payload / Social Post Metadata Row = <span class="h">~500 Bytes – 1 KB</span></pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§4</span>When to use — 3 Rapid-Fire Back-of-the-Envelope Drills</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Interview Question</th>
+      <th>15-Second Scientific-Notation Solution</th>
+      <th>Architectural Verdict</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><em>"Can we keep a mapping of `user_id (8B) -> last_active_timestamp (8B)` for all 500 Million daily active users in RAM?"</em></td>
+      <td>$(5 \times 10^8\text{ users}) \times (16\text{ B} + 32\text{ B hash-entry overhead}) \approx 5 \times 10^8 \times 50\text{ B} = 2.5 \times 10^{10}\text{ B} = \mathbf{25\text{ GB of RAM}}$.</td>
+      <td><strong>Yes!</strong> 25 GB fits easily on a single 64 GB Redis node (plus 1 replica for HA).</td>
+    </tr>
+    <tr>
+      <td><em>"4 Million Uber drivers send a GPS ping (`driver_id + lat + lon + timestamp = 32B`, or `~100B` with packet headers) every 4 seconds. What is QPS and RAM needed for current locations?"</em></td>
+      <td>$\text{Write QPS} = \frac{4 \times 10^6}{4\text{ s}} = \mathbf{10^6\text{ writes/sec (1M QPS)}}$.<br/>$\text{RAM for latest position of 4M drivers} = 4 \times 10^6 \times 100\text{ B} = \mathbf{400\text{ MB}}$.</td>
+      <td>400 MB is tiny in RAM, <strong>but 1,000,000 writes/sec cannot hit a disk SQL DB</strong>—store live locations in a sharded in-memory Redis/Geohash cluster!</td>
+    </tr>
+    <tr>
+      <td><em>"A video service receives 1,000 hours of raw video uploaded per minute. After transcoding into 3 resolutions (avg 1 GB/hour total), how much daily storage is needed?"</em></td>
+      <td>$1,000\text{ hr/min} \times 60\text{ min/hr} \times 24\text{ hr/day} = 1.44 \times 10^6\text{ hours/day}$.<br/>$1.44 \times 10^6 \times 1\text{ GB} = \mathbf{1.44\text{ PB/day}}$.</td>
+      <td>Needs Petabyte-scale Object Storage (S3) + lifecycle tiering to cold storage for unwatched videos.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§5</span>Explain it to a 12-year-old (The Feynman Pass)</h2>
+
+<p>
+Why do we round `86,400 seconds` to `100,000 seconds`?
+</p>
+<p>
+Imagine you are packing for a camping trip and ask: <em>"Will all our gear fit in the trunk of Mom's sedan, or do we need to rent a moving truck?"</em>
+</p>
+<p>
+To answer that question, you do <strong>not</strong> need a laser ruler to measure whether your sleeping bag is `42.37 inches` or `45.00 inches` long! You just need to know if you are packing <strong>3 backpacks</strong> (fits in the car = 1 PostgreSQL server) or <strong>300 refrigerators</strong> (needs a convoy of 18-wheelers = 64 sharded servers + S3). Rounding to powers of 10 lets you spot "3 backpacks vs 300 refrigerators" in 5 seconds in your head!
+</p>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§6</span>Dependency Graph &amp; Connections</h2>
+
+<pre>[Topic 005: Capacity Estimation] ──► <span class="h">[Topic 006: Back-of-the-Envelope Math]</span> ──► [Topic 007: Latency, Throughput, QPS &amp; Little's Law]</pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§7</span>In practice — Latency Estimation Code &amp; Interview Derivation Playbook</h2>
+
+<h3>7.1 How to Estimate End-to-End API Latency Before Writing a Line of Code</h3>
+<p>
+Using Table 3 (Hardware Latency Physics), you can predict the latency of any proposed architecture during an interview:
+</p>
+<pre><span class="c">// Scenario: Designing GET /v1/feed for a user in the same region (US-East):</span>
+<span class="c">// Bad Design (Sequential RPCs + Uncached Disk Queries):</span>
+<span class="c">//   1. Client -&gt; ALB/API Gateway TLS (warm keep-alive):        ~15.0 ms</span>
+<span class="c">//   2. Gateway -&gt; FeedService (Same-AZ RPC):                    ~0.5 ms</span>
+<span class="c">//   3. FeedService -&gt; Postgres (Uncached 20-post join on SSD): ~25.0 ms</span>
+<span class="c">//   4. Loop 20 times calling UserService sequentially (20x2ms): ~40.0 ms  &lt;-- BOTTLENECK!</span>
+<span class="c">//   Total Latency = ~80.5 ms (and p99 explodes &gt; 400 ms under load!)</span>
+
+<span class="c">// Staff Design (Pipelined Redis MGET + Parallel Batching):</span>
+<span class="c">//   1. Client -&gt; ALB/API Gateway (warm HTTP/2):                ~15.0 ms</span>
+<span class="c">//   2. Gateway -&gt; FeedService (Same-AZ gRPC):                   ~0.5 ms</span>
+<span class="c">//   3. FeedService -&gt; Redis Pipeline (fetch 20 post IDs + data):~1.0 ms</span>
+<span class="c">//   Total Latency = ~16.5 ms!</span></pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§8</span>Pitfalls &amp; Traps</h2>
+
+<div class="pitfall"><strong>⚠️ Pitfall 1 — Storing UUIDs as 36-Character Strings Instead of 16-Byte Binary (`UUID` / `BIGINT`):</strong> At 10 Billion rows, a 36-byte string UUID costs `360 GB` in the primary key index alone (plus `360 GB` in every foreign key index!), whereas an 8-byte `BIGINT` Snowflake ID costs only `80 GB` and inserts sequentially into B+Tree pages without random page splits!</div>
+
+<div class="pitfall"><strong>⚠️ Pitfall 2 — Forgetting Java Object Header Overhead in In-Memory Calculations:</strong> In a 64-bit JVM (`java/06-memory-model-and-gc`), every `new Object()` has a 12-to-16 byte object header, and a `HashMap.Node` adds 32 bytes per entry. Storing 100 million tiny 8-byte `Long` objects in a `HashMap<Long, Long>` in JVM heap takes `~6–8 GB` of RAM, not `1.6 GB`! Use primitive arrays/off-heap buffers when memory density matters.</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§9</span>Recap &amp; Quick Cheat-Sheet</h2>
+
+<ul class="recap">
+  <li><strong>Always Convert to Scientific Notation ($a \times 10^b$):</strong> Divide coefficients, subtract exponents, never lose a zero.</li>
+  <li><strong>Golden Time Anchor:</strong> $1\text{ day} \approx 10^5\text{ seconds} \implies 100\text{M events/day} = 1,000\text{ QPS}$; $5\text{ years} \approx 2,000\text{ days}$.</li>
+  <li><strong>Golden Latency Ladder:</strong> RAM (`100 ns`) $\to$ SSD (`100 \mu s` = $1,000\times$) $\to$ Same-AZ Network (`500 \mu s`) $\to$ Cross-AZ (`1.5 ms`) $\to$ Cross-Ocean (`100 ms` = $1,000,000\times$).</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§10</span>Interactive Socratic Gate &amp; Sources</h2>
+
+<div class="gate">
+  <h3>🎯 Socratic Verification Gate — Topic 006 (Score &ge; 4/5 Required)</h3>
+  <ol>
+    <li><strong><code>[theory]</code>:</strong> Why is inserting random `UUIDv4` primary keys into a disk-backed SQL B+Tree table much slower at 500M rows than inserting sequential 64-bit `Snowflake` IDs or `UUIDv7` (time-ordered UUIDs)? Use <strong>Universal Law 1</strong>.</li>
+    <li><strong><code>[practical]</code> (No Calculator — Pure Powers of 10):</strong> A logging system ingests `600 Billion` log lines per day. Each log line is `500 Bytes` (before compression) and compresses $5\times$ with LZ4. In 30 seconds using powers of 10, calculate: (a) Average Write QPS, (b) Compressed daily storage in TB, and (c) How many Kafka brokers are needed if 1 broker handles `200 MB/s`.</li>
+    <li><strong><code>[diagram]</code>:</strong> Using the Hardware Latency Ladder, trace the total server-side time of an API call that makes <strong>1 synchronous cross-continent database call from US-East to EU-West (`100 ms` RTT)</strong> vs reading from a <strong>local regional Redis replica (`0.5 ms`)</strong>. By what factor is the local Redis read faster?</li>
+    <li><strong><code>[trade-offs]</code>:</strong> Compressing a `10 KB` JSON payload with LZ4/Snappy takes `~20 microseconds` of CPU and shrinks it to `2 KB`. When is that trade-off a huge win, and when should you skip compression?</li>
+  </ol>
+</div>
+
+<h3>Sources &amp; Further Reading</h3>
+<ul class="sources">
+  <li><a href="https://norvig.com/21-days.html#answers">Jeff Dean &amp; Peter Norvig — Latency Numbers Every Programmer Should Know</a></li>
+  <li><a href="https://sre.google/workbook/non-abstract-design/">Google SRE Workbook — Back-of-the-Envelope Calculations</a></li>
+</ul>
+
+</body>
+</html>

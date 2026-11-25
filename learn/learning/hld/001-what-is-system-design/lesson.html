@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>001 · What is System Design? (The 7-Box Master Map &amp; 5 Universal Laws) — HLD</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#2e7d32;--amber:#b85d00;--purple:#4a2b7a}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:900px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58;-webkit-font-smoothing:antialiased}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.65rem;margin-bottom:1.2rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  .status-hdr{background:#fff;border:1.5px solid var(--rule);border-left:5px solid var(--accent2);border-radius:6px;padding:.75rem 1rem;margin-bottom:1.5rem;font-size:.86rem;font-family:"SF Mono",Menlo,Consolas,monospace;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.14;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .55rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem;font-family:"SF Mono",Menlo,Consolas,monospace}
+  h3{font-size:1.13rem;margin:1.45rem 0 .35rem;color:var(--accent)}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.81rem;line-height:1.48;font-family:"SF Mono",Menlo,Consolas,monospace}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f} pre .h{color:#ffd166;font-weight:bold}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.98rem;margin:0 0 .45rem;text-transform:uppercase;letter-spacing:.03em}
+  .flow-steps{background:#fff8ee;border:1px solid var(--rule);border-radius:6px;padding:.85rem 1.1rem;margin:1rem 0;font-size:.94rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem}
+  .flow-steps li{margin:.35rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .idiom{background:#eef7f1;border-left:4px solid var(--ok);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .gate{background:#fff8ee;border:2px dashed var(--accent);border-radius:8px;padding:1.15rem 1.3rem;margin:1.6rem 0}
+  .gate h3{margin-top:0;color:var(--accent)}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  .ann{font-size:.9rem;color:#3f3b34;margin:.35rem 0 1rem;padding-left:1rem;border-left:3px solid var(--rule)}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  @media print{body{padding:1rem;max-width:100%} pre{white-space:pre-wrap} .nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../overview.html">HLD Master Overview (140 Topics)</a></span>
+  <span><strong>Topic 001 of 140</strong> · Phase 1: Foundations</span>
+  <span><a href="../002-hld-vs-lld-and-architectural-thinking/lesson.html">002: HLD vs LLD &amp; Architectural Thinking</a> →</span>
+</nav>
+
+<div class="status-hdr">
+  <div><strong>Current Topic:</strong> #1 — What is System Design? (The 7-Box Master Map &amp; 5 Universal Laws)</div>
+  <div><strong>7-Box Map Location:</strong> Box [1–7] — All 7 Planes (Level 0 Bird's-Eye Anchor) | <strong>Depth Tag:</strong> [DEEP]</div>
+  <div><strong>Prerequisites Completed:</strong> [None — Course Entry Point] &rarr; <strong>Unlocks Next:</strong> [Topic #2 — HLD vs LLD &amp; Architectural Thinking]</div>
+  <div><strong>Progress:</strong> [0] Completed | [140] Remaining | [0] Needs Revision</div>
+</div>
+
+<h1>001 · What is System Design? (The 7-Box Master Map &amp; 5 Universal Laws)</h1>
+<p class="crumb"><a href="../overview.html">High-Level System Design (HLD)</a> › Phase 1: Foundations › Topic 1 of 140 · <span style="color:#7a1f1f;font-weight:700">DEEP</span></p>
+
+<div class="tldr">
+  <strong>0. TL;DR in Simple English —</strong> Writing code inside one Java class works great when 100 people use your laptop.
+  <strong>System Design</strong> is the art and physics of arranging multiple computers, networks, memory caches, message queues, and disk storage so that when <strong>100 million people</strong> click at the same time—and hard drives catch fire at 2 A.M.—every user still gets the right answer in under 200 milliseconds without losing a single cent of data.
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§1</span>Where it fits — 🧭 You Are Here on the 7-Box Master Map</h2>
+
+<p>
+Before zooming into any single component like a Load Balancer, Redis cache, or Kafka log, we must see the <strong>entire machine</strong>. Every single topic across our 140-lesson journey lives inside one of these <strong>7 Core Boxes</strong>, governed by <strong>5 Universal Laws of Hardware &amp; Distributed Physics</strong>.
+</p>
+
+<div class="map-banner">
+  <div class="map-title">🧭 You Are Here: Level 0 Whole-Machine Anchor (Boxes 1–7)</div>
+  <figure style="margin:.6rem 0 .2rem">
+    <svg viewBox="0 0 840 245" width="100%" role="img" aria-label="You Are Here on the 7-Box Master System Map: Topic 1 illuminates all 7 boxes">
+      <style>
+        .act{fill:#fff8ee;stroke:#7a1f1f;stroke-width:2.2}
+        .bx{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.6}
+        .t{font:bold 11.5px "SF Mono",Menlo,monospace;fill:#7a1f1f}
+        .s{font:10.5px Georgia,serif;fill:#2b2b28}
+        .ar{stroke:#2b2b28;stroke-width:1.5;marker-end:url(#a1);fill:none}
+      </style>
+      <defs><marker id="a1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2b2b28"/></marker></defs>
+
+      <rect class="act" x="10" y="8" width="820" height="32" rx="5"/>
+      <text class="t" x="22" y="28">★ TOPIC 001 (YOU ARE HERE): Watch 1 Server Break at Scale &rarr; Invent All 7 Boxes Below Step-by-Step</text>
+
+      <!-- Row 1: Box 1 -> Box 2 -->
+      <rect class="act" x="10" y="52" width="390" height="54" rx="6"/>
+      <text class="t" x="20" y="71">BOX 1: Edge &amp; Networking Plane</text>
+      <text class="s" x="20" y="88">DNS &rarr; CDN &rarr; L4/L7 Load Balancer &rarr; API Gateway</text>
+
+      <rect class="act" x="440" y="52" width="390" height="54" rx="6"/>
+      <text class="t" x="450" y="71">BOX 2: Compute &amp; Service Plane</text>
+      <text class="s" x="450" y="88">Stateless Spring Boot Workers &bull; REST/gRPC/WS &bull; Outbox/Saga</text>
+      <line class="ar" x1="400" y1="79" x2="438" y2="79"/>
+
+      <!-- Row 2: Box 3, 4, 5 -->
+      <rect class="act" x="10" y="120" width="260" height="54" rx="6"/>
+      <text class="t" x="20" y="139">BOX 3: Resilience Plane</text>
+      <text class="s" x="20" y="156">Rate Limit &bull; Circuit Breaker &bull; Bulkhead</text>
+
+      <rect class="act" x="290" y="120" width="260" height="54" rx="6"/>
+      <text class="t" x="300" y="139">BOX 4: Fast Memory / Cache</text>
+      <text class="s" x="300" y="156">L1 App RAM &bull; Redis Cluster &bull; Singleflight</text>
+
+      <rect class="act" x="570" y="120" width="260" height="54" rx="6"/>
+      <text class="t" x="580" y="139">BOX 5: Messaging &amp; Streaming</text>
+      <text class="s" x="580" y="156">Queues &bull; Pub/Sub &bull; Kafka Append Logs</text>
+
+      <!-- Row 3: Box 6 & Box 7 -->
+      <rect class="act" x="10" y="186" width="400" height="52" rx="6"/>
+      <text class="t" x="20" y="205">BOX 6: Data, Storage &amp; Consensus Plane</text>
+      <text class="s" x="20" y="222">B+Tree/LSM &bull; ACID/MVCC &bull; Replication &bull; Sharding &bull; Raft &bull; S3</text>
+
+      <rect class="act" x="430" y="186" width="400" height="52" rx="6"/>
+      <text class="t" x="440" y="205">BOX 7: Production, Multi-Region &amp; Control Plane</text>
+      <text class="s" x="440" y="222">Multi-AZ/Region &bull; DR (RPO/RTO) &bull; Metrics/Traces/SLOs &bull; Zero-Trust</text>
+    </svg>
+  </figure>
+<pre>[Clients]
+   │
+   ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">BOX 1: EDGE &amp; NETWORKING PLANE</span>                                             │
+│ DNS → CDN / Edge → L4/L7 Load Balancer → Reverse Proxy → API Gateway       │
+└────────────────────────────────────┬───────────────────────────────────────┘
+                                     │
+                                     ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">BOX 2: COMPUTE &amp; SERVICE ARCHITECTURE PLANE</span>                                │
+│ Stateless Workers │ Service Discovery │ REST / gRPC / WS │ Sync vs Async   │
+└───────┬────────────────────────────┼───────────────────────────────┬───────┘
+        │                            │                               │
+        ▼                            ▼                               ▼
+┌──────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────┐
+│ <span class="h">BOX 3: RESILIENCE &amp;</span>  │  │ <span class="h">BOX 4: FAST MEMORY &amp;</span>    │  │ <span class="h">BOX 5: MESSAGING &amp;</span>  │
+│ <span class="h">PROTECTION PLANE</span>     │  │ <span class="h">CACHING PLANE</span>           │  │ <span class="h">STREAMING PLANE</span>     │
+│ Timeouts, Retries,   │  │ Local Cache, Redis,     │  │ Queues, Pub/Sub,    │
+│ Circuit Breakers,    │  │ Read/Write Strategies,  │  │ Kafka Append Logs,  │
+│ Bulkheads, RateLimit │  │ Eviction &amp; Invalidation │  │ Outbox, Sagas, DLQ  │
+└──────────┬───────────┘  └────────────┬────────────┘  └──────────┬──────────┘
+           │                           │                          │
+           └───────────────────────────┼──────────────────────────┘
+                                       ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">BOX 6: DATA, STORAGE &amp; CONSENSUS PLANE</span>                                     │
+│ SQL/NoSQL │ B-Tree vs LSM │ ACID &amp; Isolation │ Replication &amp; Sharding      │
+│ Consistent Hashing │ CAP &amp; PACELC │ Raft/Paxos Consensus │ Quorums │ S3    │
+└────────────────────────────────────┬───────────────────────────────────────┘
+                                     │
+                                     ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">BOX 7: PRODUCTION OPERATIONS, MULTI-REGION &amp; CONTROL PLANE</span>                 │
+│ Auto-Scaling │ Multi-AZ / Multi-Region │ DR (RPO/RTO) │ Zero-Downtime      │
+│ Observability (Logs/Metrics/Traces/SLOs) │ Security &amp; Auth │ Cost &amp; CapEx  │
+└────────────────────────────────────────────────────────────────────────────┘</pre>
+  <p style="margin:.4rem 0 0;font-size:.9rem">
+    <strong>Governing Laws:</strong> All 5 Universal Laws &bull; <strong>Flagship Upgrade:</strong> Launches <em>PulseStream v0</em> (1-Box Monolith) and traces why it must evolve into the 7 Boxes.
+  </p>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§2</span>Why it exists — Build the Naive 1-Server Baseline First, Then Watch It Break</h2>
+
+<p>
+Why don't we just run every application on one big computer? Let's launch <strong>PulseStream v0</strong>—our flagship creator feed &amp; ticket-commerce platform—on a single cloud VM (<code>203.0.113.10</code>) running a Spring Boot JAR (Embedded Tomcat, 200 worker threads) and a local PostgreSQL database on the same disk.
+</p>
+
+<pre><span class="c">// PulseStream v0: Everything lives on ONE physical machine (203.0.113.10)</span>
+<span class="an">@RestController</span>
+<span class="k">public class</span> PulseStreamMonolithController {
+    <span class="c">// Pain #2 Trap: Storing logged-in sessions in local JVM heap RAM!</span>
+    <span class="k">private final</span> Map&lt;String, UserSession&gt; localSessions = <span class="k">new</span> ConcurrentHashMap&lt;&gt;();
+    <span class="k">private final</span> JdbcTemplate db; <span class="c">// Connects to localhost:5432 on the same machine's SSD</span>
+
+    <span class="an">@GetMapping</span>(<span class="s">"/feed"</span>)
+    <span class="k">public</span> List&lt;Post&gt; getHomeFeed(<span class="an">@RequestHeader</span>(<span class="s">"X-Session-Id"</span>) String sid) {
+        UserSession user = localSessions.get(sid); <span class="c">// Fails if routed to any other server!</span>
+        <span class="c">// Pain #4 Trap: Hits disk-backed SQL B+Tree on EVERY single page refresh!</span>
+        <span class="k">return</span> db.query(<span class="s">"SELECT * FROM posts ORDER BY created_at DESC LIMIT 50"</span>, postRowMapper);
+    }
+
+    <span class="an">@PostMapping</span>(<span class="s">"/posts"</span>)
+    <span class="k">public</span> ResponseEntity&lt;String&gt; publishPost(<span class="an">@RequestBody</span> PostRequest req) {
+        db.update(<span class="s">"INSERT INTO posts (author_id, body) VALUES (?, ?)"</span>, req.authorId(), req.body());
+        <span class="c">// Pain #5 Trap: Synchronous fan-out loop inside the HTTP request thread!</span>
+        <span class="k">for</span> (String followerEmail : req.followerEmails()) { <span class="c">// What if the creator has 500,000 followers?!</span>
+            smtpEmailClient.sendBlockingEmail(followerEmail, <span class="s">"New post!"</span>); <span class="c">// 100ms network call each!</span>
+        }
+        <span class="k">return</span> ResponseEntity.ok(<span class="s">"Published"</span>);
+    }
+}</pre>
+
+<h3>Watch the Naive 1-Server App Collapse in 7 Concrete Ways (And Birth the 7 Boxes)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>What We Throw at PulseStream v0</th>
+      <th>Exact Physical Pain That Breaks It</th>
+      <th>Which Universal Law Explains It</th>
+      <th>Which Box We Invent to Fix It</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Pain 1:</strong> Users in Tokyo and London connect to our single US-East server, and traffic spikes past 10,000 TCP connections.</td>
+      <td>Each cross-ocean packet pays <code>~150 ms</code> speed-of-light delay. One server's NIC and Tomcat accept queue saturate.</td>
+      <td><strong>Law 1</strong> (Physics of Hardware &amp; Distance)</td>
+      <td><strong>Box 1 (Edge &amp; Networking):</strong> Geo-DNS, CDN Edge caches near the user, and L4/L7 Load Balancers.</td>
+    </tr>
+    <tr>
+      <td><strong>Pain 2:</strong> We add a 2nd Spring Boot server behind a Load Balancer. User logs in on Server A; next request lands on Server B.</td>
+      <td>Server B's <code>localSessions</code> map in RAM doesn't have the user! The user is randomly logged out on 50% of clicks.</td>
+      <td><strong>Law 2</strong> (Follow the State)</td>
+      <td><strong>Box 2 (Stateless Compute):</strong> Move session state out of JVM RAM into signed client JWTs or shared Redis.</td>
+    </tr>
+    <tr>
+      <td><strong>Pain 3:</strong> The external SMTP email server slows down from <code>20 ms</code> to <code>5 seconds</code>.</td>
+      <td>At 100 requests/sec, <code>L = 100 &times; 5s = 500</code> threads needed. All 200 Tomcat threads block on email; even <code>GET /feed</code> freezes!</td>
+      <td><strong>Law 3</strong> (Little's Law $L = \lambda \times W$ &amp; Blast Radius)</td>
+      <td><strong>Box 3 (Resilience Plane):</strong> Strict Timeouts, Bulkheads, Circuit Breakers, and Rate Limiters.</td>
+    </tr>
+    <tr>
+      <td><strong>Pain 4:</strong> 50,000 users refresh the home page every second after a celebrity posts.</td>
+      <td>PostgreSQL tries to execute 50,000 SQL queries/sec on disk (<code>~100 &mu;s–1 ms</code> each). CPU hits 100% and queries time out.</td>
+      <td><strong>Law 1 &amp; Law 5</strong> (RAM is 1,000&times; faster than SSD)</td>
+      <td><strong>Box 4 (Fast Memory &amp; Caching):</strong> Put hot feeds in Redis/RAM (<code>~100 ns</code> lookup) so 99% of reads never touch the DB.</td>
+    </tr>
+    <tr>
+      <td><strong>Pain 5:</strong> A creator with 100,000 followers publishes a post.</td>
+      <td>The synchronous <code>for</code>-loop in <code>publishPost()</code> takes $100,000 \times 10\text{ ms} = 1,000\text{ seconds}$ (16 minutes!) on the HTTP thread.</td>
+      <td><strong>Law 3 &amp; Law 1</strong> (Decouple slow work via sequential logs)</td>
+      <td><strong>Box 5 (Messaging &amp; Streaming):</strong> Append 1 event to a Kafka log in <code>2 ms</code>, return HTTP 202, and fan out asynchronously.</td>
+    </tr>
+    <tr>
+      <td><strong>Pain 6:</strong> The single SSD drive on our database machine corrupts—or write traffic grows past what 1 disk can write.</td>
+      <td>Single DB crash = 100% outage and total data loss. Single machine disk cannot hold 100 TB or 200,000 writes/sec.</td>
+      <td><strong>Law 2 &amp; Law 4</strong> (Replication, Sharding &amp; Consensus)</td>
+      <td><strong>Box 6 (Data, Storage &amp; Consensus):</strong> WAL durability, Leader-Follower Replication, Consistent-Hash Sharding, Raft, and S3.</td>
+    </tr>
+    <tr>
+      <td><strong>Pain 7:</strong> A bad code deploy breaks checkout at 2 A.M., or a storm knocks out power to the entire US-East-1a building.</td>
+      <td>No metrics/traces tell you what broke; rolling deploy drops active requests; single-datacenter outage takes the business offline.</td>
+      <td><strong>Law 3, Law 4 &amp; Law 5</strong> (Operational Control Plane)</td>
+      <td><strong>Box 7 (Production &amp; Multi-Region):</strong> Multi-AZ/Region failover, Canary deploys, OpenTelemetry + RED/USE metrics, and FinOps.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§3</span>How it works — Formal Definition, Internals, Packet Flow &amp; Scale Evolution</h2>
+
+<h3>3.1 Formal Definition &amp; Core Guarantees</h3>
+<ul>
+  <li><strong>Definition:</strong> <strong>System Design</strong> is the discipline of defining the architecture, components, communication protocols, data storage engines, consistency boundaries, and failure-recovery mechanisms of a distributed software system so that it satisfies both <strong>Functional Requirements</strong> (what the system does) and <strong>Non-Functional Requirements</strong> (latency, throughput, availability, durability, consistency, security, and cost at scale).</li>
+  <li><strong>Core Invariant:</strong> In a distributed system, <strong>individual hardware components will continuously fail</strong> (disks die, networks partition, JVMs pause for GC), yet the system as a whole must maintain its externo-visible <strong>Service Level Objectives (SLOs)</strong> <span class="sources">(<a href="https://sre.google/sre-book/introduction/">Google SRE Book — Chapter 1: Introduction</a>)</span>.</li>
+  <li><strong>What System Design Guarantees vs Does NOT Guarantee:</strong>
+    <ul>
+      <li><em>Guarantees (when properly engineered):</em> Bounded blast radius under dependency failure, predictable latency percentiles (p95/p99) up to target QPS, configurable durability (e.g., <code>RPO = 0</code> via quorum/sync WAL), and horizontal scalability without full rewrites.</li>
+      <li><em>Explicitly Does NOT Guarantee:</em> Zero hardware failures, instantaneous 0-ms cross-continent consistency with 100% availability during network cuts (forbidden by the CAP/PACELC theorem), or free abstractions (every new component adds network hops, operational complexity, and new failure modes per Universal Law 5).</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>3.2 Strip the Magic — The 5 Universal Laws in Plain Code &amp; Hardware Math</h3>
+<p>
+Why memorize 500 rules when you can derive them from the <strong>5 Universal Laws</strong>? Here is the exact hardware and queueing math running underneath every box:
+</p>
+<pre><span class="c">// ============================================================================</span>
+<span class="c">// LAW 1: THE HARDWARE LATENCY LADDER (Why Caches, WALs &amp; CDNs Exist)</span>
+<span class="c">// ============================================================================</span>
+<span class="c">// Human Scale Analogy: If 1 CPU cycle (0.3 ns) = 1 second of human time:</span>
+<span class="c">// - L1 Cache read       (~1 ns)       -&gt;  3 seconds      (Reach for coffee on your desk)</span>
+<span class="c">// - Main RAM read       (~100 ns)     -&gt;  5 minutes      (Walk down the hall)</span>
+<span class="c">// - NVMe SSD random read(~100 us)     -&gt;  3.5 DAYS       (1,000x slower than RAM!)</span>
+<span class="c">// - Same-DC Network RTT (~500 us)     -&gt;  17 DAYS        (5,000x slower than RAM!)</span>
+<span class="c">// - Cross-AZ RTT        (~1.5 ms)     -&gt;  1.7 MONTHS</span>
+<span class="c">// - US-to-EU Fiber RTT  (~100 ms)     -&gt;  9.5 YEARS      (1,000,000x slower than RAM!)</span>
+
+<span class="c">// ============================================================================</span>
+<span class="c">// LAW 3: LITTLE'S LAW (L = lambda * W) — Why Slow Dependencies Kill Tomcat</span>
+<span class="c">// ============================================================================</span>
+<span class="k">public class</span> LittlesLawCalculator {
+    <span class="k">public static int</span> requiredConcurrentThreads(<span class="k">double</span> qpsLambda, <span class="k">double</span> avgLatencySecondsW) {
+        <span class="c">// L = active requests in flight holding a thread/socket at the exact same instant</span>
+        <span class="k">return</span> (<span class="k">int</span>) Math.ceil(qpsLambda * avgLatencySecondsW);
+    }
+    <span class="c">// Healthy DB:   qps = 500/s, W = 0.02s (20ms)  =&gt; L = 10 active threads (out of 200 Tomcat threads = 5% load)</span>
+    <span class="c">// Degraded DB:  qps = 500/s, W = 2.00s (2000ms)=&gt; L = 1000 active threads needed!</span>
+    <span class="c">// Result: All 200 Tomcat threads lock up in 0.4 seconds!</span>
+}</pre>
+
+<h3>3.3 Architectural &amp; Packet-Lifecycle Diagram Across All 7 Boxes</h3>
+<figure>
+<svg viewBox="0 0 880 330" width="100%" role="img" aria-label="End-to-End Packet Flow of a Request Through the 7 Boxes">
+  <style>
+    .b{fill:#fff;stroke:#2b2b28;stroke-width:1.5}
+    .b-hi{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.8}
+    .b-ca{fill:#eefaf4;stroke:#1f6b4d;stroke-width:1.6}
+    .b-db{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.6}
+    .t{font:bold 12px "SF Mono",Menlo,monospace;fill:#7a1f1f}
+    .s{font:11px Georgia,serif;fill:#2b2b28}
+    .m{font:10.5px "SF Mono",Menlo,monospace;fill:#1f4d7a}
+    .a{stroke:#2b2b28;stroke-width:1.6;marker-end:url(#ah);fill:none}
+  </style>
+  <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2b2b28"/></marker></defs>
+
+  <!-- Step 1: Client -->
+  <rect class="b" x="12" y="25" width="110" height="75" rx="6"/>
+  <text class="t" x="22" y="46">1. Client</text>
+  <text class="s" x="22" y="64">Mobile App</text>
+  <text class="m" x="22" y="82">HTTPS Request</text>
+
+  <!-- Step 2: Box 1 Edge -->
+  <rect class="b-hi" x="155" y="25" width="165" height="75" rx="6"/>
+  <text class="t" x="165" y="46">2. Box 1: Edge/GW</text>
+  <text class="s" x="165" y="64">DNS &rarr; CDN &rarr; ALB &rarr; GW</text>
+  <text class="m" x="165" y="82">TLS + JWT + RateLimit</text>
+
+  <!-- Step 3: Box 2 + Box 3 -->
+  <rect class="b-hi" x="355" y="25" width="185" height="75" rx="6"/>
+  <text class="t" x="365" y="46">3. Box 2 &amp; 3: Service</text>
+  <text class="s" x="365" y="64">Stateless Spring Pod</text>
+  <text class="m" x="365" y="82">+ Bulkhead / Timeout</text>
+
+  <!-- Step 4: Box 4 Cache -->
+  <rect class="b-ca" x="575" y="15" width="290" height="58" rx="6"/>
+  <text class="t" x="587" y="35">4a. Box 4: Redis Cache (~0.5ms)</text>
+  <text class="s" x="587" y="53">99% Read Hit &rarr; Return immediately!</text>
+
+  <!-- Step 5: Box 6 Storage -->
+  <rect class="b-db" x="575" y="88" width="290" height="72" rx="6"/>
+  <text class="t" x="587" y="108">4b. Box 6: Sharded SQL + WAL (~5ms)</text>
+  <text class="s" x="587" y="126">On Cache Miss or Write: ACID Commit</text>
+  <text class="m" x="587" y="144">+ Outbox Row + Leader Replication</text>
+
+  <!-- Step 6: Box 5 Kafka -->
+  <rect class="b-hi" x="575" y="175" width="290" height="65" rx="6"/>
+  <text class="t" x="587" y="195">5. Box 5: Kafka Event Log (~2ms)</text>
+  <text class="s" x="587" y="213">Async Fan-Out to Search, Feed &amp; Push</text>
+  <text class="m" x="587" y="229">Consumers process at their own pace</text>
+
+  <!-- Step 7: Box 7 Observability -->
+  <rect class="b" x="12" y="258" width="853" height="56" rx="6"/>
+  <text class="t" x="26" y="279">6. Box 7: Production Control Plane &amp; Observability (Runs Continuously Under Boxes 1–6)</text>
+  <text class="s" x="26" y="298">OpenTelemetry TraceId spans every hop &bull; Prometheus RED Histograms &bull; Multi-AZ Auto-Scaling &bull; Canary Rollouts</text>
+
+  <line class="a" x1="122" y1="62" x2="153" y2="62"/>
+  <line class="a" x1="320" y1="62" x2="353" y2="62"/>
+  <path class="a" d="M540,48 L573,44"/>
+  <path class="a" d="M540,75 L573,115"/>
+  <line class="a" x1="720" y1="160" x2="720" y2="173"/>
+</svg>
+<figcaption>How a real request travels through the 7 Boxes: Edge protection &rarr; Stateless compute &rarr; Fast RAM cache vs Durable DB &rarr; Async log fan-out &rarr; Continuous observability.</figcaption>
+</figure>
+
+<h3>3.4 Step-by-Step Data &amp; Packet Flow (Tracing 1 Request End-to-End)</h3>
+<div class="flow-steps">
+  <ol>
+    <li><strong>Step 1 — Edge Resolution &amp; Admission (Box 1):</strong> Client resolves <code>api.pulsestream.com</code> via Geo-DNS (cached in OS/ISP resolver, <code>0 ms</code> when warm), reuses a warm HTTP/2 + TLS 1.3 connection to the nearest Edge Load Balancer, and hits the API Gateway, which verifies the JWT signature in CPU and checks the user's Token Bucket rate limit in <code>~1 ms</code>.</li>
+    <li><strong>Step 2 — Stateless Compute Dispatch (Box 2 &amp; Box 3):</strong> The L7 Load Balancer routes the request (using Power-of-Two-Choices least-active-requests) to a stateless Spring Boot pod. Inside the pod, a Box 3 Resilience4j Bulkhead and a strict <code>250 ms</code> timeout guard the downstream call.</li>
+    <li><strong>Step 3 — Fast Memory Lookup (Box 4):</strong> For a read request (<code>GET /feed</code>), the pod checks L1 local Caffeine cache (<code>~100 ns</code>) then L2 Redis Cluster (<code>~500 &mu;s</code>). On a cache hit (99% of reads), serialized JSON bytes return to the client in <strong>under 15 ms total</strong> without touching a single disk!</li>
+    <li><strong>Step 4 — Durable Storage Commit (Box 6):</strong> On a write request (<code>POST /orders</code>) or cache miss, the pod checks the <code>idempotency_key</code> and writes to the primary database shard. The database appends the change sequentially to its on-disk <strong>Write-Ahead Log (WAL)</strong> (`fsync` in <code>~1–2 ms</code>), updates its in-RAM B+Tree buffer pool, and writes an <code>outbox_events</code> row in the same local ACID transaction.</li>
+    <li><strong>Step 5 — Asynchronous Streaming Fan-Out (Box 5):</strong> A Change-Data-Capture (CDC) relay tails the DB WAL and appends the event to a <strong>Kafka partition log</strong>. Downstream consumers (Notifications, Search Indexing, Analytics) read the sequential log asynchronously without slowing down the user's HTTP response.</li>
+    <li><strong>Step 6 — Telemetry &amp; Control Plane (Box 7):</strong> Every hop propagates a W3C <code>traceparent</code> header and increments an in-memory latency histogram bucket so the on-call dashboard tracks p50/p95/p99 latency and error budgets in real time.</li>
+  </ol>
+</div>
+
+<h3>3.5 Scale Evolution of <em>PulseStream</em> (`1K` &rarr; `100K` &rarr; `1M` &rarr; `100M` &rarr; `1B` Users)</h3>
+<p>
+Notice how <strong>Universal Law 5 (Every Optimization Shifts the Bottleneck)</strong> drives our architecture from 1 box to a global fleet:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>Scale Stage</th>
+      <th>Traffic &amp; Data Math</th>
+      <th>Architecture Active on the 7-Box Map</th>
+      <th>Where the Bottleneck Shifts Next (Law 5)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Stage 1: 1,000 Users</strong></td>
+      <td><code>~1 QPS</code> read, <code>0.1 QPS</code> write, <code>5 GB</code> storage, <code>1 Mbps</code> bandwidth</td>
+      <td><strong>Box 2 + Box 6 on 1 VM:</strong> Single Spring Boot monolith + single PostgreSQL instance on 1 server (4 vCPU, 16 GB RAM).</td>
+      <td>Single machine failure = 100% downtime; vertical CPU/RAM ceiling as traffic grows $100\times$.</td>
+    </tr>
+    <tr>
+      <td><strong>Stage 2: 100,000 Users</strong></td>
+      <td><code>~500 QPS</code> read, <code>50 QPS</code> write, <code>500 GB</code> storage, <code>40 Mbps</code></td>
+      <td><strong>Add Box 1 &amp; Box 4:</strong> L7 Load Balancer + 3 Stateless Spring Boot pods + 1 Primary Postgres + 2 Read Replicas + Redis Cache + S3 + CDN for images.</td>
+      <td>Synchronous side effects (emails/fan-out) block Tomcat threads; DB primary write IOPS and replication lag grow under spikes.</td>
+    </tr>
+    <tr>
+      <td><strong>Stage 3: 1,000,000 Users</strong></td>
+      <td><code>~5,000 QPS</code> read, <code>500 QPS</code> write, <code>5 TB</code> storage, <code>400 Mbps</code></td>
+      <td><strong>Add Box 3 &amp; Box 5:</strong> API Gateway (Token Bucket rate limit), Kafka event streaming for async fan-out, Circuit Breakers/Bulkheads, Multi-AZ deployment.</td>
+      <td>Single Primary DB hits write lock &amp; B+Tree page split limits (~5,000–10,000 writes/sec); hot celebrity keys trigger cache stampedes.</td>
+    </tr>
+    <tr>
+      <td><strong>Stage 4: 100,000,000 Users</strong></td>
+      <td><code>~500,000 QPS</code> read, <code>50,000 QPS</code> write, <code>500 TB</code> storage, <code>40 Gbps</code></td>
+      <td><strong>Deep Box 6 + Box 2 Split:</strong> Domain Microservices, Consistent-Hash Database Sharding (64 shards), Redis Cluster + L1 Local Hot-Key Cache + Singleflight, Elasticsearch Search Index.</td>
+      <td>Speed of light across continents (<code>150 ms</code> RTT for EU/Asia users talking to US-East); regional disaster blasts.</td>
+    </tr>
+    <tr>
+      <td><strong>Stage 5: 1,000,000,000 Users</strong></td>
+      <td><code>~5,000,000 QPS</code> read, <code>500,000 QPS</code> write, <code>5 PB+</code> storage, <code>400 Gbps</code></td>
+      <td><strong>Full Box 7 Global Active-Active:</strong> Geo-DNS / Anycast edge routing across 5 continents, regional cell architectures, Spanner/Cockroach/Cassandra global storage, automated chaos &amp; FinOps.</td>
+      <td>Cross-region data consistency conflicts, tail-latency amplification across fan-out trees, and multi-million-dollar cloud egress bills.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§4</span>When to use — Trade-Off Matrix &amp; Real-World Production Usage</h2>
+
+<h3>4.1 Architectural Trade-Off Matrix (Simple Monolith vs Full 7-Box Distributed System)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Architecture Choice</th>
+      <th>What You Gain</th>
+      <th>What You Pay (Latency, Consistency, Ops, $$$)</th>
+      <th>When NOT to Use It</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1-Box or Modular Monolith + Single Primary SQL DB + Read Replica</strong></td>
+      <td>In-memory method calls (<code>~ns</code>), strict single-DB ACID transactions, zero distributed network serialization, 1 deployment artifact, very low cloud cost.</td>
+      <td>Vertical write ceiling on 1 Primary DB (~10K writes/sec); all modules share fate unless isolated; single-region latency for distant users.</td>
+      <td>When write throughput exceeds a single big machine's disk IOPS, or 50+ teams need completely independent release cycles.</td>
+    </tr>
+    <tr>
+      <td><strong>Full 7-Box Distributed Architecture (Sharded DBs + Redis + Kafka + Microservices)</strong></td>
+      <td>Horizontal write &amp; read scaling to millions of QPS, fault isolation (bulkheads/cells), independent team deployments, sub-50ms global edge latency.</td>
+      <td>Network hop tax (<code>0.5–2 ms</code> per RPC), eventual consistency (Outbox/Sagas instead of simple <code>JOIN</code>s), complex debugging (OpenTelemetry required), higher infra cost.</td>
+      <td><strong>Never start here on Day 1</strong> for an unproven product with &lt;10,000 users! A well-indexed Postgres box + Redis handles 90% of startups.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>4.2 Real-World Production Usage</h3>
+<ul>
+  <li><strong>Stack Overflow (When Simple Wins):</strong> Served hundreds of millions of page views per month from a tight monolithic C#/.NET + SQL Server + Redis architecture in a couple of racks because their read-heavy Q&amp;A access pattern fit cleanly in RAM cache (Law 1).</li>
+  <li><strong>Netflix &amp; Uber (Why All 7 Boxes Exist):</strong> Netflix streams gigabits of video to 250M+ subscribers while Uber ingests GPS pings from millions of moving cars every 4 seconds. No single database or datacenter can physically absorb that network bandwidth or write IOPS, forcing Edge CDNs (Box 1), Stateless Microservices (Box 2), Hystrix/Resilience4j Bulkheads (Box 3), EVCache/Redis (Box 4), Kafka streams (Box 5), Sharded Cassandra/Schemaless (Box 6), and Multi-Region Chaos Engineering (Box 7).</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§5</span>Explain it to a 12-year-old (The Feynman Pass)</h2>
+
+<p>
+Imagine you open a tiny lemonade &amp; burger stand in your backyard (<strong>PulseStream v0 on 1 Server</strong>).
+At first, <strong>you are the only worker</strong>: you take the customer's order at the window, check your notebook to see if they are a VIP member, flip the burger on the grill, put the cash in a shoebox, and run down the street to tell their friends. When 5 neighbors visit per hour, your 1-person stand works great!
+</p>
+<p>
+Now imagine a famous soccer star tweets about your burgers, and <strong>100,000 hungry people</strong> show up at your driveway at the exact same minute:
+</p>
+<ul>
+  <li>If you still try to run down the street to tell everyone's friends before handing the first customer their burger, the line freezes for 3 days! So you put a <strong>drop-box tray (Box 5: Message Queue / Kafka)</strong> on the counter: you drop a note in the tray in 1 second, hand over the burger, and let a delivery biker read notes from the tray in the background.</li>
+  <li>If you hire 10 cooks (<strong>Box 2: Horizontal Compute</strong>) and put a <strong>host at the front gate (Box 1: Load Balancer)</strong> to direct customers to whichever cook is free, you hit a new problem: Cook #1 wrote down who paid in his personal pocket notebook (<strong>Local RAM state — Law 2!</strong>). When that customer walks up to Cook #2 to pick up their burger, Cook #2 says <em>"Who are you?!"</em> To fix it, you either stamp the customer's hand (<strong>Stateless JWT token</strong>) or put one super-fast <strong>shared whiteboard on the wall (Box 4: Redis Cache)</strong> that all 10 cooks can read in 1 second!</li>
+  <li>And what if the ice-cream machine breaks and takes 10 minutes per cone? If all 10 cooks get stuck waiting at the ice-cream machine, nobody can even buy a plain burger (<strong>Law 3: Little's Law &amp; Cascading Failure!</strong>). So you make a rule: <em>"Only 2 cooks are allowed near the ice-cream machine at a time, and if it takes more than 5 seconds, flip the 'Sold Out' sign!"</em> (<strong>Box 3: Bulkhead + Timeout + Circuit Breaker</strong>).</li>
+</ul>
+<p>
+<strong>That's all System Design is:</strong> turning a 1-person backyard stand into a world-class kitchen where no single slow machine or broken stove can stop the orders from flowing.
+</p>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§6</span>Dependency Graph &amp; Connections</h2>
+
+<pre>[Course Start] ──► <span class="h">[Topic 001: 7-Box Map &amp; 5 Universal Laws]</span> ──► [Topic 002: HLD vs LLD &amp; Architectural Thinking]
+                                         │
+                                         └──► [Topics 003–010: Requirements, Capacity Math, Little's Law, Nines &amp; Trade-offs]</pre>
+
+<ul>
+  <li><strong>Why Topic 001 comes first:</strong> Without the 7-Box Master Map and the 5 Universal Laws, the remaining 139 topics look like 139 separate things to memorize. With this map, every future topic is simply zooming into one box you already know.</li>
+  <li><strong>Connection to your Java &amp; Spring Boot mental model:</strong>
+    <ul>
+      <li>Your entire 18-lesson <strong>Spring Boot course</strong> (Boxes 1–6 of Spring: <code>Environment</code>, <code>BeanDefinition</code>, <code>ApplicationContext</code>, AOP Proxies, Tomcat, <code>DispatcherServlet</code>) lives <strong>inside a single node of HLD Box 2 (Compute Plane)!</strong></li>
+      <li>HLD zooms the camera out: what happens <em>before</em> the packet reaches Tomcat's port 8080 (HLD Box 1), what happens when 50 Spring Boot JVMs run side-by-side (HLD Box 2 &amp; 3), and what happens when those JVMs talk to Redis (Box 4), Kafka (Box 5), and sharded databases (Box 6).</li>
+    </ul>
+  </li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§7</span>In practice — Failure Scenarios, On-Call Runbook, Observability, Security, FinOps &amp; Interview Playbook</h2>
+
+<h3>7.1 Failure Scenarios ("What Happens When This Breaks at 2 A.M.?")</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Failure Mode</th>
+      <th>What Breaks (Universal Law)</th>
+      <th>Detection</th>
+      <th>Immediate Mitigation</th>
+      <th>Long-Term Architectural Fix</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Slow Downstream Dependency</strong> (Payment/Email API latency jumps <code>20ms &rarr; 3s</code>)</td>
+      <td>Law 3: Caller's 200 Tomcat threads block waiting on sockets; entire caller JVM freezes for all endpoints.</td>
+      <td>Tomcat active thread count hits <code>200/200</code>; HTTP 504 Gateway Timeouts spike.</td>
+      <td>Trip Circuit Breaker open manually via feature flag; shed traffic to that dependency.</td>
+      <td>Configure strict <code>300ms</code> socket timeouts, Semaphore/Thread-Pool Bulkhead (max 20 threads), and Circuit Breaker (Box 3).</td>
+    </tr>
+    <tr>
+      <td><strong>Cold Cache / Stampede</strong> (Redis restarts or a celebrity post cache key expires at 50K QPS)</td>
+      <td>Law 1 &amp; Law 5: 50,000 concurrent cache misses slam the disk database simultaneously, crashing Postgres.</td>
+      <td>Cache hit ratio drops from <code>99% &rarr; 0%</code>; DB active connections and CPU hit <code>100%</code>.</td>
+      <td>Enable degraded static/stale response at API Gateway; rate-limit incoming reads.</td>
+      <td>Add Singleflight request coalescing, TTL jitter, L1 in-memory hot-key cache, and Refresh-Ahead warming (Box 4).</td>
+    </tr>
+    <tr>
+      <td><strong>Single-Node State Trap</strong> (Server crashes while holding in-memory user sessions or un-replicated DB commits)</td>
+      <td>Law 2 &amp; Law 4: Active sessions vanish; recent writes on local disk are unrecoverable.</td>
+      <td>L7 Load Balancer health check fails (3 consecutive 5xx/timeouts); error rate spikes.</td>
+      <td>LB drains dead node from target group; promote standby DB replica.</td>
+      <td>Externalize session state (JWT/Redis) and enforce Multi-AZ synchronous WAL replication (Box 2 &amp; Box 6).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>7.2 Day-to-Day Production Incidents (Mandatory On-Call Runbook)</h3>
+<div class="callout">
+  <strong>Incident #1: The 8:00 PM Flash-Sale Cascading Outage</strong>
+  <ul>
+    <li><strong>Symptoms (What pages you):</strong> PagerDuty fires at 8:01 PM: <code>HighErrorRate (HTTP 502/504 &gt; 35%)</code> and <code>p99 Latency &gt; 10,000 ms</code> across the API Gateway.</li>
+    <li><strong>Root Cause:</strong> Marketing sent a push notification to 2M users. Every user opening the app triggered a synchronous call from <code>OrderService</code> &rarr; <code>LoyaltyPointsService</code>, whose unindexed SQL table locked up under 8,000 QPS. Because <code>OrderService</code> used default infinite HTTP timeouts, all 50 pods exhausted their 200 Tomcat threads waiting on loyalty points!</li>
+    <li><strong>How to Investigate:</strong> Check the RED dashboard (Rate, Errors, Duration) per service &rarr; spot <code>Tomcat threads busy = 100%</code> in <code>OrderService</code> &rarr; inspect OpenTelemetry distributed trace waterfall &rarr; see <code>9.8s</code> spent blocked inside <code>RestClient.get("/loyalty")</code>.</li>
+    <li><strong>Immediate Fix:</strong> Flip dynamic config flag <code>loyalty.enabled = false</code> to return cached/0 points immediately; Tomcat threads drain in 3 seconds and checkout recovers.</li>
+    <li><strong>Architectural Prevention:</strong> Wrap non-critical dependencies in a Box 3 Bulkhead + <code>150ms</code> Timeout + Graceful Degradation fallback.</li>
+  </ul>
+</div>
+
+<h3>7.3 Observability (How We X-Ray the 7 Boxes)</h3>
+<ul>
+  <li><strong>Golden Signals / RED Metrics (Per Box):</strong> Request <strong>R</strong>ate (QPS), <strong>E</strong>rror Rate (% of HTTP 5xx / gRPC non-OK), and <strong>D</strong>uration Histograms (<strong>p50, p95, p99</strong>—never rely on average latency!).</li>
+  <li><strong>USE Metrics (Hardware Resources):</strong> <strong>U</strong>tilization (% CPU, % RAM, % Disk IOPS), <strong>S</strong>aturation (Tomcat queue depth, HikariCP pending threads, Kafka consumer lag), and <strong>E</strong>rrors (NIC drops, OOMKills).</li>
+  <li><strong>Distributed Tracing:</strong> Every edge request in Box 1 receives a unique 128-bit <code>trace-id</code> passed through HTTP/gRPC headers and Kafka message headers so you can view the exact millisecond breakdown across Boxes 1 &rarr; 6.</li>
+</ul>
+
+<h3>7.4 Security &amp; FinOps Considerations</h3>
+<ul>
+  <li><strong>Security Boundaries (Defense in Depth):</strong> Never trust raw internet traffic inside Box 2 or Box 6. Box 1 terminates public TLS, absorbs DDoS, and validates OAuth2/JWT tokens; Box 2 &amp; Box 6 run inside private VPC subnets using mutual TLS (mTLS) and least-privilege IAM roles.</li>
+  <li><strong>Cost &amp; FinOps Reality:</strong> The biggest cloud bill surprises come from <strong>over-engineering too early</strong> (running a 15-microservice Kubernetes + Kafka + multi-region mesh for 500 users) and <strong>cross-AZ network egress fees</strong> (`$0.01–$0.02/GB` each way). Start with the simplest architecture that meets your SLO, and cache aggressively in Box 1 (CDN) and Box 4 (RAM) to cut expensive Box 6 database IOPS by 80%+.</li>
+</ul>
+
+<h3>7.5 Interview Derivation Playbook (Junior vs Senior vs Staff/Principal)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Interview Prompt</th>
+      <th>Junior / Memorized Answer (Fails Bar)</th>
+      <th>Strong Senior Answer (Clears Senior Bar)</th>
+      <th>Staff / Principal Architect Answer (Raises the Bar)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><em>"How do you approach any unfamiliar System Design question?"</em></td>
+      <td>Immediately starts drawing a Load Balancer, 5 microservices, Kafka, Redis, and NoSQL without asking a single question about scale or consistency.</td>
+      <td>Clarifies functional &amp; non-functional requirements first, estimates QPS/storage, defines core APIs &amp; data model, draws a clean high-level design, and dives into scaling bottlenecks.</td>
+      <td>Anchors the design in <strong>constraints and physics</strong>: quantifies read:write ratio, latency SLO, and failure blast radius first; starts with a simple correct baseline on the 7-Box Map; only introduces caches, shards, or queues when justified by capacity numbers; and proactively names the new failure mode each optimization introduces (Law 5).</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§8</span>Pitfalls &amp; Traps (`⚠️ Pitfall Callouts`)</h2>
+
+<div class="pitfall"><strong>⚠️ Pitfall 1 — Resume-Driven Architecture (Adding All 7 Boxes on Day 1):</strong> In interviews (and startups), adding Kafka, Cassandra, and 12 microservices when total QPS is <code>50 req/sec</code> is a major red flag. Always prove <em>why</em> a single SQL database + cache breaks using Law 1 or Law 3 before adding distributed complexity.</div>
+
+<div class="pitfall"><strong>⚠️ Pitfall 2 — Drawing "Stateless" Workers That Secretly Hold Local State:</strong> If your Java service stores an upload temp file on local `/tmp`, caches auth sessions in a `HashMap`, or runs an uncoordinated `@Scheduled` cron job on every pod, adding a Load Balancer in front of 5 pods will immediately cause missing files, lost logins, or $5\times$ duplicate cron executions (Law 2).</div>
+
+<div class="pitfall"><strong>⚠️ Pitfall 3 — Ignoring the Tail Latency Multiplier ($p99$):</strong> If a single user request fans out to call 20 microservices in parallel, and each microservice has a $1\%$ chance ($p99$) of taking $2\text{ seconds}$, the probability that at least one call is slow is $1 - (0.99)^{20} = 18.2\%$! Nearly 1 in 5 users will experience the 2-second delay <span class="sources">(<a href="https://research.google/pubs/the-tail-at-scale/">Jeff Dean &amp; Luiz André Barroso — The Tail at Scale, Communications of the ACM</a>)</span>.</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§9</span>Recap, Quick Reference Cheat-Sheet &amp; Glossary</h2>
+
+<ul class="recap">
+  <li><strong>The 7-Box Master Map</strong> organizes all 140 topics along a single request lifecycle: Box 1 (Edge/Networking) &rarr; Box 2 (Stateless Compute) &rarr; Box 3 (Resilience) / Box 4 (Fast Memory Cache) / Box 5 (Messaging &amp; Logs) &rarr; Box 6 (Storage &amp; Consensus) &rarr; Box 7 (Production &amp; Multi-Region Control Plane).</li>
+  <li><strong>Zero Black Boxes:</strong> Every distributed box is built from plain data structures (`HashMap`, `DoublyLinkedList`, `Semaphore`, append-only `.log` files, `B+Tree` pages, `SkipList` MemTables, `TreeMap` hash rings).</li>
+  <li><strong>The 5 Universal Laws</strong> let you derive any architecture decision from first principles: Law 1 (Hardware Latency &amp; Sequential I/O), Law 2 (Follow the State), Law 3 (Little's Law $L = \lambda \times W$), Law 4 (No Free Network Coordination), and Law 5 (Every Optimization Shifts the Bottleneck).</li>
+</ul>
+
+<h3>Quick Reference Cheat-Sheet — The 5 Laws at a Glance</h3>
+<table>
+  <thead><tr><th>Universal Law</th><th>1-Line Formula / Rule</th><th>Classic Interview Problem It Solves</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Law 1: Hardware Physics</strong></td><td>RAM (<code>100ns</code>) $\ll$ SSD (<code>100&mu;s</code>) $\ll$ Cross-Region (<code>100ms</code>); Sequential Append $\gg$ Random Seek</td><td>Why Redis, CDNs, DB WALs, Kafka logs, and LSM-Trees exist.</td></tr>
+    <tr><td><strong>Law 2: Follow the State</strong></td><td>Local server state breaks horizontal load balancing and crashes</td><td>Why stateless JWTs, Redis session stores, S3, and Consistent Hashing exist.</td></tr>
+    <tr><td><strong>Law 3: Little's Law</strong></td><td>$\text{Concurrency } L = \text{QPS } \lambda \times \text{Latency } W$</td><td>Why a slow downstream API exhausts all Tomcat threads and requires Timeouts, Bulkheads &amp; Circuit Breakers.</td></tr>
+    <tr><td><strong>Law 4: Network Coordination</strong></td><td>Data in &gt;1 place cannot have 0-ms sync consistency + 100% availability</td><td>Why Replication Lag, CAP/PACELC, Idempotency Keys, Outbox, Sagas, and Raft/Quorums exist.</td></tr>
+    <tr><td><strong>Law 5: Bottleneck Shift</strong></td><td>Every fix introduces a new edge case to defend</td><td>Cache &rarr; Stampede; Sharding &rarr; Hot Keys; Retries &rarr; Retry Storms.</td></tr>
+  </tbody>
+</table>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>7-Box Master System Map</dt><dd>The Level 0 mental model dividing any large-scale system into Edge/Networking (Box 1), Compute (Box 2), Resilience (Box 3), Caching (Box 4), Messaging (Box 5), Storage/Consensus (Box 6), and Production/Multi-Region Operations (Box 7).</dd>
+  <dt>Blast Radius</dt><dd>The maximum portion of users, features, or servers impacted when a single component or dependency fails.</dd>
+  <dt>Cascading Failure</dt><dd>A chain reaction where one slow or failed component causes upstream callers or sibling servers to exhaust threads/CPU/memory and crash one after another.</dd>
+  <dt>Stateless Service</dt><dd>A compute process that retains no client session or workflow state in local memory/disk between requests, allowing any request to be routed to any instance.</dd>
+</dl>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§10</span>Interactive Socratic Gate (Steps 17–20) &amp; Primary Sources</h2>
+
+<div class="gate">
+  <h3>🎯 Socratic Verification Gate — Topic 001 (Score &ge; 4/5 Required to Unlock Topic 002)</h3>
+  <p>Answer these 4 questions in chat to prove your first-principles mastery of Topic 001:</p>
+  <ol>
+    <li><strong><code>[theory]</code> (Feynman Check):</strong> Using <strong>Universal Law 1 (Hardware Physics)</strong>, explain in plain English why both PostgreSQL's Write-Ahead Log (WAL) and Apache Kafka can record tens of thousands of writes per second to disk, whereas updating random rows across a massive table on disk is slow.</li>
+    <li><strong><code>[practical]</code> (Little's Law Calculation):</strong> Your Spring Boot `OrderService` runs on 1 pod with <strong>200 Tomcat worker threads</strong> and receives <strong>400 requests/second</strong> ($\lambda = 400$). Normally, each request takes $W = 25\text{ ms}$ ($0.025\text{ s}$). Suddenly, a downstream fraud-check API slows down so each request now takes $W = 1.5\text{ seconds}$. Using Little's Law ($L = \lambda \times W$), calculate $L$ before and after the slowdown, and state what happens to your Tomcat thread pool and which <strong>Box (1–7)</strong> you use to prevent this.</li>
+    <li><strong><code>[diagram]</code> (Packet Flow &amp; State):</strong> Trace what happens step-by-step when you scale a naive Spring Boot app from 1 server to 3 servers behind a Round-Robin Load Balancer (Box 1), if the app stores logged-in user sessions inside a local `ConcurrentHashMap` in JVM RAM. Which Universal Law is violated, and what are the two architectural ways to fix it?</li>
+    <li><strong><code>[trade-offs]</code> (Law 5 — Bottleneck Shift):</strong> A startup CTO says: <em>"Our database reads are slow, so let's put a Redis cache in front of the DB and add automatic 3x retries in our HTTP client—there are no downsides!"</em> Using <strong>Universal Law 5</strong>, name one concrete production failure introduced by the Redis cache and one concrete production failure introduced by naive retries, plus how to mitigate each.</li>
+  </ol>
+</div>
+
+<h3>Sources &amp; Further Reading</h3>
+<ul class="sources">
+  <li><a href="https://sre.google/sre-book/addressing-cascading-failures/">Google SRE Book — Chapter 22: Addressing Cascading Failures</a></li>
+  <li><a href="https://research.google/pubs/the-tail-at-scale/">Jeff Dean &amp; Luiz André Barroso — The Tail at Scale (Communications of the ACM, 2013)</a></li>
+  <li><a href="https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/welcome.html">AWS Well-Architected Framework — Reliability Pillar</a></li>
+  <li>Martin Kleppmann — <em>Designing Data-Intensive Applications</em>, Chapter 1: Reliable, Scalable, and Maintainable Applications.</li>
+</ul>
+
+</body>
+</html>

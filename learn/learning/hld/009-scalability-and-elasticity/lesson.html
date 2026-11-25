@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>009 · Scalability &amp; Elasticity (Vertical vs Horizontal, Amdahl's Law &amp; USL) — HLD</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#2e7d32;--amber:#b85d00}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:900px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58;-webkit-font-smoothing:antialiased}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.65rem;margin-bottom:1.2rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  .status-hdr{background:#fff;border:1.5px solid var(--rule);border-left:5px solid var(--accent2);border-radius:6px;padding:.75rem 1rem;margin-bottom:1.5rem;font-size:.86rem;font-family:"SF Mono",Menlo,Consolas,monospace;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.14;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .55rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem;font-family:"SF Mono",Menlo,Consolas,monospace}
+  h3{font-size:1.13rem;margin:1.45rem 0 .35rem;color:var(--accent)}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.81rem;line-height:1.48;font-family:"SF Mono",Menlo,Consolas,monospace}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f} pre .h{color:#ffd166;font-weight:bold}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.98rem;margin:0 0 .45rem;text-transform:uppercase;letter-spacing:.03em}
+  .flow-steps{background:#fff8ee;border:1px solid var(--rule);border-radius:6px;padding:.85rem 1.1rem;margin:1rem 0;font-size:.94rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem}
+  .flow-steps li{margin:.35rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .gate{background:#fff8ee;border:2px dashed var(--accent);border-radius:8px;padding:1.15rem 1.3rem;margin:1.6rem 0}
+  .gate h3{margin-top:0;color:var(--accent)}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  @media print{body{padding:1rem;max-width:100%} pre{white-space:pre-wrap} .nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../008-availability-reliability-durability-and-slas/lesson.html">008: Availability, Reliability &amp; SLAs</a></span>
+  <span><strong>Topic 009 of 140</strong> · Phase 1: Foundations</span>
+  <span><a href="../010-fundamental-system-design-trade-offs/lesson.html">010: Fundamental System Design Trade-offs</a> →</span>
+</nav>
+
+<div class="status-hdr">
+  <div><strong>Current Topic:</strong> #9 — Scalability &amp; Elasticity (Vertical vs Horizontal, Amdahl's Law &amp; Universal Scalability Law)</div>
+  <div><strong>7-Box Map Location:</strong> Box 2 (Stateless Compute Scaling), Box 6 (Stateful Read Replica/Shard Scaling), Box 7 (Elastic Auto-Scalers) | <strong>Depth Tag:</strong> [DEEP]</div>
+  <div><strong>Prerequisites Completed:</strong> [Topics #1–#8] &rarr; <strong>Unlocks Next:</strong> [Topic #10 — Fundamental System Design Trade-offs]</div>
+  <div><strong>Progress:</strong> [0] Completed | [140] Remaining | [0] Needs Revision</div>
+</div>
+
+<h1>009 · Scalability &amp; Elasticity (Vertical vs Horizontal, Amdahl's Law &amp; USL)</h1>
+<p class="crumb"><a href="../overview.html">High-Level System Design (HLD)</a> › Phase 1: Foundations › Topic 9 of 140 · <span style="color:#7a1f1f;font-weight:700">DEEP</span></p>
+
+<div class="tldr">
+  <strong>0. TL;DR in Simple English —</strong> <strong>Scalability</strong> is a system's ability to handle growing load (`100 QPS` &rarr; `100,000 QPS`) by adding hardware without degrading `p99` latency. <strong>Elasticity</strong> is how fast the system automatically expands AND shrinks hardware in real time (`20 pods at 8 PM` &rarr; `3 pods at 4 AM`) so you don't go bankrupt. Why doesn't adding 100 servers always give $100\times$ throughput? Because <strong>Amdahl's Law</strong> (shared serial bottlenecks) and Neil Gunther's <strong>Universal Scalability Law</strong> (cross-node coordination overhead) bend the curve down!
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§1</span>Where it fits — 🧭 You Are Here on the 7-Box Master Map</h2>
+
+<div class="map-banner">
+  <div class="map-title">🧭 You Are Here: Scaling Stateless Box 2 (Easy!) vs Scaling Stateful Box 6 (Hard — Law 2!)</div>
+<pre>┌───────────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">STATELESS TIER (BOX 2): SCALES HORIZONTALLY IN SECONDS</span>                             │
+│  [Load Balancer] ──► [Pod 1] [Pod 2] [Pod 3] ... [Pod N] (Zero local state!)      │
+│   Controlled by Box 7 Kubernetes HPA (Elasticity: scales 5 &harr; 50 pods on QPS/CPU) │
+├───────────────────────────────────────────────────────────────────────────────────┤
+│ <span class="h">STATEFUL TIER (BOX 6): CANNOT JUST "BOOT ANOTHER EMPTY POD"!</span>                       │
+│  Why? Because data has gravity (Terabytes on SSD + consensus/lock coordination).  │
+│  Must scale via: (1) Read Replicas (Reads) or (2) Sharding + Rebalancing (Writes) │
+└───────────────────────────────────────────────────────────────────────────────────┘</pre>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§2</span>Why it exists — The Naive Failure: "We Added 20 App Pods and Throughput Went DOWN!"</h2>
+
+<p>
+Every senior engineer has lived through this painful production incident:
+</p>
+<ul>
+  <li><strong>The Incident:</strong> Traffic spikes $4\times$. Kubernetes Horizontal Pod Autoscaler (HPA) spins up `40` new Spring Boot pods (from `10` to `50` pods). Instead of throughput increasing $5\times$, <strong>total system throughput drops by 60% and database CPU hits 100% lock wait</strong>!</li>
+  <li><strong>Why Did Adding Servers Make the System Slower?</strong>
+    <ol>
+      <li><strong>Amdahl's Serial Contention ($\alpha$):</strong> All 50 pods were contending for the exact same `UPDATE inventory SET stock = stock - 1 WHERE item_id = 99` row lock on a single PostgreSQL primary!</li>
+      <li><strong>Universal Scalability Law Coherence Penalty ($\beta$):</strong> 50 pods &times; 20 HikariCP connections = `1,000` active PostgreSQL connections fighting over shared buffer-pool spinlocks and OS context switches!</li>
+    </ol>
+  </li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§3</span>How it works — Vertical vs Horizontal, Amdahl's Law &amp; the Universal Scalability Law</h2>
+
+<h3>3.1 Vertical Scaling (Scale Up) vs Horizontal Scaling (Scale Out)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Dimension</th>
+      <th>Vertical Scaling (Scale Up — Bigger Machine)</th>
+      <th>Horizontal Scaling (Scale Out — More Machines)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>How It Works</strong></td>
+      <td>Upgrade instance from `8 vCPU / 32 GB RAM` to `128 vCPU / 2 TB RAM`.</td>
+      <td>Keep commodity `8 vCPU / 32 GB` nodes and grow fleet from `2` nodes to `200` nodes behind a Load Balancer / Shard Router.</td>
+    </tr>
+    <tr>
+      <td><strong>Code &amp; Consistency Impact</strong></td>
+      <td><strong>Zero code changes!</strong> Local ACID joins, in-memory locks, and single-disk transactions keep working.</td>
+      <td>Requires <strong>stateless compute (Law 2)</strong>, distributed caching, sharding keys, idempotency, and eventual consistency (Law 4).</td>
+    </tr>
+    <tr>
+      <td><strong>Hard Ceiling &amp; SPOF</strong></td>
+      <td>Hits physical silicon ceiling (`~256 vCPUs / ~4–24 TB RAM`), non-linear hardware cost, and remains a <strong>Single Point of Failure (SPOF)</strong>!</td>
+      <td>No theoretical ceiling; survives individual node/AZ crashes with zero downtime.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.2 Amdahl's Law vs Neil Gunther's Universal Scalability Law (USL)</h3>
+
+<figure>
+<svg viewBox="0 0 780 265" width="100%" role="img" aria-label="Linear Scaling vs Amdahl's Law vs Universal Scalability Law">
+  <defs>
+    <style>
+      .bx{fill:#fff8ee;stroke:#2b2b28;stroke-width:1.8;rx:6}
+      .t{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;fill:#2b2b28}
+    </style>
+  </defs>
+  <rect class="bx" x="15" y="12" width="750" height="242"/>
+  <!-- Axes -->
+  <line x1="80" y1="215" x2="720" y2="215" stroke="#2b2b28" stroke-width="2"/>
+  <line x1="80" y1="215" x2="80" y2="35" stroke="#2b2b28" stroke-width="2"/>
+  <text class="t" x="310" y="242" style="font-weight:bold">Number of Nodes / Workers (N)</text>
+  <text class="t" x="25" y="135" transform="rotate(-90 38,135)" style="font-weight:bold">Relative Throughput C(N)</text>
+  <!-- Linear Ideal -->
+  <line x1="80" y1="215" x2="660" y2="40" stroke="#1f6b4d" stroke-width="2.2" stroke-dasharray="6 4"/>
+  <text class="t" x="530" y="52" style="fill:#1f6b4d;font-weight:bold">1. Ideal Linear Scale (Sharded / Stateless: &alpha;=0, &beta;=0)</text>
+  <!-- Amdahl's Law -->
+  <path d="M 80 215 Q 240 110 420 98 L 700 92" fill="none" stroke="#1f4d7a" stroke-width="2.8"/>
+  <text class="t" x="435" y="84" style="fill:#1f4d7a;font-weight:bold">2. Amdahl's Law Ceiling (Serial Bottleneck &alpha; &gt; 0)</text>
+  <!-- USL Retrograde Curve -->
+  <path d="M 80 215 Q 220 120 340 120 Q 480 120 690 185" fill="none" stroke="#7a1f1f" stroke-width="3"/>
+  <text class="t" x="395" y="168" style="fill:#7a1f1f;font-weight:bold">3. Universal Scalability Law (Coherence/Lock Thrashing &beta; &gt; 0)</text>
+</svg>
+<figcaption>Figure 1 — Why adding nodes doesn't always scale linearly: (1) Ideal Linear Scale, (2) Amdahl's plateau from a shared serial bottleneck (&alpha;), and (3) Universal Scalability Law retrograde drop when node-to-node coordination (&beta;) dominates.</figcaption>
+</figure>
+
+<pre><span class="c">// 1. AMDAHL'S LAW (Speedup Limited by Serial Fraction &alpha;):</span>
+<span class="c">//    If &alpha; = 5% (0.05) of a workload MUST execute serially (e.g., 1 central lock or</span>
+<span class="c">//    single-primary DB write), then even with N = &infin; servers:</span>
+Max_Speedup = 1 / (&alpha; + (1 - &alpha;) / N)  --&gt;  1 / 0.05 = <span class="h">20x MAX ceiling!</span>
+
+<span class="c">// 2. NEIL GUNTHER'S UNIVERSAL SCALABILITY LAW (USL):</span>
+<span class="c">//    Adds &beta; (coherence / pairwise cross-node coordination penalty, O(N^2)):</span>
+C(N) = N / (1 + &alpha;(N - 1) + &beta; * N * (N - 1))
+<span class="c">//    When &beta; &gt; 0 (e.g., all-to-all gossip, distributed lock contention, or</span>
+<span class="c">//    1,000 DB connections thrashing CPU cache lines), throughput peaks at</span>
+<span class="c">//    N_opt = sqrt((1 - &alpha;) / &beta;) and then DROPS as you add more nodes!</span>
+
+<span class="c">// ARCHITECTURAL LESSON: How do we make a distributed system scale linearly?</span>
+<span class="c">// Eliminate shared serial bottlenecks (&alpha; &rarr; 0 via Sharding/Partitioning) AND</span>
+<span class="c">// eliminate cross-node chat on the hot path (&beta; &rarr; 0 via Share-Nothing Architecture)!</span></pre>
+
+<h3>3.3 Scalability vs Elasticity (And Why Stateful Elasticity Is Much Harder)</h3>
+<ul>
+  <li><strong>Stateless Elasticity (Box 2 — Fast, Seconds):</strong> When Kubernetes HPA sees QPS per pod rise above `2,000 QPS`, it boots 10 new Spring Boot containers. Because pods hold zero state (Universal Law 2), new pods register with the Load Balancer in `15–30 seconds`, and excess pods terminate cleanly at night via `SIGTERM` graceful drain.</li>
+  <li><strong>Stateful Scaling (Box 6 — Slow, Hours/Minutes):</strong> Adding a new database shard to a 10 TB cluster requires copying hundreds of gigabytes over the network (<strong>Rebalancing</strong>) while serving live reads and writes! That is why we pre-create logical virtual shards/partitions (e.g., `1,024` logical shards or Consistent Hashing virtual nodes) or separate compute nodes from shared cloud storage (like AWS Aurora / Snowflake).</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§4</span>When to use — The 3-Stage Pragmatic Scaling Roadmap</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Growth Stage</th>
+      <th>What to Scale First</th>
+      <th>Why This Order Beats Premature Sharding</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Stage 1 (`0 – 5,000 QPS`)</strong></td>
+      <td><strong>Scale Vertically + Add CDN (Box 1) + Stateless App Replicas (Box 2)</strong></td>
+      <td>A single `32 vCPU / 128 GB RAM` PostgreSQL primary + CDN handles 5,000 QPS with zero distributed data headaches.</td>
+    </tr>
+    <tr>
+      <td><strong>Stage 2 (`5,000 – 50,000 QPS`)</strong></td>
+      <td><strong>Add Redis Cache (Box 4) + DB Read Replicas (Box 6) + Async Kafka Queues (Box 5)</strong></td>
+      <td>Offloads 90%+ of reads to Redis/Replicas and smooths write spikes via Kafka without breaking single-primary DB schemas.</td>
+    </tr>
+    <tr>
+      <td><strong>Stage 3 (`50,000+ Write QPS` or `> 4 TB DB`)</strong></td>
+      <td><strong>Horizontal Database Sharding / Partitioning (Box 6)</strong></td>
+      <td>Only shard when single-primary writes or single-node disk size crosses physical limits (Universal Law 5).</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§5</span>Explain it to a 12-year-old (The Feynman Pass)</h2>
+
+<ul>
+  <li><strong>Vertical vs Horizontal Scaling:</strong> Imagine you need to move 1,000 bricks. <strong>Vertical scaling</strong> is hiring one giant bodybuilder who can carry 50 bricks at once—super simple, until he gets sick (Single Point of Failure!) or you have 1,000,000 bricks (no human is that big!). <strong>Horizontal scaling</strong> is hiring 100 normal people who each carry 10 bricks at the same time.</li>
+  <li><strong>Amdahl's Law &amp; USL:</strong> Why don't 100 people move bricks $100\times$ faster if there is only <strong>one narrow doorway</strong> (`&alpha;` = serial bottleneck)? Because all 100 people get stuck in a line at the doorway! Even worse, if they start bumping into each other and arguing about who goes first (`&beta;` = coherence penalty), 100 people in a tiny hallway actually move <strong>fewer</strong> bricks per minute than 5 people!</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§6</span>Dependency Graph &amp; Connections</h2>
+
+<pre>[Topic 008: Availability &amp; SLAs] ──► <span class="h">[Topic 009: Scalability &amp; Elasticity]</span> ──► [Topic 010: Fundamental System Design Trade-offs]</pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§7</span>In practice — Why JVM Cold Starts &amp; Cache Warming Break Naive Auto-Scaling</h2>
+
+<div class="callout">
+  <strong>Production Incident: The Auto-Scaler That Killed New Spring Boot Pods on Arrival</strong>
+  <ul>
+    <li><strong>What Happened:</strong> During a flash traffic spike, Kubernetes HPA launched 20 new Spring Boot pods. The moment each pod passed its `/health` check, the Load Balancer sent it `3,000 QPS` of production traffic. All 20 new pods immediately hit `100% CPU`, timed out for 45 seconds, failed health checks, and entered a `CrashLoopBackOff` death spiral!</li>
+    <li><strong>Root Cause (JVM JIT + Cold L1 Cache):</strong> A brand-new JVM starts in interpreted bytecode mode (C1/C2 JIT compilation hasn't warmed up hot methods yet, taking massive CPU) AND its local L1 cache / connection pools are completely cold!</li>
+    <li><strong>Staff Fix:</strong>
+      <ol>
+        <li>Scale proactively on <strong>leading indicators</strong> (QPS rate-of-change or scheduled pre-warming before 8 PM events) rather than reactive lagging CPU metrics.</li>
+        <li>Configure Load Balancer <strong>Slow-Start / Warm-Up Ramp</strong> (gradually ramp traffic from 10% to 100% over 60 seconds after readiness) or use GraalVM CRaC / CDS class-data sharing.</li>
+      </ol>
+    </li>
+  </ul>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§8</span>Pitfalls &amp; Traps</h2>
+
+<div class="pitfall"><strong>⚠️ Pitfall 1 — Claiming "We Will Auto-Scale Our SQL Database Horizontally During the 8 PM Traffic Spike":</strong> You cannot elastically spin up and tear down stateful SQL shards in 30 seconds like stateless pods! Stateful storage must be provisioned for peak capacity ahead of time (or backed by a decoupled shared-storage engine + pre-warmed read replicas).</div>
+
+<div class="pitfall"><strong>⚠️ Pitfall 2 — Auto-Scaling Only on CPU Utilization When Threads Are Blocked on I/O:</strong> As we proved in Topic 007 (Little's Law), when a downstream DB slows down, all 200 Tomcat threads block waiting on network sockets while <strong>CPU utilization drops to 10%</strong>! An auto-scaler watching only CPU will refuse to scale (or even scale down!) during a concurrency outage. Scale on <strong>QPS, active thread pool utilization, or queue depth</strong>.</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§9</span>Recap &amp; Glossary</h2>
+
+<ul class="recap">
+  <li><strong>Vertical vs Horizontal:</strong> Scale up first for simplicity; scale out horizontally for fault tolerance and unbounded growth.</li>
+  <li><strong>Amdahl's Law ($1/\alpha$):</strong> Throughput is capped by the fraction $\alpha$ of work that touches a single serial bottleneck.</li>
+  <li><strong>Universal Scalability Law:</strong> Cross-node coordination ($\beta$) causes throughput to degrade at high node counts unless you adopt a <strong>Share-Nothing Architecture</strong>.</li>
+</ul>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>Share-Nothing Architecture</dt><dd>A distributed design where each node/shard processes its own subset of requests using its own independent CPU, RAM, and disk without coordinating locks or memory with peers ($\alpha \to 0, \beta \to 0$).</dd>
+  <dt>Elasticity</dt><dd>The automated, workload-driven provisioning and de-provisioning of compute resources so capacity tracks demand in near-real time.</dd>
+</dl>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§10</span>Interactive Socratic Gate &amp; Sources</h2>
+
+<div class="gate">
+  <h3>🎯 Socratic Verification Gate — Topic 009 (Score &ge; 4/5 Required)</h3>
+  <ol>
+    <li><strong><code>[theory]</code>:</strong> Using <strong>Amdahl's Law</strong>, if `10%` ($\alpha = 0.10$) of every checkout request must acquire a global mutex lock on a single node, what is the maximum theoretical speedup you can ever achieve even if you scale from 1 server to 1,000 servers? How do you redesign the data model so $\alpha \to 0$?</li>
+    <li><strong><code>[practical]</code>:</strong> Why does Neil Gunther's <strong>Universal Scalability Law (USL)</strong> curve bend <em>downward</em> at high node counts whereas Amdahl's Law only flattens out? Give one concrete example of the $\beta$ coherence penalty in a Spring Boot + PostgreSQL architecture.</li>
+    <li><strong><code>[diagram]</code>:</strong> Walk through the <strong>3-Stage Pragmatic Scaling Roadmap</strong> for <em>PulseStream</em> as it grows from `500 QPS` to `100,000 QPS`. Why do we add CDN + Redis + Read Replicas <em>before</em> sharding the SQL database?</li>
+    <li><strong><code>[trade-offs]</code>:</strong> Why can stateless Box 2 pods scale elastically in 20 seconds when traffic spikes, whereas stateful Box 6 database shards cannot?</li>
+  </ol>
+</div>
+
+<h3>Sources &amp; Further Reading</h3>
+<ul class="sources">
+  <li><a href="http://www.perfdynamics.com/Manifesto/USLscalability.html">Neil J. Gunther — Guerrilla Capacity Planning &amp; The Universal Scalability Law</a></li>
+  <li><a href="https://docs.aws.amazon.com/wellarchitected/latest/performance-efficiency-pillar/welcome.html">AWS Well-Architected Framework — Performance Efficiency Pillar (Scaling &amp; Elasticity)</a></li>
+</ul>
+
+</body>
+</html>

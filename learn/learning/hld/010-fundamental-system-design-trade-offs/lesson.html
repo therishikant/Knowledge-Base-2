@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>010 · Fundamental System Design Trade-offs (Phase 1 Capstone) — HLD</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#2e7d32;--amber:#b85d00}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:900px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58;-webkit-font-smoothing:antialiased}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.65rem;margin-bottom:1.2rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  .status-hdr{background:#fff;border:1.5px solid var(--rule);border-left:5px solid var(--accent2);border-radius:6px;padding:.75rem 1rem;margin-bottom:1.5rem;font-size:.86rem;font-family:"SF Mono",Menlo,Consolas,monospace;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.14;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .55rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem;font-family:"SF Mono",Menlo,Consolas,monospace}
+  h3{font-size:1.13rem;margin:1.45rem 0 .35rem;color:var(--accent)}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.81rem;line-height:1.48;font-family:"SF Mono",Menlo,Consolas,monospace}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f} pre .h{color:#ffd166;font-weight:bold}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.98rem;margin:0 0 .45rem;text-transform:uppercase;letter-spacing:.03em}
+  .flow-steps{background:#fff8ee;border:1px solid var(--rule);border-radius:6px;padding:.85rem 1.1rem;margin:1rem 0;font-size:.94rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem}
+  .flow-steps li{margin:.35rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .gate{background:#fff8ee;border:2px dashed var(--accent);border-radius:8px;padding:1.15rem 1.3rem;margin:1.6rem 0}
+  .gate h3{margin-top:0;color:var(--accent)}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  @media print{body{padding:1rem;max-width:100%} pre{white-space:pre-wrap} .nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../009-scalability-and-elasticity/lesson.html">009: Scalability and Elasticity</a></span>
+  <span><strong>Topic 010 of 140</strong> · Phase 1 Capstone</span>
+  <span><a href="../overview.html">Back to HLD Master Map (Phase 2 Next)</a> →</span>
+</nav>
+
+<div class="status-hdr">
+  <div><strong>Current Topic:</strong> #10 — Fundamental System Design Trade-offs (Phase 1 Capstone Synthesis)</div>
+  <div><strong>7-Box Map Location:</strong> All 7 Boxes (The Master Decision Matrix Connecting Phase 1 to Phases 2–10) | <strong>Depth Tag:</strong> [DEEP]</div>
+  <div><strong>Prerequisites Completed:</strong> [Topics #1–#9] &rarr; <strong>Unlocks Next:</strong> [Phase 2 — Topic #11: Networking Basics for System Design]</div>
+  <div><strong>Progress:</strong> [0] Completed | [140] Remaining | [0] Needs Revision</div>
+</div>
+
+<h1>010 · Fundamental System Design Trade-offs (Phase 1 Capstone)</h1>
+<p class="crumb"><a href="../overview.html">High-Level System Design (HLD)</a> › Phase 1: Foundations › Topic 10 of 140 · <span style="color:#7a1f1f;font-weight:700">DEEP · PHASE 1 CAPSTONE</span></p>
+
+<div class="tldr">
+  <strong>0. TL;DR in Simple English —</strong> In system design, <strong>there are no silver bullets—only trade-offs</strong> (Universal Law 5: <em>Every Optimization Shifts the Bottleneck</em>). Senior and Staff engineers stand out in interviews because they never present a component as "free": whenever they add a cache, a queue, a shard, or a replica, they immediately state <strong>what they gained, what new failure mode they just introduced, and how they mitigate that tax</strong>. This capstone lesson synthesizes the <strong>7 Fundamental Trade-Off Axes</strong> across the entire 7-Box Master Map.
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§1</span>Where it fits — 🧭 You Are Here on the 7-Box Master Map</h2>
+
+<div class="map-banner">
+  <div class="map-title">🧭 You Are Here: Every Box on the 7-Box Map Is a Deliberate Trade-Off Dial</div>
+<pre>┌───────────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">THE 7 FUNDAMENTAL TRADE-OFF DIALS ACROSS THE 7-BOX SYSTEM MAP</span>                      │
+│                                                                                   │
+│  Dial 1 (Box 6/4): Strong Consistency (CP)   ◄────────► Low Latency &amp; Uptime (AP) │
+│  Dial 2 (Box 4/6): Optimize for Fast Reads   ◄────────► Optimize for Fast Writes  │
+│  Dial 3 (Box 2/5): Synchronous RPC (Simple)  ◄────────► Async Queue (Decoupled)   │
+│  Dial 4 (Box 2/5): Push / Fan-Out-on-Write   ◄────────► Pull / Fan-Out-on-Read    │
+│  Dial 5 (Box 4/2): Stateful (Sticky Memory)  ◄────────► Stateless (Shared Store)  │
+│  Dial 6 (Box 4/6): Exact Precision           ◄────────► Approximate Probabilistic │
+│  Dial 7 (Box 7):   Multi-Region Active-Active◄────────► Operational Cost / FinOps │
+└───────────────────────────────────────────────────────────────────────────────────┘</pre>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§2</span>Why it exists — Why "I'll Just Use Kafka + Redis + Sharded Cassandra Everywhere!" Fails</h2>
+
+<p>
+Why do candidates who throw every buzzword (`Kafka + Redis + Cassandra + Elasticsearch + Kubernetes`) at a simple problem fail Staff-level interviews?
+</p>
+<ul>
+  <li>Because every single box you add to a diagram <strong>solves one bottleneck by creating a brand-new problem</strong> (Universal Law 5):
+    <ul>
+      <li>Add <strong>Redis Cache (Box 4)</strong> to speed up DB reads? You now own <strong>stale reads, dual-write race conditions, and cache stampedes</strong> when a hot key expires!</li>
+      <li>Add <strong>Kafka (Box 5)</strong> to decouple writes? You now own <strong>out-of-order events, duplicate delivery (requiring idempotency), and consumer lag</strong> where users don't see their own updates immediately!</li>
+      <li>Add <strong>Database Sharding (Box 6)</strong> to scale writes? You just lost <strong>ACID cross-shard transactions, `JOIN` queries, and global secondary indexes</strong>, and gained <strong>celebrity hot-shard bottlenecks</strong>!</li>
+    </ul>
+  </li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§3</span>How it works — The 7 Master Trade-Off Axes (Deep Synthesis)</h2>
+
+<h3>3.1 Master Trade-Off Matrix Across the 7 Axes</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Trade-Off Axis</th>
+      <th>Option A (When to Choose &amp; What You Pay)</th>
+      <th>Option B (When to Choose &amp; What You Pay)</th>
+      <th>Hybrid Staff-Level Pattern</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Consistency vs Latency/Availability (PACELC — Law 4)</strong></td>
+      <td><strong>Strong Consistency (Linearizable / Sync Quorum):</strong> Money ledger, seat booking, auth revocation. <em>Tax:</em> Higher write latency + unavailable if quorum is lost.</td>
+      <td><strong>Eventual Consistency (Async Replication / Cache):</strong> Social feeds, likes, comments, search index. <em>Tax:</em> Stale reads for `10–500 ms`; requires conflict resolution.</td>
+      <td><strong>Read-Your-Own-Writes</strong>: Route the author's own reads to the Primary/local cache for 5 seconds, while everyone else reads from async replicas!</td>
+    </tr>
+    <tr>
+      <td><strong>2. Read-Optimized vs Write-Optimized Storage (Law 1)</strong></td>
+      <td><strong>Read-Optimized (B+Tree + Denormalized Views + Secondary Indexes):</strong> Fast point &amp; range reads (`1 disk seek`). <em>Tax:</em> Every write must update 5 indexes in-place (random I/O amplification).</td>
+      <td><strong>Write-Optimized (LSM-Tree + Append-Only Log, e.g., Cassandra/RocksDB/Kafka):</strong> Blazing sequential writes (`~100K/s`). <em>Tax:</em> Reads must check MemTable + multiple SSTables (needs Bloom filters + compaction CPU).</td>
+      <td><strong>CQRS (Topic 028):</strong> Write to an append-only ledger/SQL primary, and project async read-optimized views into Elasticsearch/Redis.</td>
+    </tr>
+    <tr>
+      <td><strong>3. Synchronous RPC vs Asynchronous Messaging (Law 3)</strong></td>
+      <td><strong>Synchronous (REST / gRPC):</strong> Caller needs immediate answer (e.g., Login, Fetch Profile, Reserve Inventory). <em>Tax:</em> Temporal coupling, tail-latency amplification, cascading failures.</td>
+      <td><strong>Asynchronous (Kafka / SQS):</strong> Caller only needs durable acknowledgment (e.g., Video transcoding, Email receipt, Analytics). <em>Tax:</em> Client must poll/listen via WebSocket; requires Idempotent Consumers + DLQ.</td>
+      <td><strong>Sync Validation + Async Execution:</strong> Validate &amp; persist `PENDING` record synchronously (`202 Accepted`), then process heavy workflow via Outbox + Kafka.</td>
+    </tr>
+    <tr>
+      <td><strong>4. Push (Fan-Out-on-Write) vs Pull (Fan-Out-on-Read)</strong></td>
+      <td><strong>Fan-Out-on-Write (Push to followers' Redis inboxes on post creation):</strong> Makes reading the home feed `O(1)` (`1 ms`). <em>Tax:</em> When a celebrity with `50M followers` posts, `50M` Redis writes cause a massive write storm!</td>
+      <td><strong>Fan-Out-on-Read (Pull &amp; merge followed users' posts at read time):</strong> Posting is `O(1)` (`1 write`). <em>Tax:</em> Reading a feed requires querying 500 followed creators and sorting at read time (slow!).</td>
+      <td><strong>Hybrid Fan-Out (Topic 118):</strong> Push on write for normal users (`< 100K` followers); Pull on read and merge at query time ONLY for celebrities (`> 100K` followers)!</td>
+    </tr>
+    <tr>
+      <td><strong>5. Stateless vs Stateful Compute (Law 2)</strong></td>
+      <td><strong>Stateless Compute (REST API pods):</strong> Instant horizontal auto-scaling, zero-cost crashes, easy deploys. <em>Tax:</em> Every request pays `0.5 ms` network RTT to fetch state from Redis/DB.</td>
+      <td><strong>Stateful Compute (WebSocket Gateways, In-Memory Game Servers, Stream Processors):</strong> Ultra-low `100 ns` local memory latency, persistent sockets. <em>Tax:</em> Sticky routing, complex state migration on crash.</td>
+      <td>Keep business logic <strong>Stateless</strong>, and isolate stateful connection handling into a thin **Connection Gateway tier** backed by Redis Pub/Sub.</td>
+    </tr>
+    <tr>
+      <td><strong>6. Exact Accuracy vs Probabilistic Speed &amp; Memory</strong></td>
+      <td><strong>Exact (`COUNT(DISTINCT user_id)` or `SELECT FOR UPDATE`):</strong> Required for billing and inventory. <em>Tax:</em> `O(N)` memory (`800 MB` per 100M users) and heavy lock contention.</td>
+      <td><strong>Approximate (HyperLogLog, Bloom Filter, Count-Min Sketch):</strong> Video view counts, trending topics, cache-miss checks. <em>Tax:</em> `~0.8%` bounded error or `1%` false-positive rate.</td>
+      <td>Use **HyperLogLog (`12 KB` RAM)** for real-time public view counters + **Async Kafka Batch** to reconcile exact billing daily.</td>
+    </tr>
+    <tr>
+      <td><strong>7. Normalization (3NF) vs Denormalization</strong></td>
+      <td><strong>Normalized (3NF SQL):</strong> Zero data duplication; updating a username updates 1 row. <em>Tax:</em> Expensive multi-table `JOIN`s (impossible across shards!).</td>
+      <td><strong>Denormalized (Embed `author_name` inside every comment document):</strong> Single-query `O(1)` read with zero joins. <em>Tax:</em> Write amplification when `author_name` changes.</td>
+      <td>Store source of truth normalized in domain service, and cache/index denormalized read payloads with short TTLs + event-driven invalidation.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.2 Visual Architecture Evolution — Our Flagship System <em>PulseStream</em> at the End of Phase 1</h3>
+
+<figure>
+<svg viewBox="0 0 840 250" width="100%" role="img" aria-label="PulseStream Phase 1 Baseline Architecture with Split AP and CP Paths">
+  <defs>
+    <marker id="ar10" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2b2b28"/>
+    </marker>
+    <style>
+      .bx{fill:#fff8ee;stroke:#2b2b28;stroke-width:1.8;rx:6}
+      .ap{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.8;rx:6}
+      .cp{fill:#fbeeee;stroke:#7a1f1f;stroke-width:1.8;rx:6}
+      .t{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:11.5px;fill:#2b2b28}
+      .th{font-family:"Iowan Old Style",Georgia,serif;font-size:13px;font-weight:bold;fill:#2b2b28}
+    </style>
+  </defs>
+  <!-- Client & Edge -->
+  <rect class="bx" x="15" y="75" width="145" height="95"/>
+  <text class="th" x="28" y="100">Box 1: Edge &amp; LB</text>
+  <text class="t" x="28" y="122">50M DAU / 60K QPS</text>
+  <text class="t" x="28" y="140">CDN: 480 Gbps Media</text>
+  <text class="t" x="28" y="158">ALB: 9.6 Gbps JSON</text>
+
+  <!-- Stateless Compute -->
+  <rect class="bx" x="195" y="75" width="165" height="95"/>
+  <text class="th" x="207" y="100">Box 2 &amp; 3: Compute</text>
+  <text class="t" x="207" y="122">20 Spring Boot Pods</text>
+  <text class="t" x="207" y="140">Timeouts: W &le; 150ms</text>
+  <text class="t" x="207" y="158">Util &rho; &le; 65% (HPA)</text>
+
+  <!-- AP Path (Top Right) -->
+  <rect class="ap" x="410" y="15" width="415" height="95"/>
+  <text class="th" x="425" y="38" style="fill:#1f4d7a">AP Path: Feed, Media &amp; Likes (99.99% Availability, p99 &lt; 150ms)</text>
+  <text class="t" x="425" y="60">&bull; Box 4: Redis Cluster (140 GB Hot Working Set) + Hybrid Fan-Out</text>
+  <text class="t" x="425" y="80">&bull; Box 5: Kafka Async Event Log (Likes, View Counts, Fan-Out)</text>
+  <text class="t" x="425" y="100">&bull; Box 6: 64 Sharded DB Nodes (182 TB / 5yr) + S3 (10 TB/day)</text>
+
+  <!-- CP Path (Bottom Right) -->
+  <rect class="cp" x="410" y="135" width="415" height="95"/>
+  <text class="th" x="425" y="158" style="fill:#7a1f1f">CP Path: VIP Ticket Checkout &amp; Payouts (0 Oversell, RPO = 0)</text>
+  <text class="t" x="425" y="180">&bull; Box 2: Client Idempotency-Key Header (Safe Retries)</text>
+  <text class="t" x="425" y="200">&bull; Box 6: ACID Primary DB + Sync Multi-AZ Standby (1.5ms RTT)</text>
+  <text class="t" x="425" y="220">&bull; Box 5: Transactional Outbox Pattern for Guaranteed Events</text>
+
+  <!-- Arrows -->
+  <line x1="160" y1="122" x2="195" y2="122" stroke="#2b2b28" stroke-width="1.8" marker-end="url(#ar10)"/>
+  <line x1="360" y1="100" x2="410" y2="65" stroke="#1f4d7a" stroke-width="2" marker-end="url(#ar10)"/>
+  <line x1="360" y1="145" x2="410" y2="180" stroke="#7a1f1f" stroke-width="2" marker-end="url(#ar10)"/>
+</svg>
+<figcaption>Figure 1 — How Topics 001–010 come together in our Phase 1 Blueprint for PulseStream: every number from Capacity Estimation and every Trade-Off Dial shapes the exact AP and CP paths across all 7 Boxes.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§4</span>When to use — The "3-Sentence Trade-Off Defense" Template for Interviews</h2>
+
+<div class="callout">
+  <strong>Memorize This 3-Sentence Speaking Template Whenever You Propose Any Component:</strong>
+  <ol>
+    <li><strong>Sentence 1 (Why We Chose X):</strong> <em>"For `[Component/Path]`, I am choosing `[Option A]` over `[Option B]` because our dominant constraint from capacity/NFR analysis is `[e.g., 60,000 Peak Read QPS at p99 &lt; 150ms]`."</em></li>
+    <li><strong>Sentence 2 (The Tax We Knowingly Accept — Law 5):</strong> <em>"The trade-off we accept with `[Option A]` is `[e.g., up to 2 seconds of eventual consistency / stale cache window after an edit]`."</em></li>
+    <li><strong>Sentence 3 (How We Mitigate the Edge Case):</strong> <em>"To prevent that trade-off from hurting user experience, we mitigate it with `[e.g., Read-Your-Own-Writes routing for the author + event-driven cache invalidation]`."</em></li>
+  </ol>
+  <p>Speaking in this 3-sentence structure makes it almost impossible for an interviewer to catch you off-guard, because you just answered their follow-up probe before they even asked it!</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§5</span>Explain it to a 12-year-old (The Feynman Pass)</h2>
+
+<p>
+Why can't we build one car that is simultaneously a <strong>Formula 1 race car</strong> (`220 mph`), a <strong>dump truck</strong> (carries `20 tons of rocks`), and a <strong>Toyota Prius</strong> (`60 miles per gallon` and costs `$25,000`)?
+</p>
+<p>
+Because physics forces trade-offs! Making the engine huge to haul 20 tons of rocks makes it heavy and burns more gas. Making it ultra-light for Formula 1 speed means it can't carry cargo or drive over potholes. A great architect doesn't pretend they invented a "220-mph Formula-1 dump truck"—they ask what the customer is actually hauling today, pick the right vehicle for each job (a race car for the Feed Read Path, an armored truck for the Bank Ledger Path), and explain why!
+</p>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§6</span>Dependency Graph &amp; Phase 1 &rarr; Phase 2 Bridge</h2>
+
+<pre>[Topics 001–009: Phase 1 Foundations] ──► <span class="h">[Topic 010: Fundamental System Design Trade-offs]</span>
+                                                        │
+                                                        ▼
+                       [Phase 2 (Topics 011–019): Box 1 — Networking, DNS, CDN, Load Balancers &amp; API Gateways]</pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§7</span>In practice — Phase 1 End-to-End Mock Walkthrough (First 10 Minutes of Any Interview)</h2>
+
+<pre><span class="c">// ============================================================================</span>
+<span class="c">// YOUR COMPLETE FIRST-10-MINUTE SCRIPT FOR ANY 45-MINUTE HLD INTERVIEW:</span>
+<span class="c">// ============================================================================</span>
+<span class="c">// Minute 0–3 (Topic 003 &amp; 004): Run the 6-Switch Clarification Protocol</span>
+<span class="c">//   -&gt; Lock down Top 3 Core FRs, DAU, Read:Write ratio, Payload type,</span>
+<span class="c">//      split CP vs AP consistency paths, and state Latency/Availability SLOs.</span>
+<span class="c">//</span>
+<span class="c">// Minute 3–6 (Topic 005, 006 &amp; 007): Run the 5-Step Capacity Math in Powers of 10</span>
+<span class="c">//   -&gt; Avg &amp; Peak QPS, 5-Year Metadata vs Blob Storage, 20% Hot Cache RAM,</span>
+<span class="c">//      Ingress/Egress Bandwidth, and translate each number into Pod/Shard counts.</span>
+<span class="c">//</span>
+<span class="c">// Minute 6–10 (Topic 001, 002, 008, 009 &amp; 010): Sketch the 7-Box Level 0 Map</span>
+<span class="c">//   -&gt; Draw Box 1 (CDN/LB/Gateway) -&gt; Box 2/3 (Stateless Pods + Resilience)</span>
+<span class="c">//      -&gt; Box 4 (Redis) / Box 5 (Kafka) -&gt; Box 6 (SQL/NoSQL/S3) -&gt; Box 7 (Multi-AZ),</span>
+<span class="c">//      and defend every box using the 3-Sentence Trade-Off Template!</span></pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§8</span>Pitfalls &amp; Traps</h2>
+
+<div class="pitfall"><strong>⚠️ Pitfall 1 — Saying "It Depends" Without Immediately Stating What It Depends On:</strong> Never stop at <em>"It depends."</em> Always say: <em>"It depends on X: if our Read-to-Write ratio is `&gt; 20:1` and `200ms` staleness is acceptable, we choose Option A; if writes dominate or strict linearizability is required, we choose Option B."</em></div>
+
+<div class="pitfall"><strong>⚠️ Pitfall 2 — Optimizing for the Rare Case at the Expense of the 99% Common Case:</strong> In *PulseStream*, 99.9% of users have `< 10,000` followers and only 0.1% are mega-celebrities with `50M` followers. Don't make 99.9% of users suffer slow Fan-Out-on-Read just because of celebrities—use the **Hybrid Fan-Out pattern**!</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§9</span>Recap &amp; Phase 1 Master Checklist</h2>
+
+<ul class="recap">
+  <li><strong>7 Core Trade-Off Dials:</strong> Consistency vs Latency/Availability, Read vs Write Optimization, Sync vs Async, Push vs Pull Fan-Out, Stateless vs Stateful, Exact vs Probabilistic, Normalized vs Denormalized.</li>
+  <li><strong>The 3-Sentence Defense:</strong> (1) Why we chose X from capacity/NFRs, (2) What tax we accept (Law 5), and (3) How we mitigate the edge case.</li>
+  <li><strong>Phase 1 Complete!</strong> You now own the complete mathematical and architectural foundation (`Topics 001–010`) to dive inside every individual box starting with **Phase 2 (Box 1: Networking, DNS, CDN, Load Balancers &amp; API Gateways)**.</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§10</span>Interactive Socratic Gate — Phase 1 Mastery Checkpoint &amp; Sources</h2>
+
+<div class="gate">
+  <h3>🎯 Socratic Verification Gate — Topic 010 &amp; Phase 1 Capstone (Score &ge; 4/5 Required)</h3>
+  <ol>
+    <li><strong><code>[theory]</code>:</strong> Contrast <strong>B+Tree (Read-Optimized)</strong> vs <strong>LSM-Tree / Append-Only Log (Write-Optimized)</strong> storage engines using <strong>Universal Law 1</strong>. When a user writes a row vs reads a row, what happens on disk in each, and what trade-off are you making?</li>
+    <li><strong><code>[practical]</code>:</strong> Explain the <strong>Push (Fan-Out-on-Write) vs Pull (Fan-Out-on-Read)</strong> trade-off in a social feed like *PulseStream* (`50M DAU`). Why does pure Push break when a celebrity with `50 Million followers` posts a tweet, and how does the **Hybrid Fan-Out** architecture solve both sides?</li>
+    <li><strong><code>[diagram]</code>:</strong> Using the **3-Sentence Trade-Off Defense Template**, defend your choice of: (a) **Redis Cache-Aside (Box 4)** for the *PulseStream* creator profile read path, and (b) **Kafka + Transactional Outbox (Box 5)** for post-checkout order notifications.</li>
+    <li><strong><code>[trade-offs]</code> (Phase 1 Synthesis Boss Question):</strong> An interviewer gives you a prompt: <em>"Design a Global Flash-Sale Inventory &amp; Checkout System for 10,000 PS5 consoles where 5 Million users click 'Buy Now' in the same 10-second window."</em> In 6–8 sentences, apply your Phase 1 toolkit: clarify the CP vs AP paths, estimate Peak QPS, apply Little's Law to protect the database from 500,000 QPS, and state which trade-offs you make at Box 1, Box 3, Box 4, Box 5, and Box 6!</li>
+  </ol>
+</div>
+
+<h3>Sources &amp; Further Reading</h3>
+<ul class="sources">
+  <li><a href="https://sre.google/sre-book/table-of-contents/">Google SRE Book — Principles &amp; Practices of Scalable, Reliable Distributed Systems</a></li>
+  <li><a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html">AWS Well-Architected Framework — Architectural Trade-Offs Across Reliability, Performance &amp; Cost</a></li>
+</ul>
+
+</body>
+</html>

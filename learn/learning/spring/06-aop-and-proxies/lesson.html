@@ -329,39 +329,93 @@ Trace the exact pointer on every arrow below. Remember: once the Proxy delegates
 <figcaption>Rule 2 ("Who You Call"): External calls hit the Proxy (<code>caller → Proxy → target</code>). Internal calls (<code>this.saveOne()</code>) go directly from <code>target</code> to <code>target</code>, completely bypassing the Proxy wrapper.</figcaption>
 </figure>
 
-<h3>The AOP Vocabulary &amp; The 5 Advice Types</h3>
+<h3>What is an Aspect? The AOP Vocabulary &amp; The 5 Advice Types</h3>
+<p>
+You already know how to build a Proxy by hand. Look back at our generated <code>BookService$$SpringCGLIB$$0</code> class: someone had to tell Spring <strong>(1) what extra code to put inside the Proxy</strong> (like opening/closing a transaction or logging), and <strong>(2) which methods on which classes should get wrapped</strong>.
+</p>
+<p>
+If you wrote a full Proxy class by hand for every service, you would still be repeating yourself. Instead, Spring lets you write <strong>one regular Java class</strong> that answers both questions:
+</p>
+<ul>
+  <li><strong>WHERE to wrap</strong> (the filter / rule, called a <strong>Pointcut</strong>)</li>
+  <li><strong>WHAT code to run inside the Proxy</strong> (the extra logic, called <strong>Advice</strong>)</li>
+</ul>
+<p>
+<strong>That single class—combining WHERE to wrap + WHAT to run—is called an <code>Aspect</code>!</strong>
+</p>
+<div class="idiom">
+  <strong>The "Recipe vs Cake" Intuition (Aspect vs Proxy):</strong>
+  <br/>• An <strong>Aspect</strong> (<code>@Aspect @Component class LoggingAspect</code>) is the <strong>Instruction Manual / Blueprint</strong>. You write it once.
+  <br/>• A <strong>Proxy</strong> (<code>BookService$$SpringCGLIB$$0</code>) is the <strong>Wrapper Object</strong> that Box 4 builds at startup after reading your Aspect's instructions!
+  <br/>• If you have 50 services that match your Aspect's rule, you have <strong>1 Aspect</strong> in your code, and Box 4 creates <strong>50 Proxies</strong> in Box 3 (each holding a pointer to your 1 Aspect bean and calling its methods!).
+</div>
+
 <table>
-<thead><tr><th>AOP Term</th><th>Plain-English Meaning</th><th>Concrete Example</th></tr></thead>
+<thead><tr><th>Fancy AOP Word</th><th>What it REALLY means in Plain Java</th><th>Where it lives in our Proxy mental model</th></tr></thead>
 <tbody>
-<tr><td><strong>Aspect</strong></td><td>A class that bundles cross-cutting logic</td><td><code>@Aspect @Component class AuditAspect</code></td></tr>
-<tr><td><strong>Join Point</strong></td><td>A place where an aspect <em>can</em> hook in</td><td>In Spring AOP: <strong>always a bean method execution</strong>.</td></tr>
-<tr><td><strong>Pointcut</strong></td><td>The filter expression choosing <em>which</em> methods to wrap</td><td><code>@annotation(Audited)</code> or <code>execution(* com.bv.service.*.*(..))</code></td></tr>
-<tr><td><strong>Advice</strong></td><td>The method in your aspect that runs Before/After/Around</td><td><code>@Around("...") Object timeIt(ProceedingJoinPoint pjp)</code></td></tr>
-<tr><td><strong>Target</strong></td><td>Your real, unwrapped Java instance</td><td><code>new BookService()</code> inside <code>proxy.target</code></td></tr>
-<tr><td><strong>Weaving</strong></td><td>Creating the wrapper around the target</td><td>Spring AOP weaves at <strong>runtime inside Box 4</strong> (AspectJ weaves into <code>.class</code> bytecode).</td></tr>
+<tr><td><strong>1. Target</strong></td><td>Your real, clean Java object (<code>new BookService()</code>)</td><td>Stored inside the Proxy as <code>private final BookService target;</code></td></tr>
+<tr><td><strong>2. Join Point</strong></td><td>Any method call that <em>could</em> be intercepted</td><td>In Spring AOP, <strong>always a Spring bean method execution</strong> (like calling <code>place(cart)</code>).</td></tr>
+<tr><td><strong>3. Pointcut</strong></td><td>An <code>if</code>-condition / filter that picks <em>which</em> methods get a Proxy</td><td>Box 4 reads this at startup: <em>"Does <code>BookService.place()</code> have <code>@Audited</code>? Yes → wrap it!"</em></td></tr>
+<tr><td><strong>4. Advice</strong></td><td>The actual method in your Aspect that runs before/after <code>target.place()</code></td><td>The lines of code inside the Proxy's <code>try / catch / finally</code> block.</td></tr>
+<tr><td><strong>5. Aspect</strong></td><td><strong>Pointcut (Where) + Advice (What)</strong> in one <code>@Aspect @Component</code> class</td><td>Another singleton bean in Box 3 that the Proxy calls!</td></tr>
+<tr><td><strong>6. Weaving</strong></td><td>The act of generating the Proxy class and wrapping the Target</td><td>Happens at <strong>startup inside Box 4</strong> (<code>BeanPostProcessor</code>).</td></tr>
 </tbody></table>
 
+<h3>The 5 Advice Types — Zero Magic, Just a <code>try / catch / finally</code> Block!</h3>
+<p>
+People often try to memorize the 5 advice annotations (<code>@Before</code>, <code>@AfterReturning</code>, <code>@AfterThrowing</code>, <code>@After</code>, <code>@Around</code>) as separate rules. <strong>Don't memorize them!</strong> Look at the exact Java code the Proxy runs when it calls your <code>LoggingAspect</code>—the 5 advice types are literally just the <strong>5 slots of a plain Java <code>try / catch / finally</code> block</strong> inside the Proxy:
+</p>
+
+<pre><span class="c">// WHAT THE GENERATED PROXY ACTUALLY RUNS WHEN YOU CALL proxy.place(cart):</span>
+<span class="k">public</span> Order place(Cart cart) {
+
+    <span class="c">// 1. @Around starts here (wraps the ENTIRE block; decides whether to call proceed())</span>
+    <span class="k">long</span> t0 = System.nanoTime();
+
+    <span class="k">try</span> {
+        aspect.logEntry();                 <span class="c">// 2. @Before         → runs right BEFORE target.place(cart)</span>
+
+        Order res = target.place(cart);    <span class="c">// ★ REAL TARGET METHOD RUNS HERE!</span>
+
+        aspect.logSuccess(res);            <span class="c">// 3. @AfterReturning → runs ONLY if target returned normally (no exception)</span>
+        <span class="k">return</span> res;
+
+    } <span class="k">catch</span> (Exception ex) {
+        aspect.logFailure(ex);             <span class="c">// 4. @AfterThrowing  → runs ONLY if target threw an exception</span>
+        <span class="k">throw</span> ex;                          <span class="c">// (Note: @AfterThrowing CANNOT swallow the exception; it still rethrows!)</span>
+
+    } <span class="k">finally</span> {
+        aspect.cleanup();                  <span class="c">// 5. @After          → runs ALWAYS (success OR exception, just like finally)</span>
+        <span class="c">// 1. @Around finishes here</span>
+        metrics.record(System.nanoTime() - t0);
+    }
+}</pre>
+
+<p>
+And here is how you write those 5 slots inside your <code>@Aspect</code> class:
+</p>
 <pre><span class="an">@Aspect</span>
 <span class="an">@Component</span> <span class="c">// ← Must be a bean in Box 2/3, or Spring ignores @Aspect!</span>
 <span class="k">public class</span> LoggingAndTimingAspect {
 
     <span class="an">@Before</span>(<span class="s">"@annotation(Audited)"</span>)
-    <span class="k">public void</span> logEntry(JoinPoint jp) { <span class="c">/* runs BEFORE target method */</span> }
+    <span class="k">public void</span> logEntry(JoinPoint jp) { <span class="c">/* Slot 2: runs BEFORE target method */</span> }
 
     <span class="an">@AfterReturning</span>(pointcut = <span class="s">"@annotation(Audited)"</span>, returning = <span class="s">"res"</span>)
-    <span class="k">public void</span> logSuccess(Object res) { <span class="c">/* runs ONLY when target returns normally */</span> }
+    <span class="k">public void</span> logSuccess(Object res) { <span class="c">/* Slot 3: runs ONLY when target returns normally */</span> }
 
     <span class="an">@AfterThrowing</span>(pointcut = <span class="s">"@annotation(Audited)"</span>, throwing = <span class="s">"ex"</span>)
-    <span class="k">public void</span> logFailure(Exception ex) { <span class="c">/* runs ONLY when target throws (cannot swallow exception) */</span> }
+    <span class="k">public void</span> logFailure(Exception ex) { <span class="c">/* Slot 4: runs ONLY when target throws (cannot swallow exception) */</span> }
 
     <span class="an">@After</span>(<span class="s">"@annotation(Audited)"</span>)
-    <span class="k">public void</span> cleanup() { <span class="c">/* runs in a `finally` block (success OR exception) */</span> }
+    <span class="k">public void</span> cleanup() { <span class="c">/* Slot 5: runs in a `finally` block (success OR exception) */</span> }
 
     <span class="an">@Around</span>(<span class="s">"@annotation(Audited)"</span>)
     <span class="k">public</span> Object measure(ProceedingJoinPoint pjp) <span class="k">throws</span> Throwable {
+        <span class="c">/* Slot 1: The most powerful! Wraps the whole try/catch/finally. */</span>
         <span class="k">long</span> t0 = System.nanoTime();
         <span class="k">try</span> {
-            <span class="k">return</span> pjp.proceed(); <span class="c">// ← Calls next advice / target.place()!</span>
+            <span class="k">return</span> pjp.proceed(); <span class="c">// ← Calls the next advice / target.place()!</span>
         } <span class="k">finally</span> {
             metrics.record(pjp.getSignature().getName(), System.nanoTime() - t0);
         }

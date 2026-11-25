@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>003 · Functional vs Non-Functional Requirements — HLD</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#2e7d32;--amber:#b85d00}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:900px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58;-webkit-font-smoothing:antialiased}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.65rem;margin-bottom:1.2rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  .status-hdr{background:#fff;border:1.5px solid var(--rule);border-left:5px solid var(--accent2);border-radius:6px;padding:.75rem 1rem;margin-bottom:1.5rem;font-size:.86rem;font-family:"SF Mono",Menlo,Consolas,monospace;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.14;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .55rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem;font-family:"SF Mono",Menlo,Consolas,monospace}
+  h3{font-size:1.13rem;margin:1.45rem 0 .35rem;color:var(--accent)}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.81rem;line-height:1.48;font-family:"SF Mono",Menlo,Consolas,monospace}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f} pre .h{color:#ffd166;font-weight:bold}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.98rem;margin:0 0 .45rem;text-transform:uppercase;letter-spacing:.03em}
+  .flow-steps{background:#fff8ee;border:1px solid var(--rule);border-radius:6px;padding:.85rem 1.1rem;margin:1rem 0;font-size:.94rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem}
+  .flow-steps li{margin:.35rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .gate{background:#fff8ee;border:2px dashed var(--accent);border-radius:8px;padding:1.15rem 1.3rem;margin:1.6rem 0}
+  .gate h3{margin-top:0;color:var(--accent)}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  @media print{body{padding:1rem;max-width:100%} pre{white-space:pre-wrap} .nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../002-hld-vs-lld-and-architectural-thinking/lesson.html">002: HLD vs LLD &amp; Architectural Thinking</a></span>
+  <span><strong>Topic 003 of 140</strong> · Phase 1: Foundations</span>
+  <span><a href="../004-requirements-clarification/lesson.html">004: Requirements Clarification</a> →</span>
+</nav>
+
+<div class="status-hdr">
+  <div><strong>Current Topic:</strong> #3 — Functional vs Non-Functional Requirements</div>
+  <div><strong>7-Box Map Location:</strong> Pre-Map (Mapping User Verbs &rarr; Box 2 APIs &amp; Quality "-ilities" &rarr; Boxes 1, 3, 4, 5, 6, 7) | <strong>Depth Tag:</strong> [DEEP]</div>
+  <div><strong>Prerequisites Completed:</strong> [Topic #1, Topic #2] &rarr; <strong>Unlocks Next:</strong> [Topic #4 — Requirements Clarification]</div>
+  <div><strong>Progress:</strong> [0] Completed | [140] Remaining | [0] Needs Revision</div>
+</div>
+
+<h1>003 · Functional vs Non-Functional Requirements</h1>
+<p class="crumb"><a href="../overview.html">High-Level System Design (HLD)</a> › Phase 1: Foundations › Topic 3 of 140 · <span style="color:#7a1f1f;font-weight:700">DEEP</span></p>
+
+<div class="tldr">
+  <strong>0. TL;DR in Simple English —</strong> <strong>Functional Requirements (FRs)</strong> are the <em>verbs</em> a user can do (<em>"Post a tweet, buy a ticket, send a message"</em>)—they decide your REST/gRPC APIs and core database tables. <strong>Non-Functional Requirements (NFRs)</strong> are the <em>physics and survival rules</em> under which those verbs must still work (<em>"Under 150ms p99 latency, at 200,000 QPS, with 99.99% uptime and zero double-charges"</em>)—<strong>NFRs alone decide 90% of your 7-Box System Design architecture!</strong>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§1</span>Where it fits — 🧭 You Are Here on the 7-Box Master Map</h2>
+
+<div class="map-banner">
+  <div class="map-title">🧭 You Are Here: How Requirements Directly Spawn the 7 Boxes</div>
+<pre>┌────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">FUNCTIONAL REQUIREMENTS (FRs = "What Verbs Users Do")</span>                      │
+│  1. Create Post   2. View Feed   3. Reserve Ticket   4. Pay for Order      │
+│         │                                                                  │
+│         ▼  Directly generates:                                             │
+│  [Box 2: Controller APIs &amp; Core Domain Logic] + [Box 6: Base SQL Schema]   │
+└────────────────────────────────────┬───────────────────────────────────────┘
+                                     │
+                                     ▼  Now apply NON-FUNCTIONAL REQUIREMENTS (NFRs):
+┌────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">NON-FUNCTIONAL REQUIREMENTS (NFRs = "Scale, Speed, Safety &amp; Survival")</span>     │
+│  &bull; Global Latency &lt; 100ms + DDoS Protection  ──► <span class="h">Spawns BOX 1 (CDN/LB/GW)</span>  │
+│  &bull; Isolate Slow Dependencies / Stop Abuse    ──► <span class="h">Spawns BOX 3 (Resilience)</span> │
+│  &bull; Read QPS = 500,000/s at p99 &lt; 20ms        ──► <span class="h">Spawns BOX 4 (Redis/RAM)</span>  │
+│  &bull; Decouple 1M Fan-Out / Spike Absorption    ──► <span class="h">Spawns BOX 5 (Kafka Log)</span>  │
+│  &bull; 500 TB Storage / Strict ACID vs Eventual  ──► <span class="h">Spawns BOX 6 (Shards/Raft)</span>│
+│  &bull; 99.99% Uptime / RPO=0 / Audit &amp; Tracing   ──► <span class="h">Spawns BOX 7 (Multi-AZ/DR)</span>│
+└────────────────────────────────────────────────────────────────────────────┘</pre>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§2</span>Why it exists — Same Functional Requirements, Completely Opposite Architectures!</h2>
+
+<p>
+Here is the single biggest revelation in System Design: <strong>Two systems can have 100% identical Functional Requirements, yet require completely opposite architectures because their Non-Functional Requirements differ!</strong>
+</p>
+<p>
+Let's prove this on our flagship app <strong>PulseStream</strong>. Suppose the Functional Requirement is just 1 sentence:
+<em>"Users can transfer $50 or send a message to another user."</em> Look at what happens when we change the NFRs:
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>System Variant</th>
+      <th>Functional Requirement (FR)</th>
+      <th>Non-Functional Requirements (NFRs)</th>
+      <th>Resulting 7-Box Architecture</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Variant A: Internal Team Chat for a 50-Person Company</strong></td>
+      <td>Send message to user; view message history.</td>
+      <td><code>QPS &lt; 5/sec</code>, <code>Storage &lt; 2 GB/year</code>, <code>99% uptime</code> (ok to reboot at night), single office region.</td>
+      <td><strong>1 Box total:</strong> Single Spring Boot monolith + SQLite/PostgreSQL on a $20/month VM. Adding Kafka or sharding here is architectural malpractice!</td>
+    </tr>
+    <tr>
+      <td><strong>Variant B: Global Creator Live-Chat (PulseStream Chat)</strong></td>
+      <td>Send message to user/room; view message history. (<strong>Exact same FR!</strong>)</td>
+      <td><code>500,000 messages/sec</code>, <code>p99 delivery &lt; 100ms</code> globally, <code>99.99% availability</code>, Eventual Consistency allowed for old history.</td>
+      <td><strong>AP-Leaning 7-Box Fleet:</strong> Stateful WebSocket Gateways (Box 1/2), Redis Pub/Sub routing (Box 4), Kafka buffering (Box 5), Sharded Cassandra/ScyllaDB LSM-Tree storage (Box 6).</td>
+    </tr>
+    <tr>
+      <td><strong>Variant C: PulseStream Wallet / Ticket Ledger</strong></td>
+      <td>Transfer $50 from User A to User B; view history. (<strong>Nearly identical CRUD verb!</strong>)</td>
+      <td><code>10,000 tx/sec</code>, <strong>Strict Linearizable/Serializable Consistency (zero double-spend!)</strong>, <code>RPO = 0</code> (zero lost committed transactions).</td>
+      <td><strong>CP-Leaning ACID Fleet:</strong> Idempotency Key enforcement (Box 2), Double-Entry Ledger on synchronous Raft/Multi-AZ SQL shards (Box 6), Transactional Outbox (Box 5/6).</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§3</span>How it works — Formal Taxonomy, Strip the Magic &amp; NFR-to-Box Compiler</h2>
+
+<h3>3.1 Formal Definition &amp; Guarantees</h3>
+<ul>
+  <li><strong>Functional Requirements (FRs):</strong> Specify <em>what behavior, features, inputs, outputs, and business workflows</em> the system must provide to its users. In code, FRs translate directly into <strong>API endpoints</strong> (<code>POST /v1/posts</code>), <strong>Request/Response DTOs</strong>, and <strong>Domain Entities</strong>.</li>
+  <li><strong>Non-Functional Requirements (NFRs / Quality Attributes / Architectural Characteristics):</strong> Specify the <em>operational constraints, measurable runtime qualities, and failure boundaries</em> under which the functional requirements must execute <span class="sources">(<a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/the-pillars-of-the-framework.html">AWS Well-Architected Framework — The 6 Pillars</a>)</span>.</li>
+  <li><strong>Invariants of a Valid Requirement:</strong> An NFR without a <strong>number</strong> is a wish, not an engineering requirement!
+    <ul>
+      <li><em>Bad (Un-testable wish):</em> "The feed must be very fast, highly available, and scalable."</li>
+      <li><em>Good (Testable engineering NFR):</em> "<code>GET /v1/feed</code> must return in <code>p50 &lt; 40ms</code> and <code>p99 &lt; 180ms</code> at a peak load of <code>150,000 QPS</code>, with <code>99.99%</code> monthly availability and eventual consistency lag <code>&le; 3 seconds</code>."</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>3.2 Strip the Magic — The "NFR-to-Architecture Compiler" Table</h3>
+<p>
+Senior and Staff architects have a mental compiler that translates every NFR directly into a specific mechanism on the 7-Box Map:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>Non-Functional Requirement (NFR)</th>
+      <th>Quantitative Metric</th>
+      <th>Universal Law</th>
+      <th>Exact Architectural Mechanism It Forces on the 7-Box Map</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Low Read Latency</strong></td>
+      <td><code>p99 &lt; 50 ms</code></td>
+      <td>Law 1 (Physics)</td>
+      <td>CDN at the Edge (Box 1) + L1 App Cache &amp; L2 Redis Cache (Box 4) + Covering B+Tree Indexes / Materialized Views (Box 6).</td>
+    </tr>
+    <tr>
+      <td><strong>High Write Throughput</strong></td>
+      <td><code>&gt; 100,000 writes/sec</code></td>
+      <td>Law 1 &amp; Law 2</td>
+      <td>Consistent-Hash Sharding across $N$ DB nodes (Box 6) + Append-only LSM-Tree storage (Cassandra/RocksDB) + Kafka write buffering (Box 5).</td>
+    </tr>
+    <tr>
+      <td><strong>High Availability (Fault Tolerance)</strong></td>
+      <td><code>99.99%</code> (&le; 52.6 min downtime/yr)</td>
+      <td>Law 2 &amp; Law 4</td>
+      <td>Zero single points of failure (SPOFs): redundant Load Balancers (Box 1), Stateless Multi-AZ Pods (Box 2), Automatic DB Replica Failover / Leaderless Quorums (Box 6/7).</td>
+    </tr>
+    <tr>
+      <td><strong>High Durability</strong></td>
+      <td><code>99.999999999%</code> (11 Nines), <code>RPO = 0</code></td>
+      <td>Law 1 &amp; Law 4</td>
+      <td>Synchronous Write-Ahead Log (`fsync`) replicated across &ge;3 Availability Zones before returning HTTP 200 (Box 6) + Point-in-Time WAL Archiving to S3 (Box 7).</td>
+    </tr>
+    <tr>
+      <td><strong>Strong Consistency</strong></td>
+      <td>Linearizable / Serializable</td>
+      <td>Law 4 (CAP/PACELC)</td>
+      <td>Single-Leader primary reads/writes, `SELECT FOR UPDATE` / Serializable MVCC, or Raft/Paxos consensus groups (Spanner/CockroachDB in Box 6).</td>
+    </tr>
+    <tr>
+      <td><strong>Spike / Burst Resilience</strong></td>
+      <td>$10\times$ traffic flash sale in 1 second</td>
+      <td>Law 3 (Little's Law)</td>
+      <td>Edge Rate Limiting / Virtual Waiting Room (Box 1/3) + Async Queue decoupling (Box 5) + Warm Auto-Scaling pools (Box 7).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.3 Diagram — How One Feature Splits Along the NFR Spectrum</h3>
+<figure>
+<svg viewBox="0 0 860 240" width="100%" role="img" aria-label="How Functional vs Non-Functional Requirements drive two halves of the PulseStream system">
+  <style>
+    .fr{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.8}
+    .ap{fill:#eefaf4;stroke:#1f6b4d;stroke-width:1.8}
+    .cp{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.8}
+    .hd{font:bold 12.5px "SF Mono",Menlo,monospace;fill:#7a1f1f}
+    .tx{font:11.5px Georgia,serif;fill:#2b2b28}
+    .ar{stroke:#2b2b28;stroke-width:1.6;marker-end:url(#anfr);fill:none}
+  </style>
+  <defs><marker id="anfr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2b2b28"/></marker></defs>
+
+  <rect class="fr" x="15" y="65" width="235" height="110" rx="7"/>
+  <text class="hd" x="28" y="90">PulseStream User Flow</text>
+  <text class="tx" x="28" y="112">FR1: Browse Creator Feed</text>
+  <text class="tx" x="28" y="132">&amp; Like Count (Read-Heavy)</text>
+  <text class="tx" x="28" y="154">FR2: Buy VIP Pass ($100)</text>
+
+  <!-- Branch 1: AP for Feed -->
+  <rect class="ap" x="300" y="12" width="545" height="98" rx="7"/>
+  <text class="hd" x="315" y="34" style="fill:#1f6b4d">Path A — Feed &amp; Likes NFRs: 500K QPS, p99 &lt; 50ms, Eventual Consistency OK</text>
+  <text class="tx" x="315" y="56">&bull; If User B sees 10,402 likes instead of 10,403 for 2 seconds, nobody cares!</text>
+  <text class="tx" x="315" y="76">&bull; Architecture: CDN + Redis Cache-Aside + Async Kafka counter batching + Read Replicas.</text>
+  <text class="tx" x="315" y="96">&bull; Governing Law: Law 1 &amp; Law 4 (Trade temporary staleness for 100x speed &amp; availability).</text>
+
+  <!-- Branch 2: CP for Checkout -->
+  <rect class="cp" x="300" y="128" width="545" height="98" rx="7"/>
+  <text class="hd" x="315" y="150" style="fill:#1f4d7a">Path B — VIP Ticket Checkout NFRs: 2K QPS, p99 &lt; 400ms, ZERO Double-Selling</text>
+  <text class="tx" x="315" y="172">&bull; If 2 users buy Seat #1A or get charged twice, the business loses money &amp; trust!</text>
+  <text class="tx" x="315" y="192">&bull; Architecture: Idempotency Key + Leader SQL ACID TX + Sync Multi-AZ WAL + Outbox.</text>
+  <text class="tx" x="315" y="212">&bull; Governing Law: Law 4 (Pay synchronous coordination latency to guarantee strict correctness).</text>
+
+  <path class="ar" d="M250,100 L298,60"/>
+  <path class="ar" d="M250,140 L298,175"/>
+</svg>
+<figcaption>Staff-Level Insight: A single product (PulseStream) rarely has one global NFR! You decompose NFRs per domain path (AP for feeds/likes vs CP for payments/inventory).</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§4</span>When to use — Trade-Off Matrix (When NFRs Collide)</h2>
+
+<p>
+Because of <strong>Universal Law 4</strong> and <strong>Universal Law 5</strong>, you cannot maximize every NFR at the same time. Here is what happens when two NFRs collide:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>Colliding NFR Pair</th>
+      <th>Why They Conflict (First Principles)</th>
+      <th>How an Architect Resolves It</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Ultra-Low Latency (`&lt;10ms`) vs Strict Multi-Region Consistency</strong></td>
+      <td>Light in fiber takes `~70ms` one-way across the Atlantic (Law 1). You cannot synchronously wait for a quorum in Europe and still answer a US user in `10ms` (Law 4 / PACELC).</td>
+      <td>Pin each user's writes to a local Home Region (or use eventual consistency for non-financial reads) and reserve cross-region sync consensus only for rare critical state changes.</td>
+    </tr>
+    <tr>
+      <td><strong>99.999% Availability vs Lowest Cloud Cost</strong></td>
+      <td>Five Nines requires hot Active-Active multi-region redundancy ($2\times–3\times$ idle compute/DB headroom) to absorb a full region outage instantly.</td>
+      <td>Tier services by criticality: Tier-0 (Auth, Checkout) gets Multi-AZ/Multi-Region Active-Active; Tier-2 (Recommendations, Analytics) uses cheaper single-region with graceful degradation.</td>
+    </tr>
+    <tr>
+      <td><strong>Zero Data Loss (`RPO=0`) vs Maximum Write Throughput</strong></td>
+      <td>`RPO=0` requires `fsync` to disk + synchronous replication ACK from a standby before returning success (`~2–5ms` lock hold per write).</td>
+      <td>Use Group Commit (batching 100 concurrent WAL flushes into a single disk `fsync`) for financial data; use async replication (`acks=1`) for high-volume clickstream/telemetry logs.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§5</span>Explain it to a 12-year-old (The Feynman Pass)</h2>
+
+<p>
+Imagine you tell an engineer: <em>"Build me a vehicle that carries people from Point A to Point B."</em>
+</p>
+<ul>
+  <li><strong>"Carry people from Point A to Point B"</strong> is the <strong>Functional Requirement (FR)</strong>. A $100 bicycle, a family minivan, a Formula 1 race car, and an armored bank truck all satisfy that exact same functional requirement!</li>
+  <li>Now look at the <strong>Non-Functional Requirements (NFRs)</strong>:
+    <ul>
+      <li><em>"Must go 220 mph on a smooth track"</em> &rarr; You build a <strong>Formula 1 car</strong> (pure speed, zero trunk space—like an in-memory Redis cache!).</li>
+      <li><em>"Must survive a bomb blast and never lose the gold bars inside"</em> &rarr; You build a <strong>10-ton armored bank truck</strong> (slower, heavy locks, strict durability—like a synchronous ACID payment ledger!).</li>
+      <li><em>"Must carry 1,000 commuters every 5 minutes during rush hour"</em> &rarr; You build a <strong>10-car subway train</strong> (high throughput via batching—like Apache Kafka!).</li>
+    </ul>
+  </li>
+</ul>
+<p>
+If you start welding metal before asking about speed, armor, or passenger count, you will build a Formula 1 car for a bank robbery—or an armored tank for a bicycle race!
+</p>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§6</span>Dependency Graph &amp; Connections</h2>
+
+<pre>[Topic 002: HLD vs LLD] ──► <span class="h">[Topic 003: Functional vs Non-Functional Requirements]</span> ──► [Topic 004: Requirements Clarification]
+                                                     │
+                                                     └──► [Topics 007 &amp; 008: Latency/QPS/Little's Law &amp; Availability/Durability Nines]</pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§7</span>In practice — Production Incidents, Observability, Security, FinOps &amp; Interview Playbook</h2>
+
+<h3>7.1 Production Incident: Treating Availability and Durability as the Same Thing</h3>
+<div class="callout">
+  <strong>Incident: The Single-Node Redis "Database" Wipeout</strong>
+  <ul>
+    <li><strong>Symptoms:</strong> An EC2 host hardware reboot wiped 4 hours of user shopping carts and pending webhook state.</li>
+    <li><strong>Root Cause:</strong> The team needed low latency (`NFR: p99 &lt; 5ms`) and stored primary state in Redis with default `RDB snapshot every 15 minutes` and asynchronous replication, assuming "Redis Cluster is highly available, so our data is durable!"</li>
+    <li><strong>Key Distinction:</strong> <strong>Availability</strong> means the service answers requests right now; <strong>Durability</strong> means committed data survives power loss forever. They are independent NFRs!</li>
+    <li><strong>Prevention:</strong> Store durable truth in an ACID/WAL database (Box 6) and treat Box 4 (Redis) strictly as a disposable read cache—or if using Redis for transient locks/queues, pair with `AOF fsync=always/everysec` + fallback reconstruction from DB.</li>
+  </ul>
+</div>
+
+<h3>7.2 Interview Derivation Playbook (Junior vs Senior vs Staff/Principal)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Phase of Interview</th>
+      <th>Junior Candidate</th>
+      <th>Senior Candidate</th>
+      <th>Staff / Principal Candidate</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Defining Requirements (Minutes 1–5)</strong></td>
+      <td>Lists 10 functional features (login, profile picture, dark mode, forgot password, comments, shares) and skips NFRs.</td>
+      <td>Scopes down to top 3 core functional workflows and writes down concrete NFRs: DAU/QPS, p99 latency, CAP preference, availability target.</td>
+      <td>Splits NFRs <strong>by workflow path</strong> (e.g., <em>"Write path for seat booking requires strict CP serializability at 1,000 QPS with p99 &lt; 300ms; Read path for stadium seat map requires AP availability at 200,000 QPS with p99 &lt; 30ms and up to 2s staleness"</em>), immediately justifying why the two paths use different boxes!</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§8</span>Pitfalls &amp; Traps</h2>
+
+<div class="pitfall"><strong>⚠️ Pitfall 1 — Designing Login, Registration, and Forgot-Password in an HLD Interview:</strong> Unless the interview question is specifically <em>"Design an OAuth2 Identity Provider"</em>, never make Login/Signup one of your top 3 Functional Requirements! Focus on the unique core value of the prompt (e.g., for Uber: location ingestion + ride matching; for Twitter: post creation + home timeline generation).</div>
+
+<div class="pitfall"><strong>⚠️ Pitfall 2 — Claiming "Strong Consistency + 100% Availability + 10ms Global Latency" Across All Features:</strong> Interviewers will immediately challenge this with the CAP/PACELC theorem. Always specify <em>which</em> critical table gets strong consistency and <em>which</em> read-heavy views use eventual consistency.</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§9</span>Recap, Reference Cheat-Sheet &amp; Glossary</h2>
+
+<ul class="recap">
+  <li><strong>Functional Requirements (FRs) = The Verbs:</strong> Define the top 3–4 core user actions &rarr; maps to APIs and base schema.</li>
+  <li><strong>Non-Functional Requirements (NFRs) = The Physics:</strong> Quantify Latency (`p50/p99`), Throughput (`QPS`), Availability (`99.99%`), Durability (`RPO=0`), and Consistency (`CP vs AP`) &rarr; dictates all 7 Boxes.</li>
+  <li><strong>Split NFRs Per Path:</strong> Almost every real system mixes an AP read-heavy path (feeds, catalogs, search) with a CP write-critical path (payments, inventory, seat locks).</li>
+</ul>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>Functional Requirement (FR)</dt><dd>A statement of a specific behavior, input-output transformation, or user action that a system must perform.</dd>
+  <dt>Non-Functional Requirement (NFR)</dt><dd>A measurable quality attribute or constraint on how the system performs its functions (latency, throughput, availability, durability, consistency, security, cost).</dd>
+  <dt>Durability vs Availability</dt><dd><strong>Availability</strong> asks: <em>"Can I read/write right now?"</em> <strong>Durability</strong> asks: <em>"Once I write X, will X still exist 10 years from now even if servers catch fire?"</em></dd>
+</dl>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§10</span>Interactive Socratic Gate &amp; Sources</h2>
+
+<div class="gate">
+  <h3>🎯 Socratic Verification Gate — Topic 003 (Score &ge; 4/5 Required)</h3>
+  <ol>
+    <li><strong><code>[theory]</code>:</strong> Explain in plain English why two systems with the exact same Functional Requirement (<em>"Store and retrieve a list of items for a user"</em>) might need completely different architectures if one is a "Saved Bookmarks list" and the other is a "Stock Exchange Order Book."</li>
+    <li><strong><code>[practical]</code>:</strong> Turn this vague product manager statement into <strong>4 concrete, measurable NFRs</strong> with realistic numbers for an e-commerce checkout system: <em>"Checkout should be super fast, never go down during Black Friday, and never lose an order."</em></li>
+    <li><strong><code>[diagram]</code>:</strong> For our flagship app *PulseStream*, map each of these 4 NFRs to the primary <strong>Box (1–7)</strong> it forces us to introduce: (a) 500,000 read QPS on creator profiles, (b) 100,000 follower push notifications per post without blocking the HTTP thread, (c) stopping a malicious IP from sending 10,000 requests/sec, (d) surviving the total power loss of Availability Zone `us-east-1a`.</li>
+    <li><strong><code>[trade-offs]</code>:</strong> Distinguish <strong>Availability</strong> from <strong>Durability</strong>. Give one concrete scenario where a system is <strong>Durable but Temporarily Unavailable</strong>, and one scenario where a system is <strong>Available but Not Durable</strong>.</li>
+  </ol>
+</div>
+
+<h3>Sources &amp; Further Reading</h3>
+<ul class="sources">
+  <li><a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/the-pillars-of-the-framework.html">AWS Well-Architected Framework — The Six Pillars</a></li>
+  <li><a href="https://sre.google/sre-book/service-level-objectives/">Google SRE Book — Chapter 4: Service Level Objectives</a></li>
+  <li>Neal Ford &amp; Mark Richards — <em>Fundamentals of Software Architecture</em>, Chapter 4: Architecture Characteristics Defined.</li>
+</ul>
+
+</body>
+</html>

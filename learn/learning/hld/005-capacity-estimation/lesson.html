@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>005 · Capacity Estimation — HLD</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#2e7d32;--amber:#b85d00}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:900px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58;-webkit-font-smoothing:antialiased}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.65rem;margin-bottom:1.2rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  .status-hdr{background:#fff;border:1.5px solid var(--rule);border-left:5px solid var(--accent2);border-radius:6px;padding:.75rem 1rem;margin-bottom:1.5rem;font-size:.86rem;font-family:"SF Mono",Menlo,Consolas,monospace;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.14;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .55rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem;font-family:"SF Mono",Menlo,Consolas,monospace}
+  h3{font-size:1.13rem;margin:1.45rem 0 .35rem;color:var(--accent)}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.81rem;line-height:1.48;font-family:"SF Mono",Menlo,Consolas,monospace}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f} pre .h{color:#ffd166;font-weight:bold}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.98rem;margin:0 0 .45rem;text-transform:uppercase;letter-spacing:.03em}
+  .flow-steps{background:#fff8ee;border:1px solid var(--rule);border-radius:6px;padding:.85rem 1.1rem;margin:1rem 0;font-size:.94rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem}
+  .flow-steps li{margin:.35rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .gate{background:#fff8ee;border:2px dashed var(--accent);border-radius:8px;padding:1.15rem 1.3rem;margin:1.6rem 0}
+  .gate h3{margin-top:0;color:var(--accent)}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  @media print{body{padding:1rem;max-width:100%} pre{white-space:pre-wrap} .nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../004-requirements-clarification/lesson.html">004: Requirements Clarification</a></span>
+  <span><strong>Topic 005 of 140</strong> · Phase 1: Foundations</span>
+  <span><a href="../006-back-of-the-envelope-calculations/lesson.html">006: Back-of-the-Envelope Calculations</a> →</span>
+</nav>
+
+<div class="status-hdr">
+  <div><strong>Current Topic:</strong> #5 — Capacity Estimation</div>
+  <div><strong>7-Box Map Location:</strong> All 7 Boxes (Sizing NIC Bandwidth in Box 1, Pods in Box 2, RAM in Box 4, Brokers in Box 5, Disks/Shards in Box 6) | <strong>Depth Tag:</strong> [DEEP]</div>
+  <div><strong>Prerequisites Completed:</strong> [Topics #1–#4] &rarr; <strong>Unlocks Next:</strong> [Topic #6 — Back-of-the-Envelope Calculations]</div>
+  <div><strong>Progress:</strong> [0] Completed | [140] Remaining | [0] Needs Revision</div>
+</div>
+
+<h1>005 · Capacity Estimation</h1>
+<p class="crumb"><a href="../overview.html">High-Level System Design (HLD)</a> › Phase 1: Foundations › Topic 5 of 140 · <span style="color:#7a1f1f;font-weight:700">DEEP</span></p>
+
+<div class="tldr">
+  <strong>0. TL;DR in Simple English —</strong> Capacity Estimation is NOT doing math for the sake of math on a whiteboard. It is a <strong>5-Step Sizing Formula</strong> (Traffic QPS &rarr; Peak QPS &rarr; Storage Growth &rarr; Cache RAM Working Set &rarr; Network Bandwidth &amp; Server Count) where <strong>every number you calculate directly proves whether 1 server is enough or whether you are forced to shard, cache, or offload to a CDN</strong>.
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§1</span>Where it fits — 🧭 You Are Here on the 7-Box Master Map</h2>
+
+<div class="map-banner">
+  <div class="map-title">🧭 You Are Here: Every Capacity Number Sizes One Specific Box on the 7-Box Map</div>
+<pre>               [Input from Topic 004: DAU = 50M, Read:Write = 20:1, Payload = 2 KB + 1 MB Image]
+                                                      │
+         ┌──────────────────────┬─────────────────────┼─────────────────────┬──────────────────────┐
+         ▼                      ▼                     ▼                     ▼                      ▼
+┌─────────────────┐  ┌───────────────────┐  ┌──────────────────┐  ┌──────────────────┐  ┌───────────────────┐
+│ <span class="h">1. BANDWIDTH</span>    │  │ <span class="h">2. PEAK QPS</span>       │  │ <span class="h">3. HOT WORKING</span>   │  │ <span class="h">4. WRITE QPS</span>     │  │ <span class="h">5. 5-YR STORAGE</span>   │
+│ Ingress/Egress  │  │ Avg QPS &times; PeakFactor│  │    <span class="h">SET (20% Rule)</span>│  │   &amp; FAN-OUT      │  │   &amp; IOPS          │
+│ (Gbps)          │  │ (Requests/sec)    │  │ (GB of RAM)      │  │ (Events/sec)     │  │ (TB / PB on Disk) │
+└────────┬────────┘  └─────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘  └─────────┬─────────┘
+         ▼                     ▼                     ▼                     ▼                      ▼
+  Sizes <span class="h">BOX 1</span>            Sizes <span class="h">BOX 2 &amp; 3</span>       Sizes <span class="h">BOX 4</span>          Sizes <span class="h">BOX 5</span>            Sizes <span class="h">BOX 6</span>
+ (CDN &amp; LB NICs)      (Spring Boot Pod Count) (Redis Cluster RAM)  (Kafka Partitions)   (DB Shards + S3 Storage)</pre>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§2</span>Why it exists — The Naive Failure of Designing "Blind" Without Numbers</h2>
+
+<p>
+Watch what happens when an engineer designs a system without estimating capacity first:
+</p>
+<ul>
+  <li><strong>Failure Case A (Under-Sizing by $100\times$):</strong> For <strong>PulseStream</strong> (`50M DAU`, each uploading `1 photo/day` of `2 MB`), the engineer decides to store images inside PostgreSQL `BYTEA` columns on a single 4 TB SSD. How long until the database disk hits 100% full and crashes?
+    <br/>$\text{Daily Image Storage} = 50,000,000 \times 2\text{ MB} = 100\text{ TB per day!}$
+    <br/>Their 4 TB database explodes in <strong>57 minutes</strong> on Day 1! Doing 10 seconds of capacity math beforehand immediately proves: <em>"100 TB/day cannot live in PostgreSQL; media MUST go to S3 Object Storage + CDN!"</em></li>
+  <li><strong>Failure Case B (Over-Engineering by $100\times$):</strong> For a B2B SaaS invoicing portal with `10,000 DAU` generating `20,000 invoices/day`, the engineer proposes a 16-shard Cassandra cluster.
+    <br/>$\text{Write QPS} = \frac{20,000}{100,000\text{ sec/day}} = 0.2\text{ writes/second!}$
+    <br/>$\text{5-Year Storage} = 20,000 \times 365 \times 5 \times 2\text{ KB} \approx 73\text{ GB total!}$
+    <br/>73 GB and 0.2 QPS fits on a single tiny PostgreSQL instance with 99.9% idle CPU!</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§3</span>How it works — The 5-Step Capacity Estimation Engine</h2>
+
+<h3>3.1 Formal 5-Step Equations</h3>
+<p>
+In every system design problem, execute these <strong>5 steps in order</strong> (using $1\text{ day} = 86,400\text{ seconds} \approx 10^5\text{ seconds}$):
+</p>
+
+<pre><span class="c">// ============================================================================</span>
+<span class="c">// STEP 1: TRAFFIC / QPS (Queries Per Second)</span>
+<span class="c">// ============================================================================</span>
+Avg Write QPS  = (DAU * Writes_Per_User_Per_Day) / 100,000
+Avg Read QPS   = (DAU * Reads_Per_User_Per_Day)  / 100,000
+Peak QPS       = Avg QPS * Peak_Multiplier       <span class="c">// Usually 2x to 5x (or 10x+ for flash events)</span>
+
+<span class="c">// ============================================================================</span>
+<span class="c">// STEP 2: STORAGE (Structured Metadata vs Unstructured Media Blobs)</span>
+<span class="c">// ============================================================================</span>
+Daily Structured DB Storage = (Daily Writes) * (Row + Index Size in Bytes)
+5-Year Structured Storage   = Daily_DB_Storage * 365 * 5 * Replication_Factor(3)
+Daily Blob/S3 Storage       = (Daily Media Uploads) * (AvgCompressedFileSize)
+
+<span class="c">// ============================================================================</span>
+<span class="c">// STEP 3: CACHE MEMORY (The 80/20 Pareto Rule — Box 4 Sizing)</span>
+<span class="c">// ============================================================================</span>
+<span class="c">// 20% of daily active content generates 80% of reads:</span>
+Cache RAM Needed = 0.20 * (Daily Active Read Dataset Size) * (HashMap Overhead ~1.4x)
+
+<span class="c">// ============================================================================</span>
+<span class="c">// STEP 4: NETWORK BANDWIDTH (Ingress &amp; Egress — Box 1 Sizing)</span>
+<span class="c">// ============================================================================</span>
+Ingress Bandwidth (Bytes/sec) = Peak_Write_QPS * Avg_Request_Payload_Bytes
+Egress Bandwidth  (Bytes/sec) = Peak_Read_QPS  * Avg_Response_Payload_Bytes
+<span class="c">// Multiply Bytes/sec by 8 to get bits/sec (Gbps) for NIC capacity!</span>
+
+<span class="c">// ============================================================================</span>
+<span class="c">// STEP 5: COMPUTE &amp; STORAGE NODE COUNT (Connecting Math -&gt; Architecture!)</span>
+<span class="c">// ============================================================================</span>
+Stateless App Servers = Peak_QPS / (Max_QPS_Per_Server_At_60%_Headroom)
+DB Shards Needed      = MAX( Total_Storage / Max_Disk_Per_Shard,  Peak_Write_QPS / Max_Writes_Per_Shard )</pre>
+
+<h3>3.2 Reference Baselines: What Can ONE Modern Cloud Server Actually Handle?</h3>
+<p>
+To convert QPS and GB into a server count, keep these conservative single-node production limits in your head
+<span class="sources">(<a href="https://sre.google/workbook/non-abstract-design/">Google SRE Workbook — Non-Abstract Large System Design</a>)</span>:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>Component (Single Production Node, e.g. 16–32 vCPU, 64–128 GB RAM, NVMe SSD)</th>
+      <th>Safe Sustainable Throughput / Capacity (With 40% Headroom)</th>
+      <th>When You MUST Add Replicas or Shards</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Box 1: L7 Reverse Proxy / Envoy / Nginx</strong></td>
+      <td><code>~50,000 – 100,000 QPS</code>; <code>~500,000</code> concurrent idle TLS/WebSocket connections</td>
+      <td>When QPS &gt; 50K or active sockets &gt; 300K per Gateway node.</td>
+    </tr>
+    <tr>
+      <td><strong>Box 2: Stateless Spring Boot Pod (8 vCPU, 16 GB RAM)</strong></td>
+      <td><code>~2,000 – 5,000 QPS</code> (for typical JSON + DB/Cache I/O endpoints); <code>~500 QPS</code> if CPU-heavy</td>
+      <td>Divide Peak QPS by <code>3,000 QPS/pod</code> to get your pod fleet size.</td>
+    </tr>
+    <tr>
+      <td><strong>Box 4: Single Redis Instance (1 Core Event Loop)</strong></td>
+      <td><code>~50,000 – 100,000 QPS</code> (`O(1)` GET/SET); <code>~50 – 64 GB</code> max RAM per instance (for fast `fork()` snapshots)</td>
+      <td>When hot working set &gt; 50 GB RAM or Cache QPS &gt; 80K (or 1 hot key &gt; 100K QPS &rarr; add L1 local cache!).</td>
+    </tr>
+    <tr>
+      <td><strong>Box 5: Single Kafka Broker Node</strong></td>
+      <td><code>~50,000 – 200,000 msgs/sec</code> (`100–300 MB/s` sequential disk throughput)</td>
+      <td>When streaming throughput exceeds `100 MB/s` per broker or storage exceeds `4–8 TB`/broker.</td>
+    </tr>
+    <tr>
+      <td><strong>Box 6: Single Relational DB Node (PostgreSQL / MySQL)</strong></td>
+      <td><strong>Writes:</strong> <code>~3,000 – 10,000 ACID writes/sec</code><br/><strong>Simple Indexed Reads:</strong> <code>~10,000 – 25,000 reads/sec</code><br/><strong>Storage:</strong> <code>~2 – 5 TB</code> per node before index rebuilds/backups get painful</td>
+      <td>Read QPS &gt; 15K &rarr; <strong>Add Cache + Read Replicas</strong>.<br/>Write QPS &gt; 8K or DB Size &gt; 4 TB &rarr; <strong>Shard the DB</strong>!</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.3 Worked Walkthrough — Full Capacity Estimation for <em>PulseStream</em> (50M DAU)</h3>
+<div class="flow-steps">
+  <strong>Let's run the 5-Step Engine on PulseStream (50M DAU, 2 posts/user/day, 40 feed reads/user/day, 20% posts have a 500 KB compressed image):</strong>
+  <ol>
+    <li><strong>Step 1 (QPS):</strong>
+      <ul>
+        <li>$\text{Avg Write QPS} = \frac{50\text{M} \times 2}{100,000\text{ s}} = \mathbf{1,000\text{ writes/sec}}$ &rarr; $\text{Peak Write QPS (3x)} = \mathbf{3,000\text{ writes/sec}}$.</li>
+        <li>$\text{Avg Read QPS} = \frac{50\text{M} \times 40}{100,000\text{ s}} = \mathbf{20,000\text{ reads/sec}}$ &rarr; $\text{Peak Read QPS (3x)} = \mathbf{60,000\text{ reads/sec}}$.</li>
+      </ul>
+    </li>
+    <li><strong>Step 2 (Storage — Post Metadata vs Media Blobs):</strong>
+      <ul>
+        <li><strong>Metadata Row Size:</strong> `post_id (8B) + author_id (8B) + text (500B) + media_url (100B) + indexes (~384B)` $\approx \mathbf{1\text{ KB/post}}$.</li>
+        <li><strong>Daily Metadata Storage:</strong> $100\text{M posts/day} \times 1\text{ KB} = \mathbf{100\text{ GB/day}} \implies \mathbf{36.5\text{ TB/year}} \implies \mathbf{182.5\text{ TB over 5 years}}$.</li>
+        <li><strong>Daily Media Blob Storage (S3):</strong> $100\text{M} \times 20\% = 20\text{M images/day} \times 500\text{ KB} = \mathbf{10\text{ TB/day}} \implies \mathbf{18.25\text{ PB over 5 years}}$.</li>
+      </ul>
+    </li>
+    <li><strong>Step 3 (Cache RAM — Box 4):</strong>
+      <ul>
+        <li>Caching the hot 20% of the last 7 days of post metadata: $0.20 \times (7 \times 100\text{ GB}) = \mathbf{140\text{ GB of Redis RAM}}$ (easily fits in a <strong>4-primary + 4-replica Redis Cluster</strong> with 64 GB RAM per node!).</li>
+      </ul>
+    </li>
+    <li><strong>Step 4 (Bandwidth — Box 1):</strong>
+      <ul>
+        <li><strong>Metadata Egress:</strong> $60,000\text{ peak reads/s} \times (20\text{ posts/feed} \times 1\text{ KB}) = 1.2\text{ GB/s} = \mathbf{9.6\text{ Gbps}}$.</li>
+        <li><strong>Image Egress (Offloaded to CDN):</strong> $60,000\text{ reads/s} \times 2\text{ images viewed} \times 500\text{ KB} = 60\text{ GB/s} = \mathbf{480\text{ Gbps}}$ (Proves why a CDN is mandatory—480 Gbps would melt origin NICs!).</li>
+      </ul>
+    </li>
+    <li><strong>Step 5 (Architectural Decisions Unlocked by Our Numbers):</strong>
+      <ul>
+        <li><code>Peak Write QPS = 3,000/s</code> fits on 1 primary DB for CPU, <strong>BUT</strong> <code>5-Year Metadata = 182.5 TB</code> exceeds the `~4 TB/shard` operational limit &rarr; <strong>We MUST shard PostgreSQL into 64 shards (~3 TB/shard)</strong>!</li>
+        <li><code>Peak Read QPS = 60,000/s</code> would overwhelm a single DB (`~15K reads/s`) &rarr; <strong>Redis Cluster (140 GB RAM) absorbs 95% of reads</strong>, leaving only `3,000 cache-miss reads/s` across the 64 DB shards (`~47 reads/s` per shard!).</li>
+        <li><code>Stateless App Pods</code> = $\frac{60,000\text{ Peak QPS}}{3,000\text{ QPS/pod}} = \mathbf{20\text{ Spring Boot pods}}$ across 3 Availability Zones.</li>
+      </ul>
+    </li>
+  </ol>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§4</span>When to use — Trade-Off Matrix (Right-Sizing vs Over-Provisioning)</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Sizing Strategy</th>
+      <th>Pros</th>
+      <th>Cons</th>
+      <th>When to Use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Design for 2–3&times; Current Peak + Horizontal Shard Hooks</strong></td>
+      <td>Optimal cost-to-safety balance; avoids premature 100-node complexity while ensuring no rewrite at $3\times$ growth.</td>
+      <td>Requires proactive capacity review every 6–12 months.</td>
+      <td><strong>Default Staff-level recommendation</strong> in production and interviews.</td>
+    </tr>
+    <tr>
+      <td><strong>Design for 100&times; Current Scale on Day 1</strong></td>
+      <td>Zero re-architecture if the app goes viral overnight.</td>
+      <td>Massive cloud waste ($50K/month for 100 users) and high operational tax.</td>
+      <td>Only when launching a guaranteed day-1 global product (e.g., Apple/Google OS service or World Cup streaming).</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§5</span>Explain it to a 12-year-old (The Feynman Pass)</h2>
+
+<p>
+Imagine you are planning the school pizza party for 500 kids:
+</p>
+<ul>
+  <li>If you just say <em>"Buy some pizzas and tables!"</em> without doing 60 seconds of math, you might buy 5 pizzas (everyone starves!) or 5,000 pizzas (you waste $50,000!).</li>
+  <li>Instead, you do 4 lines of simple party math:
+    <ol>
+      <li><code>500 kids &times; 2 slices each = 1,000 slices</code> (<strong>Total Volume</strong>).</li>
+      <li><code>1,000 slices &divide; 8 slices per box = 125 pizza boxes</code> (<strong>Storage / Database Shards</strong>).</li>
+      <li>All 500 kids rush the table during the 10-minute lunch bell = <code>50 kids per minute</code> (<strong>Peak QPS</strong>).</li>
+      <li>1 parent can serve 10 kids per minute, so you need <code>50 &divide; 10 = 5 serving lines</code> (<strong>Stateless App Servers behind a Load Balancer</strong>).</li>
+    </ol>
+  </li>
+</ul>
+<p>
+Every number tells you exactly how many pizza boxes and how many serving lines to set up!
+</p>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§6</span>Dependency Graph &amp; Connections</h2>
+
+<pre>[Topic 004: Clarification] ──► <span class="h">[Topic 005: Capacity Estimation]</span> ──► [Topic 006: Back-of-the-Envelope Mental Math]
+                                              │
+                                              └──► [Topic 100: Production Capacity Planning &amp; Load Testing]</pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§7</span>In practice — Production Incidents, FinOps &amp; Interview Playbook</h2>
+
+<h3>7.1 Production Incident: The Forgotten Index &amp; Replication Multiplier</h3>
+<div class="callout">
+  <strong>Incident: Why a "1 TB" Database Filled a 4 TB Disk in Production</strong>
+  <ul>
+    <li><strong>Symptoms:</strong> Disk utilization alert fired at `92% full` on a 4 TB NVMe volume even though raw row data was calculated at only `1.1 TB`.</li>
+    <li><strong>Root Cause:</strong> The capacity estimate multiplied `rows &times; raw column bytes`, forgetting:
+      <ol>
+        <li><strong>Secondary B+Tree Indexes</strong> (4 indexes added $+80\%$ storage overhead),</li>
+        <li><strong>MVCC Dead Tuple / Compaction Headroom</strong> (PostgreSQL VACUUM / Cassandra LSM compaction requires $30\%–50\%$ free disk space to merge files without failing!), and</li>
+        <li><strong>Write-Ahead Log (WAL) retention</strong> during long backups.</li>
+      </ol>
+    </li>
+    <li><strong>Rule of Thumb:</strong> Always multiply raw row size by <strong>$1.5\times–2\times$ for indexes/overhead</strong>, and never run storage disks above <strong>$70\%$ capacity</strong>.</li>
+  </ul>
+</div>
+
+<h3>7.2 Interview Derivation Playbook (How to Make Capacity Math Score Staff-Level Points)</h3>
+<div class="idiom">
+  <strong>The Golden Rule of Interview Math:</strong> Never write a number on the board and walk away from it! Immediately finish every calculation with the sentence: <strong>"...and therefore, on the 7-Box Map, this number forces us to do X."</strong>
+  <ul>
+    <li><em>Bad:</em> "Storage is 180 TB over 5 years. Okay, next let's draw the API."</li>
+    <li><em>Staff-Level:</em> "Storage is 180 TB over 5 years. Since a single PostgreSQL instance becomes operationally painful around 4 TB, <strong>this 180 TB number proves a single database won't work—we need ~64 shards partitioned by `user_id`</strong>."</li>
+  </ul>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§8</span>Pitfalls &amp; Traps</h2>
+
+<div class="pitfall"><strong>⚠️ Pitfall 1 — Sizing for Average QPS Instead of Peak QPS:</strong> If average traffic over 24 hours is `10,000 QPS`, traffic at 4 A.M. is `1,000 QPS` and traffic at 8 P.M. is `30,000+ QPS`. Sizing pods or DB connections for Average QPS guarantees your system crashes every single evening at 8 P.M.! Always size compute, bandwidth, and rate limiters for <strong>Peak QPS</strong>.</div>
+
+<div class="pitfall"><strong>⚠️ Pitfall 2 — Mixing Up Bytes (`B`) and Bits (`b`) in Bandwidth Math:</strong> Network cards are rated in <strong>Gigabits per second (`Gbps`)</strong>, while payloads are measured in <strong>Bytes (`KB` / `MB`)</strong>. Remember: $\mathbf{1\text{ Byte} = 8\text{ bits}}$. Moving `1.25 GB/sec` of data saturates a `10 Gbps` network link!</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§9</span>Recap &amp; Glossary</h2>
+
+<ul class="recap">
+  <li><strong>The 5-Step Capacity Loop:</strong> (1) Avg &amp; Peak QPS &rarr; (2) 5-Year Metadata &amp; Blob Storage &rarr; (3) 20% Hot Cache RAM &rarr; (4) Ingress/Egress Bandwidth &rarr; (5) Node/Shard Counts.</li>
+  <li><strong>Single-Node Anchors:</strong> 1 Spring Boot pod $\approx 3\text{K QPS}$; 1 Redis node $\approx 80\text{K QPS} / 50\text{ GB RAM}$; 1 SQL Primary $\approx 5\text{K–10K writes/s} / 4\text{ TB disk}$; 1 Kafka broker $\approx 100\text{K msgs/s}$.</li>
+  <li><strong>Always Tie Math to Boxes:</strong> Every number must justify a specific architectural choice (CDN, Redis size, Shard count, or Pod count).</li>
+</ul>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>Working Set</dt><dd>The subset of total stored data that is actively queried in a given time window (often modeled via the 80/20 Pareto rule) and must fit in RAM/Cache to avoid disk IOPS bottlenecks.</dd>
+  <dt>Headroom</dt><dd>Reserved spare capacity (typically 30%–40% of CPU/disk/IOPS) kept free to absorb unexpected traffic bursts, GC pauses, and Availability Zone failovers without breaching latency SLOs.</dd>
+</dl>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§10</span>Interactive Socratic Gate &amp; Sources</h2>
+
+<div class="gate">
+  <h3>🎯 Socratic Verification Gate — Topic 005 (Score &ge; 4/5 Required)</h3>
+  <ol>
+    <li><strong><code>[theory]</code>:</strong> Why do we always separate <strong>Structured Metadata Storage</strong> (e.g., `1 KB` post JSON/SQL row) from <strong>Unstructured Media Blob Storage</strong> (e.g., `2 MB` photo / `50 MB` video) during capacity estimation, and which two different storage systems in Box 6 do they map to?</li>
+    <li><strong><code>[practical]</code>:</strong> Run the 5-Step Capacity Estimation for a **URL Shortener (TinyURL)** with `100M new URLs created per month`, a `100:1 Read-to-Write ratio`, `500 Bytes` per database record, a `3x Peak-to-Average multiplier`, and a `5-year retention policy`. Calculate: (a) Avg &amp; Peak Write QPS, (b) Avg &amp; Peak Read QPS, (c) 5-Year Storage, and (d) Cache RAM needed to hold 20% of daily active URLs.</li>
+    <li><strong><code>[diagram]</code>:</strong> Based on your URL Shortener numbers from Question 2, state whether you need to shard the SQL database or if 1 Primary SQL DB + Redis Cache + Read Replicas is enough, and justify your answer using the Single-Node Baseline limits!</li>
+    <li><strong><code>[trade-offs]</code>:</strong> Why is it dangerous to operate a database disk at `95% capacity` or a stateless Spring Boot CPU pool at `92% utilization` during normal peak traffic?</li>
+  </ol>
+</div>
+
+<h3>Sources &amp; Further Reading</h3>
+<ul class="sources">
+  <li><a href="https://sre.google/workbook/non-abstract-design/">Google SRE Workbook — Chapter 12: Non-Abstract Large System Design (Capacity &amp; Back-of-the-Envelope Math)</a></li>
+  <li><a href="https://sre.google/sre-book/capacity-planning/">Google SRE Book — Chapter 18: Software Engineering in SRE (Capacity Planning)</a></li>
+</ul>
+
+</body>
+</html>

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>002 · HLD vs LLD and Architectural Thinking — HLD</title>
+<style>
+  :root{--ink:#2b2b28;--muted:#6b675e;--rule:#d9d3c7;--bg:#fdfbf6;--accent:#7a1f1f;--accent2:#1f4d7a;--code-bg:#f4f0e6;--ok:#1f6b4d;--spring:#2e7d32;--amber:#b85d00}
+  *{box-sizing:border-box} html{font-size:17px}
+  body{margin:0 auto;max-width:900px;padding:3rem 1.5rem 6rem;background:var(--bg);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;line-height:1.58;-webkit-font-smoothing:antialiased}
+  .nav{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:var(--muted);
+    border-bottom:1px solid var(--rule);padding-bottom:.65rem;margin-bottom:1.2rem;flex-wrap:wrap;gap:.5rem}
+  .nav a{color:var(--accent2);text-decoration:none;font-weight:600}
+  .nav a:hover{text-decoration:underline}
+  .status-hdr{background:#fff;border:1.5px solid var(--rule);border-left:5px solid var(--accent2);border-radius:6px;padding:.75rem 1rem;margin-bottom:1.5rem;font-size:.86rem;font-family:"SF Mono",Menlo,Consolas,monospace;line-height:1.55}
+  h1{font-size:2.2rem;line-height:1.14;margin:0 0 .25rem;letter-spacing:-.01em}
+  .crumb{color:var(--muted);font-size:.92rem;margin:0 0 1.4rem}
+  h2{font-size:1.42rem;margin:2.5rem 0 .55rem;border-bottom:2px solid var(--rule);padding-bottom:.25rem}
+  h2 .n{color:var(--accent);font-size:.9rem;font-weight:700;margin-right:.5rem;font-family:"SF Mono",Menlo,Consolas,monospace}
+  h3{font-size:1.13rem;margin:1.45rem 0 .35rem;color:var(--accent)}
+  p{margin:.65rem 0} a{color:var(--accent2)}
+  code{background:var(--code-bg);padding:.08em .35em;border-radius:3px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em}
+  pre{background:#282520;color:#f3eede;padding:1rem 1.2rem;border-radius:8px;overflow:auto;font-size:.81rem;line-height:1.48;font-family:"SF Mono",Menlo,Consolas,monospace}
+  pre .c{color:#8fb98f} pre .k{color:#e0a458} pre .s{color:#9fc6e0} pre .an{color:#6db33f} pre .h{color:#ffd166;font-weight:bold}
+  .tldr{background:#fff8ee;border:1px solid var(--rule);border-left:5px solid var(--accent);padding:1rem 1.2rem;border-radius:6px;margin:1.2rem 0}
+  .map-banner{background:#f7f4ec;border:2px solid var(--accent2);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+  .map-banner .map-title{font-weight:700;color:var(--accent2);font-size:.98rem;margin:0 0 .45rem;text-transform:uppercase;letter-spacing:.03em}
+  .flow-steps{background:#fff8ee;border:1px solid var(--rule);border-radius:6px;padding:.85rem 1.1rem;margin:1rem 0;font-size:.94rem}
+  .flow-steps ol{margin:.3rem 0 0;padding-left:1.3rem}
+  .flow-steps li{margin:.35rem 0}
+  figure{margin:1.6rem 0;text-align:center} figcaption{color:var(--muted);font-size:.9rem;font-style:italic;margin-top:.5rem}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.91rem}
+  th,td{border:1px solid var(--rule);padding:.48rem .62rem;text-align:left;vertical-align:top} th{background:#f1ece0}
+  .callout{background:#eef3f7;border-left:4px solid var(--accent2);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:1.1rem 0}
+  .pitfall{background:#fbeeee;border-left:4px solid var(--accent);padding:.75rem 1.1rem;border-radius:0 6px 6px 0;margin:.85rem 0}
+  .gate{background:#fff8ee;border:2px dashed var(--accent);border-radius:8px;padding:1.15rem 1.3rem;margin:1.6rem 0}
+  .gate h3{margin-top:0;color:var(--accent)}
+  .glossary dt{font-weight:700;margin-top:.55rem} .glossary dd{margin:0;color:#3f3b34}
+  .sources{font-size:.85rem;color:var(--muted)} ul.recap li{margin:.38rem 0}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.4rem 0}
+  @media print{body{padding:1rem;max-width:100%} pre{white-space:pre-wrap} .nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Lesson navigation">
+  <span>← <a href="../001-what-is-system-design/lesson.html">001: What is System Design?</a></span>
+  <span><strong>Topic 002 of 140</strong> · Phase 1: Foundations</span>
+  <span><a href="../003-functional-vs-non-functional-requirements/lesson.html">003: Functional vs Non-Functional Requirements</a> →</span>
+</nav>
+
+<div class="status-hdr">
+  <div><strong>Current Topic:</strong> #2 — HLD vs LLD and Architectural Thinking</div>
+  <div><strong>7-Box Map Location:</strong> Pre-Map (Macro Process/Network Topology vs Micro In-JVM Class Topology) | <strong>Depth Tag:</strong> [SKIM]</div>
+  <div><strong>Prerequisites Completed:</strong> [Topic #1 — What is System Design?] &rarr; <strong>Unlocks Next:</strong> [Topic #3 — Functional vs Non-Functional Requirements]</div>
+  <div><strong>Progress:</strong> [0] Completed | [140] Remaining | [0] Needs Revision</div>
+</div>
+
+<h1>002 · HLD vs LLD and Architectural Thinking</h1>
+<p class="crumb"><a href="../overview.html">High-Level System Design (HLD)</a> › Phase 1: Foundations › Topic 2 of 140 · <span style="color:#1f6b4d;font-weight:700">SKIM</span></p>
+
+<div class="tldr">
+  <strong>0. TL;DR in Simple English —</strong> <strong>Low-Level Design (LLD)</strong> is how you organize classes, interfaces, and thread locks <em>inside one single JVM process</em> so the code is clean and maintainable. <strong>High-Level Design (HLD)</strong> is how you connect multiple processes, load balancers, caches, queues, and databases <em>across a network</em> so the whole system survives machine crashes and millions of users. Architectural thinking means knowing which decisions are expensive to reverse (the wires between boxes) vs cheap to refactor (a helper class inside a box).
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§1</span>Where it fits — 🧭 You Are Here on the 7-Box Master Map</h2>
+
+<div class="map-banner">
+  <div class="map-title">🧭 You Are Here: Macro Map (HLD = All 7 Boxes) vs Micro Zoom (LLD = Inside One Box 2 Worker)</div>
+<pre>┌───────────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">HLD (HIGH-LEVEL DESIGN) = THE CITY PLAN ACROSS ALL 7 BOXES</span>                        │
+│ [Box 1: CDN/LB/GW] ──► [Box 2: Compute Fleet] ──► [Box 4: Redis] / [Box 5: Kafka] │
+│                                │                                                  │
+│                                ▼                                                  │
+│                      [Box 6: Sharded SQL + S3]   +   [Box 7: Multi-Region &amp; Ops]  │
+└────────────────────────────────┬──────────────────────────────────────────────────┘
+                                 │  Zoom inside ONE Box 2 Spring Boot JVM process:
+                                 ▼
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│ <span class="h">LLD (LOW-LEVEL DESIGN) = THE ROOM BLUEPRINT INSIDE ONE PROCESS</span>                    │
+│ Controller ──► PaymentService (Interface) ──► StripeGatewayAdapter (Strategy)     │
+│ Domain Entities, Value Objects, SOLID, Factory/Builder, ReentrantLock, Unit Tests │
+└───────────────────────────────────────────────────────────────────────────────────┘</pre>
+  <p style="margin:.4rem 0 0;font-size:.9rem">
+    <strong>Governing Laws:</strong> Law 1 (Nanosecond in-memory calls vs Millisecond network calls), Law 2 (In-JVM state vs Distributed state), Law 5 (Trade-offs).
+  </p>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§2</span>Why it exists — The Naive Failure When Engineers Confuse HLD and LLD</h2>
+
+<p>
+Why do strong coders sometimes fail System Design interviews—or build unscalable systems in production? Because they apply <strong>in-process LLD assumptions</strong> across a <strong>distributed HLD boundary</strong> (or vice versa):
+</p>
+
+<pre><span class="c">// TRAP #1: Applying an LLD tool (synchronized / ReentrantLock) to an HLD problem!</span>
+<span class="an">@Service</span>
+<span class="k">public class</span> TicketBookingService {
+    <span class="c">// Works GREAT in LLD when only 1 JVM exists.</span>
+    <span class="c">// FAILS COMPLETELY in HLD when 10 Spring Boot pods run behind a Load Balancer!</span>
+    <span class="c">// Pod 1's JVM monitor lock has ZERO visibility into Pod 2's JVM memory (Universal Law 2).</span>
+    <span class="k">public synchronized</span> Ticket bookSeat(<span class="k">long</span> showId, <span class="k">int</span> seatNumber) {
+        <span class="k">if</span> (seatRepo.isAvailable(showId, seatNumber)) {
+            <span class="k">return</span> seatRepo.assignSeat(showId, seatNumber); <span class="c">// DOUBLE-BOOKED by Pod 2!</span>
+        }
+        <span class="k">throw new</span> SeatTakenException();
+    }
+}
+
+<span class="c">// TRAP #2: Treating an HLD Network RPC as if it were a 1-nanosecond LLD method call!</span>
+<span class="k">for</span> (Order o : hundredOrders) {
+    <span class="c">// In LLD: userMap.get(o.userId()) takes 50 nanoseconds (in-RAM HashMap).</span>
+    <span class="c">// In HLD: userServiceClient.getUser(o.userId()) takes 5 milliseconds over TCP!</span>
+    <span class="c">// 100 iterations = 500ms of sequential network waiting (The Distributed N+1 Problem).</span>
+    User u = userServiceClient.getUser(o.getUserId());
+}</pre>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§3</span>How it works — Formal Comparison, Internals, C4 Diagram &amp; Scale Evolution</h2>
+
+<h3>3.1 Formal Comparison: LLD vs HLD Across Every Engineering Dimension</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Dimension</th>
+      <th>Low-Level Design (LLD / Object-Oriented Design)</th>
+      <th>High-Level Design (HLD / Distributed Systems Design)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Execution Boundary</strong></td>
+      <td><strong>Single OS Process / Single JVM Heap</strong> (shared memory address space).</td>
+      <td><strong>Multiple Machines / Containers / Datacenters</strong> connected over TCP/IP networks.</td>
+    </tr>
+    <tr>
+      <td><strong>Communication Cost (Law 1)</strong></td>
+      <td>Method call on stack: <code>~1–10 nanoseconds</code>; zero serialization; cannot drop halfway through a call.</td>
+      <td>Network RPC / HTTP / gRPC: <code>~500 &mu;s – 150 ms</code>; requires JSON/Protobuf serialization; packets can drop, timeout, or arrive twice.</td>
+    </tr>
+    <tr>
+      <td><strong>Concurrency &amp; Locking (Law 2)</strong></td>
+      <td><code>synchronized</code>, <code>ReentrantLock</code>, <code>AtomicLong</code>, <code>ConcurrentHashMap</code>.</td>
+      <td>Database row locks (<code>SELECT FOR UPDATE</code>), Optimistic MVCC versions, Distributed Locks with Fencing Tokens, Partitioned Kafka logs.</td>
+    </tr>
+    <tr>
+      <td><strong>Failure Mode</strong></td>
+      <td><strong>All-or-Nothing Crash</strong> (or caught Java <code>Exception</code>). If the JVM dies, the caller and callee inside it die together.</td>
+      <td><strong>Partial Failure:</strong> Service A sends a payment request to Service B and gets a <code>SocketTimeoutException</code>—did Service B charge the card before crashing or not?</td>
+    </tr>
+    <tr>
+      <td><strong>Core Building Blocks</strong></td>
+      <td>Classes, Interfaces, SOLID Principles, GoF Design Patterns (Strategy, Factory, Observer, Decorator), Thread Pools.</td>
+      <td>The 7 Boxes: CDN, Load Balancers, API Gateways, Stateless Compute, Circuit Breakers, Redis Caches, Kafka Brokers, Sharded SQL/NoSQL, S3.</td>
+    </tr>
+    <tr>
+      <td><strong>What Interviewers Test</strong></td>
+      <td><em>"Design a Parking Lot / Elevator / Vending Machine / Rate Limiter class hierarchy"</em> — extensibility, clean APIs, thread-safe in-memory state.</td>
+      <td><em>"Design Uber / WhatsApp / Payment Ledger for 100M users"</em> — capacity math, data partitioning, caching, consistency, fault tolerance.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.2 Strip the Magic — What "Architectural Thinking" Actually Means</h3>
+<p>
+Martin Fowler and Ralph Johnson famously defined software architecture as <strong>"the decisions that are hard (expensive) to change later"</strong>
+<span class="sources">(<a href="https://martinfowler.com/ieeeSoftware/whoNeedsArchitect.pdf">Martin Fowler — Who Needs an Architect?, IEEE Software</a>)</span>.
+</p>
+<ul>
+  <li><strong>Type 1 Decisions (One-Way Doors — Hard to Reverse = HLD Core):</strong>
+    <ul>
+      <li>Choosing your database partitioning key (changing a shard key across 50 TB of live production data requires a multi-week dual-write backfill migration).</li>
+      <li>Exposing a public REST/gRPC API contract to 10,000 external mobile app versions that users never update.</li>
+      <li>Splitting a monolith into 15 microservices with separate databases (breaking foreign keys and ACID joins).</li>
+    </ul>
+  </li>
+  <li><strong>Type 2 Decisions (Two-Way Doors — Cheap to Reverse = LLD / Local Implementation):</strong>
+    <ul>
+      <li>Refactoring a private helper method or switching from an `if/else` chain to a `Strategy` pattern inside one service.</li>
+      <li>Swapping an internal JSON parser library behind an interface.</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>3.3 Visual Diagram — The C4 Zoom Model (Connecting HLD to LLD)</h3>
+<figure>
+<svg viewBox="0 0 860 225" width="100%" role="img" aria-label="C4 Zoom Model from Level 1 System Context and Level 2 Containers (HLD) down to Level 3 Components and Level 4 Code/Classes (LLD)">
+  <style>
+    .hld{fill:#eef3f7;stroke:#1f4d7a;stroke-width:1.8}
+    .lld{fill:#fff8ee;stroke:#7a1f1f;stroke-width:1.8}
+    .hd{font:bold 12.5px "SF Mono",Menlo,monospace;fill:#1f4d7a}
+    .hd2{font:bold 12.5px "SF Mono",Menlo,monospace;fill:#7a1f1f}
+    .tx{font:11.5px Georgia,serif;fill:#2b2b28}
+    .ar{stroke:#2b2b28;stroke-width:1.6;marker-end:url(#ac4);fill:none}
+  </style>
+  <defs><marker id="ac4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2b2b28"/></marker></defs>
+
+  <rect class="hld" x="12" y="15" width="200" height="190" rx="7"/>
+  <text class="hd" x="24" y="38">C1: System Context</text>
+  <text class="tx" x="24" y="60">(HLD Macro Scope)</text>
+  <text class="tx" x="24" y="88">&bull; Users &amp; Creators</text>
+  <text class="tx" x="24" y="108">&bull; PulseStream System</text>
+  <text class="tx" x="24" y="128">&bull; External Stripe PSP</text>
+  <text class="tx" x="24" y="148">&bull; External FCM/APNs</text>
+
+  <rect class="hld" x="234" y="15" width="200" height="190" rx="7"/>
+  <text class="hd" x="246" y="38">C2: Containers (7 Boxes)</text>
+  <text class="tx" x="246" y="60">(HLD Core Interview)</text>
+  <text class="tx" x="246" y="88">&bull; API Gateway (Box 1)</text>
+  <text class="tx" x="246" y="108">&bull; Order Service (Box 2)</text>
+  <text class="tx" x="246" y="128">&bull; Redis Cache (Box 4)</text>
+  <text class="tx" x="246" y="148">&bull; Kafka + Postgres (5,6)</text>
+
+  <rect class="lld" x="456" y="15" width="185" height="190" rx="7"/>
+  <text class="hd2" x="468" y="38">C3: Components</text>
+  <text class="tx" x="468" y="60">(Bridge: HLD &harr; LLD)</text>
+  <text class="tx" x="468" y="88">&bull; OrderController</text>
+  <text class="tx" x="468" y="108">&bull; CheckoutFacade</text>
+  <text class="tx" x="468" y="128">&bull; OutboxPublisher</text>
+  <text class="tx" x="468" y="148">&bull; OrderRepository</text>
+
+  <rect class="lld" x="663" y="15" width="185" height="190" rx="7"/>
+  <text class="hd2" x="675" y="38">C4: Code &amp; Classes</text>
+  <text class="tx" x="675" y="60">(Pure LLD Interview)</text>
+  <text class="tx" x="675" y="88">&bull; PricingStrategy</text>
+  <text class="tx" x="675" y="108">&bull; OrderState Enum</text>
+  <text class="tx" x="675" y="128">&bull; Immutable Money VO</text>
+  <text class="tx" x="675" y="148">&bull; Thread Safety</text>
+
+  <line class="ar" x1="212" y1="110" x2="232" y2="110"/>
+  <line class="ar" x1="434" y1="110" x2="454" y2="110"/>
+  <line class="ar" x1="641" y1="110" x2="661" y2="110"/>
+</svg>
+<figcaption>Simon Brown's C4 Model: HLD operates at C1 &amp; C2 (processes, networks, storage), while LLD zooms into C3 &amp; C4 (components and classes inside one process).</figcaption>
+</figure>
+
+<h3>3.4 How HLD Decisions Constrain LLD (And Vice Versa) Across Scale</h3>
+<div class="flow-steps">
+  <ol>
+    <li><strong>At 1K Users (Monolith):</strong> An LLD <code>Observer</code> pattern (such as Spring's in-memory <code>ApplicationEventPublisher</code>) is enough to notify the email module when an order is placed.</li>
+    <li><strong>At 1M Users (Multi-Pod / Microservices):</strong> If the JVM crashes right after <code>orderRepo.save()</code>, the in-memory LLD <code>Observer</code> event is lost forever! HLD forces you to upgrade the LLD in-memory event into a durable <strong>Transactional Outbox + Kafka</strong> pipeline (Boxes 5 &amp; 6).</li>
+    <li><strong>Clean LLD Enables Smooth HLD Evolution:</strong> Because you used the LLD <strong>Dependency Inversion Principle</strong> (programming `OrderService` against a `NotificationPort` interface instead of hardcoding `SmtpClient`), upgrading from in-process email to a Kafka producer at 1M users requires swapping <strong>one adapter class</strong> without rewriting business logic!</li>
+  </ol>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§4</span>When to use — Trade-Offs &amp; Interview Signal Detection</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>How the Interviewer Phrases the Prompt</th>
+      <th>Is This HLD, LLD, or Hybrid?</th>
+      <th>What You Must Deliver to Pass</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><em>"Design Uber / WhatsApp / YouTube / TinyURL for 50M daily active users."</em></td>
+      <td><strong>Pure HLD</strong> (Levels C1 &amp; C2)</td>
+      <td>Capacity estimation, API endpoints, database schema &amp; sharding key, 7-Box architecture diagram, caching, async queues, failure modes. (Do NOT waste 20 minutes drawing UML getters/setters!)</td>
+    </tr>
+    <tr>
+      <td><em>"Design an Object-Oriented Parking Lot / Chess Game / Vending Machine / LRU Cache class in code."</em></td>
+      <td><strong>Pure LLD</strong> (Levels C3 &amp; C4)</td>
+      <td>Interfaces, class hierarchy, SOLID boundaries, design patterns (Strategy, State, Factory), concurrency locks (`ReentrantLock`), working Java code. (Do NOT add Kafka or CDN!)</td>
+    </tr>
+    <tr>
+      <td><em>"Design a Distributed Rate Limiter / Job Scheduler / Connection Pool."</em></td>
+      <td><strong>Hybrid HLD + LLD</strong> (Staff Favorite!)</td>
+      <td><strong>HLD:</strong> Where state lives (Redis Cluster, sharding, network overhead, fail-open vs fail-closed) + <strong>LLD:</strong> The exact Token Bucket / Time-Wheel algorithm and thread-safe class structure inside the worker.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§5</span>Explain it to a 12-year-old (The Feynman Pass)</h2>
+
+<p>
+Imagine building a massive city like New York:
+</p>
+<ul>
+  <li><strong>High-Level Design (HLD) is City Planning:</strong> Where do we put the highways (<strong>Box 1: Networks &amp; Load Balancers</strong>), the power plants and water reservoirs (<strong>Box 6: Databases &amp; Storage</strong>), the local convenience stores on every block so people don't have to drive 20 miles for milk (<strong>Box 4: Caches</strong>), and the fire stations (<strong>Box 3 &amp; 7: Circuit Breakers &amp; Disaster Recovery</strong>)?</li>
+  <li><strong>Low-Level Design (LLD) is Interior Architecture Inside One Building:</strong> Once you step inside a single restaurant building (<strong>one Spring Boot JVM</strong>), where are the kitchen doors, how do the chef and waiter hand off paper tickets without bumping into each other, and how are the shelves labeled so any new cook can find the salt in 2 seconds?</li>
+</ul>
+<p>
+<em>"Why do I need to know the difference?"</em> Because if someone asks you how to stop a city-wide traffic jam across 5 bridges (<strong>HLD</strong>), and you spend 45 minutes explaining what color to paint the kitchen cabinets inside one house (<strong>LLD</strong>), the city still collapses! And conversely, if every building inside the city is built out of spaghetti cardboard (<strong>bad LLD</strong>), no amount of highways will stop the buildings from falling down when engineers try to add a second floor.
+</p>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§6</span>Dependency Graph &amp; Connections</h2>
+
+<pre>[Topic 001: 7-Box Map &amp; 5 Laws] ──► <span class="h">[Topic 002: HLD vs LLD &amp; Architectural Thinking]</span> ──► [Topic 003: Functional vs Non-Functional Requirements]</pre>
+
+<ul>
+  <li><strong>Connects back to Java (<a href="../../java/13-application-architecture/lesson.html">java/13-application-architecture</a>) &amp; Spring (<a href="../../spring/18-architecture-and-microservices/lesson.html">spring/18-architecture-and-microservices</a>):</strong> Hexagonal / Ports-and-Adapters architecture is the golden bridge between LLD and HLD. Clean LLD ports inside Box 2 let you swap HLD infrastructure (e.g., migrating from local SQL to Kafka or Redis) without touching domain rules.</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§7</span>In practice — Production Traps, Observability, FinOps &amp; Interview Playbook</h2>
+
+<h3>7.1 Classic Production Incidents Caused by Blurring HLD and LLD</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Incident</th>
+      <th>Root Cause (LLD Assumption Applied to HLD)</th>
+      <th>Surgical Fix</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>The "Distributed Monolith" Outage</strong></td>
+      <td>Team split 1 app into 12 microservices (HLD) so each class domain had its own repo, but kept synchronous chatty method-style calls (<code>A &rarr; B &rarr; C &rarr; D</code>) inside loops and shared one database table schema. Result: worst of both worlds (network latency + coupled deployments).</td>
+      <td>Keep tightly coupled synchronous domains inside a <strong>Modular Monolith</strong> (LLD module boundaries); only split across the network (HLD) along coarse-grained asynchronous or autonomous bounded contexts.</td>
+    </tr>
+    <tr>
+      <td><strong>Duplicate Daily Invoice Charges</strong></td>
+      <td>Developer used Spring's <code>@Scheduled(cron = "0 0 0 * * *")</code> (an in-JVM LLD timer) on a service scaled to 8 Kubernetes pods (HLD). At midnight, all 8 pods ran the billing job simultaneously!</td>
+      <td>Use a distributed lock/lease (e.g., ShedLock / DB `SKIP LOCKED` / Distributed Scheduler in Box 6) + Idempotency Keys per invoice date.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>7.2 Interview Derivation Playbook (Junior vs Senior vs Staff/Principal)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Question</th>
+      <th>Junior Answer</th>
+      <th>Senior Answer</th>
+      <th>Staff / Principal Answer</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><em>"What is the difference between Architecture (HLD) and Design (LLD)?"</em></td>
+      <td>"HLD is big boxes like databases and servers; LLD is classes and UML diagrams."</td>
+      <td>"HLD covers cross-process distributed concerns (scalability, availability, network protocols, data partitioning); LLD covers in-process code quality (SOLID, design patterns, extensibility, thread safety)."</td>
+      <td>"The boundary is defined by <strong>physics (Law 1 &amp; Law 2)</strong> and <strong>reversibility (Type 1 vs Type 2 decisions)</strong>. Inside a single process (LLD), memory is shared, calls take nanoseconds, and failures are atomic. Across process boundaries (HLD), state is fragmented, calls take milliseconds, and partial failures are guaranteed. Good LLD (Hexagonal ports) makes HLD evolution cheap by isolating domain logic from network/storage adapters."</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§8</span>Pitfalls &amp; Traps</h2>
+
+<div class="pitfall"><strong>⚠️ Pitfall 1 — Writing Class Fields and Getters in an HLD Interview:</strong> In a 45-minute HLD interview, writing `private String firstName; public String getFirstName()` eats 10 minutes and signals junior-level scope. Instead, write compact database table schemas (`users(user_id PK, email UNIQUE, created_at)`) and focus on sharding keys, indexes, and access patterns.</div>
+
+<div class="pitfall"><strong>⚠️ Pitfall 2 — Ignoring the "First Law of Distributed Objects":</strong> Martin Fowler coined this law: <em>"Don't distribute your objects!"</em> Never take a fine-grained Java object graph (`Order.getCustomer().getAddress().getZipCode()`) and turn each getter into a remote network RPC. Design coarse-grained DTO boundaries across network hops.</div>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§9</span>Recap &amp; Glossary</h2>
+
+<ul class="recap">
+  <li><strong>LLD = Single Process / Shared Heap:</strong> Nanosecond method calls, `synchronized` / `ReentrantLock` thread safety, SOLID &amp; GoF patterns, atomic JVM failure.</li>
+  <li><strong>HLD = Multi-Process / Networked Fleet (The 7 Boxes):</strong> Millisecond network hops, partial failures, stateless compute, distributed caching/messaging/sharding/consensus.</li>
+  <li><strong>Architectural Thinking = One-Way vs Two-Way Doors:</strong> Spend 80% of upfront design rigor on hard-to-reverse HLD contracts (data models, shard keys, public APIs, consistency boundaries) and keep internal LLD modular via interfaces so boxes can evolve cleanly.</li>
+</ul>
+
+<h3>Glossary</h3>
+<dl class="glossary">
+  <dt>C4 Model</dt><dd>A hierarchical software architecture visualization framework (Context &rarr; Containers &rarr; Components &rarr; Code) created by Simon Brown.</dd>
+  <dt>Distributed Monolith</dt><dd>An anti-pattern where a system is deployed as multiple networked microservices (paying all HLD network and operational costs) but remains tightly coupled in deployment, database schema, or synchronous call chains.</dd>
+  <dt>One-Way Door (Type 1 Decision)</dt><dd>An architectural decision (such as a database partitioning strategy or public wire protocol) that is very expensive and risky to reverse once in production.</dd>
+</dl>
+
+<!-- ===================================================================== -->
+<h2><span class="n">§10</span>Interactive Socratic Gate &amp; Sources</h2>
+
+<div class="gate">
+  <h3>🎯 Socratic Verification Gate — Topic 002 (Score &ge; 4/5 Required)</h3>
+  <ol>
+    <li><strong><code>[theory]</code>:</strong> Why does a Java `synchronized` block or `ReentrantLock` inside a `@Service` method protect against race conditions in LLD, yet completely fail to stop double-booking in HLD when you scale to 5 pods behind a Load Balancer?</li>
+    <li><strong><code>[practical]</code>:</strong> A developer refactors a monolith by moving `UserRepository` into a separate `UserMicroservice`. Now, rendering a 50-post feed loops 50 times calling `userClient.getUserById(post.authorId)` over HTTP (`2 ms` per call). What did this do to latency, and how do you fix this HLD boundary?</li>
+    <li><strong><code>[diagram]</code>:</strong> Using the C4 Model (C1 Context, C2 Containers, C3 Components, C4 Code), state which levels belong in a 45-minute Google HLD interview vs an LLD interview, and where a Hybrid question like "Design a Distributed Rate Limiter" zooms in.</li>
+    <li><strong><code>[trade-offs]</code>:</strong> Give one concrete example of a <strong>Type 1 (One-Way Door)</strong> decision and one <strong>Type 2 (Two-Way Door)</strong> decision when building our flagship app *PulseStream*, and explain how Hexagonal Architecture (Ports &amp; Adapters) keeps Type 2 decisions cheap.</li>
+  </ol>
+</div>
+
+<h3>Sources &amp; Further Reading</h3>
+<ul class="sources">
+  <li><a href="https://martinfowler.com/ieeeSoftware/whoNeedsArchitect.pdf">Martin Fowler — Who Needs an Architect? (IEEE Software, 2003)</a></li>
+  <li><a href="https://c4model.com/">Simon Brown — The C4 Model for Visualizing Software Architecture</a></li>
+  <li><a href="https://martinfowler.com/bliki/FirstLaw.html">Martin Fowler — First Law of Distributed Object Design</a></li>
+</ul>
+
+</body>
+</html>
